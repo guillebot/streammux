@@ -1,2 +1,3 @@
 /home/gschimmel/dev/streammux/job-runner-route-app/src/main/java/io/github/guillebot/streammux/routeapp/RouteAppRunner.java
 /home/gschimmel/dev/streammux/job-runner-route-app/src/main/java/io/github/guillebot/streammux/routeapp/config/RouteAppTopologyFactory.java
+/home/gschimmel/dev/streammux/job-runner-route-app/src/main/java/io/github/guillebot/streammux/routeapp/config/RoutePayloadTransformer.java

@@ -1,6 +1,10 @@
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/SiteOrchestratorApplication.java
+/home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/config/KafkaTopicProperties.java
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/config/SiteIdentityProperties.java
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/lease/LeaseDecision.java
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/lease/LeaseManager.java
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/runner/JobRunnerRegistry.java
+/home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/service/KafkaOrchestratorPublisher.java
+/home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/service/OrchestratorCoordinator.java
 /home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/service/OrchestratorService.java
+/home/gschimmel/dev/streammux/site-orchestrator/src/main/java/io/github/guillebot/streammux/orchestrator/service/OrchestratorStateStore.java

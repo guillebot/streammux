@@ -5,3 +5,4 @@
 /home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/JobService.java
 /home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/JobStateStore.java
 /home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/KafkaJobCommandPublisher.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/KafkaJobStateProjector.java

@@ -6,3 +6,4 @@ io/github/guillebot/streammux/api/service/JobCommandPublisher.class
 io/github/guillebot/streammux/api/service/JobStateStore.class
 io/github/guillebot/streammux/api/service/KafkaJobCommandPublisher.class
 io/github/guillebot/streammux/api/service/JobService.class
+io/github/guillebot/streammux/api/service/KafkaJobStateProjector.class
