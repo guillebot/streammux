@@ -1,7 +1,11 @@
 io/github/guillebot/streammux/orchestrator/lease/LeaseDecision.class
 io/github/guillebot/streammux/orchestrator/lease/LeaseManager.class
+io/github/guillebot/streammux/orchestrator/service/KafkaOrchestratorPublisher.class
 io/github/guillebot/streammux/orchestrator/config/SiteIdentityProperties.class
+io/github/guillebot/streammux/orchestrator/service/OrchestratorStateStore.class
 io/github/guillebot/streammux/orchestrator/service/OrchestratorService.class
+io/github/guillebot/streammux/orchestrator/service/OrchestratorCoordinator.class
 io/github/guillebot/streammux/orchestrator/runner/JobRunnerRegistry.class
+io/github/guillebot/streammux/orchestrator/config/KafkaTopicProperties.class
 io/github/guillebot/streammux/orchestrator/service/OrchestratorService$1.class
 io/github/guillebot/streammux/orchestrator/SiteOrchestratorApplication.class

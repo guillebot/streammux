@@ -3,6 +3,16 @@ spring:
     name: site-orchestrator
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${STREAMMUX_SITE_ID:site-a}-${STREAMMUX_INSTANCE_ID:orchestrator-1}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
 
 management:
   endpoints:
@@ -14,3 +24,12 @@ streammux:
   site:
     site-id: ${STREAMMUX_SITE_ID:site-a}
     instance-id: ${STREAMMUX_INSTANCE_ID:orchestrator-1}
+  orchestrator:
+    reconcile-interval-ms: ${STREAMMUX_RECONCILE_INTERVAL_MS:5000}
+  topics:
+    job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:job-definitions}
+    job-leases: ${STREAMMUX_TOPIC_JOB_LEASES:job-leases}
+    job-status: ${STREAMMUX_TOPIC_JOB_STATUS:job-status}
+    job-events: ${STREAMMUX_TOPIC_JOB_EVENTS:job-events}
+    job-commands: ${STREAMMUX_TOPIC_JOB_COMMANDS:job-commands}
+
