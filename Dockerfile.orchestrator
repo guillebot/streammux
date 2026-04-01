@@ -1,0 +1,27 @@
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+
+WORKDIR /app
+
+# Copy POMs first to improve layer reuse.
+COPY pom.xml .
+COPY job-contracts/pom.xml job-contracts/pom.xml
+COPY job-management-api/pom.xml job-management-api/pom.xml
+COPY job-runner-route-app/pom.xml job-runner-route-app/pom.xml
+COPY site-orchestrator/pom.xml site-orchestrator/pom.xml
+COPY integration-tests/pom.xml integration-tests/pom.xml
+
+COPY job-contracts job-contracts
+COPY job-management-api job-management-api
+COPY job-runner-route-app job-runner-route-app
+COPY site-orchestrator site-orchestrator
+COPY integration-tests integration-tests
+
+RUN mvn -pl site-orchestrator -am package -DskipTests
+
+FROM eclipse-temurin:21-jre
+
+WORKDIR /app
+
+COPY --from=build /app/site-orchestrator/target/site-orchestrator-0.1.0-SNAPSHOT.jar app.jar
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
