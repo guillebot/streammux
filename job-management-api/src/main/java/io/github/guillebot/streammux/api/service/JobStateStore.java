@@ -27,7 +27,17 @@ public class JobStateStore {
     public Optional<JobRuntimeStatus> getStatus(String jobId) { return Optional.ofNullable(statuses.get(jobId)); }
     public List<JobEvent> getEvents(String jobId) { return events.getOrDefault(jobId, List.of()); }
     public void upsertDefinition(JobDefinition definition) { definitions.put(definition.jobId(), definition); }
+    public void removeDefinition(String jobId) { definitions.remove(jobId); }
     public void upsertLease(JobLease lease) { leases.put(lease.jobId(), lease); }
+    public void removeLease(String jobId) { leases.remove(jobId); }
     public void upsertStatus(JobRuntimeStatus status) { statuses.put(status.jobId(), status); }
+    public void removeStatus(String jobId) { statuses.remove(jobId); }
     public void appendEvent(JobEvent event) { events.computeIfAbsent(event.jobId(), ignored -> new ArrayList<>()).add(event); }
+    public void removeEvents(String jobId) { events.remove(jobId); }
+    public void removeJob(String jobId) {
+        definitions.remove(jobId);
+        leases.remove(jobId);
+        statuses.remove(jobId);
+        events.remove(jobId);
+    }
 }

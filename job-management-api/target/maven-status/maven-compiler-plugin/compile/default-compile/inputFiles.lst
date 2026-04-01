@@ -1,0 +1,7 @@
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/JobManagementApiApplication.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/config/KafkaTopicProperties.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/controller/JobController.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/JobCommandPublisher.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/JobService.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/JobStateStore.java
+/home/gschimmel/dev/streammux/job-management-api/src/main/java/io/github/guillebot/streammux/api/service/KafkaJobCommandPublisher.java

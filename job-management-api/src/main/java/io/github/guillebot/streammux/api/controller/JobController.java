@@ -30,13 +30,13 @@ public class JobController {
 
     @PostMapping @ResponseStatus(HttpStatus.CREATED) public JobDefinition create(@RequestBody JobDefinition definition) { return jobService.createJob(definition); }
     @GetMapping public Collection<JobDefinition> list() { return jobService.listJobs(); }
-    @GetMapping("/{jobId}") public JobDefinition get(@PathVariable String jobId) { return jobService.getJob(jobId); }
-    @PutMapping("/{jobId}") public JobDefinition update(@PathVariable String jobId, @RequestBody JobDefinition definition) { return jobService.updateJob(jobId, definition); }
-    @PostMapping("/{jobId}/pause") @ResponseStatus(HttpStatus.ACCEPTED) public void pause(@PathVariable String jobId) { jobService.issueCommand(jobId, CommandType.PAUSE); }
-    @PostMapping("/{jobId}/resume") @ResponseStatus(HttpStatus.ACCEPTED) public void resume(@PathVariable String jobId) { jobService.issueCommand(jobId, CommandType.RESUME); }
-    @PostMapping("/{jobId}/restart") @ResponseStatus(HttpStatus.ACCEPTED) public void restart(@PathVariable String jobId) { jobService.issueCommand(jobId, CommandType.RESTART); }
-    @DeleteMapping("/{jobId}") @ResponseStatus(HttpStatus.ACCEPTED) public void delete(@PathVariable String jobId) { jobService.issueCommand(jobId, CommandType.DELETE); }
-    @GetMapping("/{jobId}/status") public Optional<JobRuntimeStatus> status(@PathVariable String jobId) { return jobService.getStatus(jobId); }
-    @GetMapping("/{jobId}/lease") public Optional<JobLease> lease(@PathVariable String jobId) { return jobService.getLease(jobId); }
-    @GetMapping("/{jobId}/events") public List<JobEvent> events(@PathVariable String jobId) { return jobService.getEvents(jobId); }
+    @GetMapping("/{jobId}") public JobDefinition get(@PathVariable("jobId") String jobId) { return jobService.getJob(jobId); }
+    @PutMapping("/{jobId}") public JobDefinition update(@PathVariable("jobId") String jobId, @RequestBody JobDefinition definition) { return jobService.updateJob(jobId, definition); }
+    @PostMapping("/{jobId}/pause") @ResponseStatus(HttpStatus.ACCEPTED) public void pause(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.PAUSE); }
+    @PostMapping("/{jobId}/resume") @ResponseStatus(HttpStatus.ACCEPTED) public void resume(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.RESUME); }
+    @PostMapping("/{jobId}/restart") @ResponseStatus(HttpStatus.ACCEPTED) public void restart(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.RESTART); }
+    @DeleteMapping("/{jobId}") @ResponseStatus(HttpStatus.ACCEPTED) public void delete(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.DELETE); }
+    @GetMapping("/{jobId}/status") public Optional<JobRuntimeStatus> status(@PathVariable("jobId") String jobId) { return jobService.getStatus(jobId); }
+    @GetMapping("/{jobId}/lease") public Optional<JobLease> lease(@PathVariable("jobId") String jobId) { return jobService.getLease(jobId); }
+    @GetMapping("/{jobId}/events") public List<JobEvent> events(@PathVariable("jobId") String jobId) { return jobService.getEvents(jobId); }
 }

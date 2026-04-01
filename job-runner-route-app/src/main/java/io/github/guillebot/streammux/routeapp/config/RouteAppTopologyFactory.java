@@ -2,8 +2,8 @@ package io.github.guillebot.streammux.routeapp.config;
 
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
-import io.github.guillebot.streammux.contracts.model.PayloadFormat;
 import io.github.guillebot.streammux.contracts.model.RouteDefinition;
+import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
@@ -20,10 +20,15 @@ import java.util.Properties;
 public class RouteAppTopologyFactory {
     public Topology build(JobDefinition definition) {
         RouteAppConfig config = definition.routeAppConfig();
+        RoutePayloadTransformer payloadTransformer = RoutePayloadTransformer.from(config);
         StreamsBuilder builder = new StreamsBuilder();
-        KStream<String, String> source = builder.stream(config.inputTopic(), Consumed.with(Serdes.String(), Serdes.String()));
+        Serde<byte[]> valueSerde = Serdes.ByteArray();
+        KStream<String, byte[]> source = builder.stream(config.inputTopic(), Consumed.with(Serdes.String(), valueSerde));
         for (RouteDefinition route : config.routes()) {
-            source.filter((key, value) -> matches(value, route.filterExpression())).to(route.outputTopic(), Produced.with(Serdes.String(), Serdes.String()));
+            source
+                .filter((key, value) -> payloadTransformer.matches(value, route.filterExpression()))
+                .mapValues(payloadTransformer::convert)
+                .to(route.outputTopic(), Produced.with(Serdes.String(), valueSerde));
         }
         return builder.build();
     }
@@ -35,18 +40,8 @@ public class RouteAppTopologyFactory {
         properties.put(StreamsConfig.APPLICATION_ID_CONFIG, definition.jobId() + "-" + leaseEpoch);
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, streamProperties.getOrDefault(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
-        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, valueSerdeClass(config.inputFormat()));
+        properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class);
         properties.putAll(streamProperties);
         return properties;
-    }
-
-    private Class<?> valueSerdeClass(PayloadFormat payloadFormat) {
-        return switch (payloadFormat) {
-            case JSON, PROTOBUF -> Serdes.StringSerde.class;
-        };
-    }
-
-    private boolean matches(String value, String filterExpression) {
-        return filterExpression != null && !filterExpression.isBlank() && value != null && value.contains(filterExpression);
     }
 }

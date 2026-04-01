@@ -32,7 +32,7 @@ public class LeaseManager {
         return new JobLease(currentLease.jobId(), definition.jobVersion(), currentLease.leaseOwnerSite(), currentLease.leaseOwnerInstance(), currentLease.leaseEpoch(), LeaseStatus.RUNNING, now.plus(definition.leasePolicy().leaseDurationSeconds(), ChronoUnit.SECONDS), now);
     }
 
-    private boolean ownsLease(JobLease lease) {
+    public boolean ownsLease(JobLease lease) {
         return lease != null && siteIdentity.siteId().equals(lease.leaseOwnerSite()) && siteIdentity.instanceId().equals(lease.leaseOwnerInstance());
     }
 }
