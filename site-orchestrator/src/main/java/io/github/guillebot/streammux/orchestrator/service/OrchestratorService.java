@@ -2,6 +2,7 @@ package io.github.guillebot.streammux.orchestrator.service;
 
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
+import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.contracts.spi.JobRunner;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseDecision;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
@@ -28,6 +29,7 @@ public class OrchestratorService {
     }
 
     public JobLease reconcile(JobDefinition definition, JobLease currentLease) {
+        stopIfLeaseLost(definition, currentLease);
         Instant now = Instant.now();
         LeaseDecision decision = leaseManager.decide(definition, currentLease, now);
         return switch (decision) {
@@ -36,6 +38,10 @@ public class OrchestratorService {
             case RELEASE -> release(definition);
             case KEEP_RUNNING, IGNORE -> currentLease;
         };
+    }
+
+    public JobRuntimeStatus status(String jobId, JobDefinition definition) {
+        return jobRunnerRegistry.resolve(definition).status(jobId);
     }
 
     private JobLease claim(JobDefinition definition, JobLease currentLease, Instant now) {
@@ -52,6 +58,24 @@ public class OrchestratorService {
         activeLeaseEpochs.put(definition.jobId(), renewed.leaseEpoch());
         LOGGER.debug("Renewed lease for {} at epoch {}", definition.jobId(), renewed.leaseEpoch());
         return renewed;
+    }
+
+    private void stopIfLeaseLost(JobDefinition definition, JobLease currentLease) {
+        Long activeLeaseEpoch = activeLeaseEpochs.get(definition.jobId());
+        if (activeLeaseEpoch == null) {
+            return;
+        }
+
+        boolean stillOwnsLease = currentLease != null
+            && leaseManager.ownsLease(currentLease)
+            && currentLease.leaseEpoch() == activeLeaseEpoch;
+
+        if (!stillOwnsLease) {
+            JobRunner runner = jobRunnerRegistry.resolve(definition);
+            runner.stop(definition.jobId());
+            activeLeaseEpochs.remove(definition.jobId());
+            LOGGER.info("Stopped job {} after losing lease ownership", definition.jobId());
+        }
     }
 
     private JobLease release(JobDefinition definition) {
