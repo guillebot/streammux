@@ -2,6 +2,7 @@ package io.github.guillebot.streammux.orchestrator.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
@@ -44,6 +45,13 @@ public class OrchestratorCoordinator {
         }
 
         JobDefinition definition = read(record.value(), JobDefinition.class);
+        if (definition.desiredState() == DesiredJobState.DELETED) {
+            stateStore.upsertDefinition(definition);
+            reconcile(definition.jobId());
+            stateStore.removeDefinition(definition.jobId());
+            stateStore.removeLease(definition.jobId());
+            return;
+        }
         stateStore.upsertDefinition(definition);
         reconcile(definition.jobId());
     }

@@ -27,3 +27,9 @@ streammux:
     job-status: ${STREAMMUX_TOPIC_JOB_STATUS:job-status}
     job-events: ${STREAMMUX_TOPIC_JOB_EVENTS:job-events}
     job-commands: ${STREAMMUX_TOPIC_JOB_COMMANDS:job-commands}
+  validation:
+    topics:
+      allowed-input-topics: ${STREAMMUX_ALLOWED_INPUT_TOPICS:}
+      allowed-input-topic-prefixes: ${STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES:}
+      allowed-output-topics: ${STREAMMUX_ALLOWED_OUTPUT_TOPICS:}
+      allowed-output-topic-prefixes: ${STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES:}

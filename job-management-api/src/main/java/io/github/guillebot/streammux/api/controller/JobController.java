@@ -35,7 +35,7 @@ public class JobController {
     @PostMapping("/{jobId}/pause") @ResponseStatus(HttpStatus.ACCEPTED) public void pause(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.PAUSE); }
     @PostMapping("/{jobId}/resume") @ResponseStatus(HttpStatus.ACCEPTED) public void resume(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.RESUME); }
     @PostMapping("/{jobId}/restart") @ResponseStatus(HttpStatus.ACCEPTED) public void restart(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.RESTART); }
-    @DeleteMapping("/{jobId}") @ResponseStatus(HttpStatus.ACCEPTED) public void delete(@PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.DELETE); }
+    @DeleteMapping("/{jobId}") @ResponseStatus(HttpStatus.ACCEPTED) public void delete(@PathVariable("jobId") String jobId) { jobService.deleteJob(jobId); }
     @GetMapping("/{jobId}/status") public Optional<JobRuntimeStatus> status(@PathVariable("jobId") String jobId) { return jobService.getStatus(jobId); }
     @GetMapping("/{jobId}/lease") public Optional<JobLease> lease(@PathVariable("jobId") String jobId) { return jobService.getLease(jobId); }
     @GetMapping("/{jobId}/events") public List<JobEvent> events(@PathVariable("jobId") String jobId) { return jobService.getEvents(jobId); }
