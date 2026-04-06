@@ -1,6 +1,8 @@
 package io.github.guillebot.streammux.api.service;
 
+import io.github.guillebot.streammux.api.config.TopicValidationProperties;
 import io.github.guillebot.streammux.contracts.command.JobCommand;
+import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
 import io.github.guillebot.streammux.contracts.model.CommandType;
 import io.github.guillebot.streammux.contracts.model.EventType;
@@ -23,10 +25,12 @@ import java.util.UUID;
 public class JobService {
     private final JobStateStore stateStore;
     private final JobCommandPublisher commandPublisher;
+    private final TopicValidationProperties topicValidationProperties;
 
-    public JobService(JobStateStore stateStore, JobCommandPublisher commandPublisher) {
+    public JobService(JobStateStore stateStore, JobCommandPublisher commandPublisher, TopicValidationProperties topicValidationProperties) {
         this.stateStore = stateStore;
         this.commandPublisher = commandPublisher;
+        this.topicValidationProperties = topicValidationProperties;
     }
 
     public Collection<JobDefinition> listJobs() { return stateStore.listJobs(); }
@@ -36,7 +40,7 @@ public class JobService {
     public List<JobEvent> getEvents(String jobId) { return stateStore.getEvents(jobId); }
 
     public JobDefinition createJob(JobDefinition definition) {
-        JobDefinitionValidator.validate(definition);
+        JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());
         if (stateStore.getJob(definition.jobId()).isPresent()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Job already exists: " + definition.jobId());
         JobDefinition normalized = new JobDefinition(definition.jobId(), 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
         stateStore.upsertDefinition(normalized);
@@ -49,7 +53,7 @@ public class JobService {
 
     public JobDefinition updateJob(String jobId, JobDefinition definition) {
         JobDefinition current = getJob(jobId);
-        JobDefinitionValidator.validate(definition);
+        JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());
         JobDefinition updated = new JobDefinition(jobId, current.jobVersion() + 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
         stateStore.upsertDefinition(updated);
         commandPublisher.publishDefinition(updated);
@@ -57,6 +61,29 @@ public class JobService {
         stateStore.appendEvent(updatedEvent);
         commandPublisher.publishEvent(updatedEvent);
         return updated;
+    }
+
+    public void deleteJob(String jobId) {
+        JobDefinition current = getJob(jobId);
+        JobDefinition deleted = new JobDefinition(
+            jobId,
+            current.jobVersion() + 1,
+            current.jobType(),
+            DesiredJobState.DELETED,
+            current.priority(),
+            current.siteAffinity(),
+            current.leasePolicy(),
+            current.parallelism(),
+            current.routeAppConfig(),
+            current.labels(),
+            current.tags(),
+            Instant.now(),
+            "job-management-api"
+        );
+        commandPublisher.publishDefinition(deleted);
+        JobEvent deletedEvent = newEvent(jobId, deleted.jobVersion(), EventType.DELETED, "Job deleted");
+        commandPublisher.publishEvent(deletedEvent);
+        stateStore.removeJob(jobId);
     }
 
     public void issueCommand(String jobId, CommandType commandType) {

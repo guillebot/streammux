@@ -3,6 +3,7 @@ package io.github.guillebot.streammux.routeapp.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -18,12 +19,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 final class RoutePayloadTransformer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
     private static final JsonFormat.Printer PROTOBUF_PRINTER = JsonFormat.printer().omittingInsignificantWhitespace();
     private static final String PROTOBUF_DESCRIPTOR_BASE64 = "protobuf.descriptor.base64";
     private static final String PROTOBUF_MESSAGE_TYPE = "protobuf.message.type";
+    private static final Pattern FIELD_MATCH_PATTERN = Pattern.compile("^\\s*(?<path>/[^\\s]+|[A-Za-z0-9_.$\\-\\[\\]]+)\\s*(?<operator>==|!=)\\s*(?<value>.+?)\\s*$");
 
     private final PayloadFormat inputFormat;
     private final PayloadFormat outputFormat;
@@ -43,6 +47,10 @@ final class RoutePayloadTransformer {
     boolean matches(byte[] payload, String filterExpression) {
         if (filterExpression == null || filterExpression.isBlank() || payload == null) {
             return false;
+        }
+        FieldMatchExpression fieldMatchExpression = tryParseFieldMatch(filterExpression);
+        if (fieldMatchExpression != null) {
+            return fieldMatchExpression.matches(normalizedPayloadNode(payload));
         }
         return normalizedPayload(payload).contains(filterExpression);
     }
@@ -68,6 +76,13 @@ final class RoutePayloadTransformer {
         };
     }
 
+    private JsonNode normalizedPayloadNode(byte[] payload) {
+        return switch (inputFormat) {
+            case JSON -> jsonAsNode(payload);
+            case PROTOBUF -> protobufAsNode(payload);
+        };
+    }
+
     private void validate(byte[] payload, PayloadFormat format) {
         switch (format) {
             case JSON -> jsonAsString(payload);
@@ -77,8 +92,16 @@ final class RoutePayloadTransformer {
 
     private String jsonAsString(byte[] payload) {
         try {
-            JsonNode jsonNode = OBJECT_MAPPER.readTree(payload);
+            JsonNode jsonNode = jsonAsNode(payload);
             return OBJECT_MAPPER.writeValueAsString(jsonNode);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to decode JSON payload", ex);
+        }
+    }
+
+    private JsonNode jsonAsNode(byte[] payload) {
+        try {
+            return OBJECT_MAPPER.readTree(payload);
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to decode JSON payload", ex);
         }
@@ -87,6 +110,14 @@ final class RoutePayloadTransformer {
     private String protobufAsJson(byte[] payload) {
         try {
             return PROTOBUF_PRINTER.print(parseDynamicMessage(payload));
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to decode Protobuf payload", ex);
+        }
+    }
+
+    private JsonNode protobufAsNode(byte[] payload) {
+        try {
+            return OBJECT_MAPPER.readTree(protobufAsJson(payload));
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to decode Protobuf payload", ex);
         }
@@ -116,6 +147,38 @@ final class RoutePayloadTransformer {
 
     private static boolean requiresProtobuf(PayloadFormat inputFormat, PayloadFormat outputFormat) {
         return inputFormat == PayloadFormat.PROTOBUF || outputFormat == PayloadFormat.PROTOBUF;
+    }
+
+    private static FieldMatchExpression tryParseFieldMatch(String filterExpression) {
+        Matcher matcher = FIELD_MATCH_PATTERN.matcher(filterExpression);
+        if (!matcher.matches()) {
+            return null;
+        }
+
+        String path = matcher.group("path");
+        String operator = matcher.group("operator");
+        JsonNode expectedValue = parseExpectedValue(matcher.group("value"));
+        return new FieldMatchExpression(path, Operator.from(operator), expectedValue);
+    }
+
+    private static JsonNode parseExpectedValue(String rawValue) {
+        String value = rawValue.trim();
+        try {
+            return OBJECT_MAPPER.readTree(value);
+        } catch (Exception ignored) {
+            return TextNode.valueOf(unquote(value));
+        }
+    }
+
+    private static String unquote(String value) {
+        if (value.length() >= 2) {
+            char first = value.charAt(0);
+            char last = value.charAt(value.length() - 1);
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                return value.substring(1, value.length() - 1);
+            }
+        }
+        return value;
     }
 
     private static Descriptor resolveDescriptor(RouteAppConfig config) {
@@ -203,5 +266,67 @@ final class RoutePayloadTransformer {
             }
         }
         return null;
+    }
+
+    private enum Operator {
+        EQUALS,
+        NOT_EQUALS;
+
+        private static Operator from(String operator) {
+            return switch (operator) {
+                case "==" -> EQUALS;
+                case "!=" -> NOT_EQUALS;
+                default -> throw new IllegalArgumentException("Unsupported operator: " + operator);
+            };
+        }
+    }
+
+    private record FieldMatchExpression(String path, Operator operator, JsonNode expectedValue) {
+        private boolean matches(JsonNode payload) {
+            JsonNode actualValue = resolvePath(payload, path);
+            if (actualValue.isMissingNode()) {
+                return false;
+            }
+
+            boolean equals = actualValue.equals(expectedValue);
+            return switch (operator) {
+                case EQUALS -> equals;
+                case NOT_EQUALS -> !equals;
+            };
+        }
+
+        private JsonNode resolvePath(JsonNode payload, String path) {
+            if (path.startsWith("/")) {
+                return payload.at(path);
+            }
+
+            JsonNode current = payload;
+            int index = 0;
+            while (index < path.length()) {
+                int segmentStart = index;
+                while (index < path.length() && path.charAt(index) != '.' && path.charAt(index) != '[') {
+                    index++;
+                }
+
+                if (segmentStart < index) {
+                    current = current.path(path.substring(segmentStart, index));
+                }
+
+                while (index < path.length() && path.charAt(index) == '[') {
+                    int endBracket = path.indexOf(']', index);
+                    if (endBracket < 0) {
+                        return current.path("__invalid_path__");
+                    }
+                    int arrayIndex = Integer.parseInt(path.substring(index + 1, endBracket));
+                    current = current.path(arrayIndex);
+                    index = endBracket + 1;
+                }
+
+                if (index < path.length() && path.charAt(index) == '.') {
+                    index++;
+                }
+            }
+            return current;
+        }
     }
 }

@@ -26,14 +26,14 @@ curl -X POST "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/jobs" \
     },
     \"parallelism\": 1,
     \"routeAppConfig\": {
-      \"inputTopic\": \"net.optimum.monitoring.netscout.fixed.voicesip.json\",
+      \"inputTopic\": \"net.optimum.monitoring.netscout.mobile.sip.json\",
       \"inputFormat\": \"JSON\",
       \"outputFormat\": \"JSON\",
       \"protobufSchemaSubject\": null,
       \"routes\": [
         {
           \"routeId\": \"contains-foo\",
-          \"filterExpression\": \"foo\",
+          \"filterExpression\": \"application_name == \\\"SIP_TCP\\\"\",
           \"outputTopic\": \"lab.optimum.experimental.streamlens.streammux.output1\"
         },
         {
@@ -43,7 +43,8 @@ curl -X POST "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/jobs" \
         }
       ],
       \"streamProperties\": {
-        \"bootstrap.servers\": \"${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}\"
+        \"bootstrap.servers\": \"${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}\",
+        \"auto.offset.reset\": \"earliest\"
       },
       \"serdeProperties\": {}
     },
