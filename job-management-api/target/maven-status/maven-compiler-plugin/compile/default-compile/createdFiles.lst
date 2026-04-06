@@ -1,9 +1,0 @@
-io/github/guillebot/streammux/api/JobManagementApiApplication.class
-io/github/guillebot/streammux/api/controller/JobController.class
-io/github/guillebot/streammux/api/config/KafkaTopicProperties.class
-io/github/guillebot/streammux/api/service/JobService$1.class
-io/github/guillebot/streammux/api/service/JobCommandPublisher.class
-io/github/guillebot/streammux/api/service/JobStateStore.class
-io/github/guillebot/streammux/api/service/KafkaJobCommandPublisher.class
-io/github/guillebot/streammux/api/service/JobService.class
-io/github/guillebot/streammux/api/service/KafkaJobStateProjector.class
