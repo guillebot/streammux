@@ -129,6 +129,8 @@ class OrchestratorServiceTest {
             LeasePolicy.defaults(),
             1,
             null,
+            null,
+            null,
             Map.of(),
             List.of(),
             Instant.parse("2024-01-01T00:00:00Z"),

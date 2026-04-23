@@ -6,13 +6,17 @@ WORKDIR /app
 COPY pom.xml .
 COPY job-contracts/pom.xml job-contracts/pom.xml
 COPY job-management-api/pom.xml job-management-api/pom.xml
-COPY job-runner-route-app/pom.xml job-runner-route-app/pom.xml
+COPY runners/job-runner-route-app/pom.xml runners/job-runner-route-app/pom.xml
+COPY runners/job-runner-random-sampler/pom.xml runners/job-runner-random-sampler/pom.xml
+COPY runners/job-runner-alarms-to-ztr/pom.xml runners/job-runner-alarms-to-ztr/pom.xml
 COPY site-orchestrator/pom.xml site-orchestrator/pom.xml
 COPY integration-tests/pom.xml integration-tests/pom.xml
 
 COPY job-contracts job-contracts
 COPY job-management-api job-management-api
-COPY job-runner-route-app job-runner-route-app
+COPY runners/job-runner-route-app runners/job-runner-route-app
+COPY runners/job-runner-random-sampler runners/job-runner-random-sampler
+COPY runners/job-runner-alarms-to-ztr runners/job-runner-alarms-to-ztr
 COPY site-orchestrator site-orchestrator
 COPY integration-tests integration-tests
 
@@ -22,8 +26,14 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=build /app/job-management-api/target/job-management-api-0.1.0-SNAPSHOT.jar app.jar
+RUN groupadd -r streammux && useradd -r -g streammux streammux
+
+COPY --from=build --chown=streammux:streammux /app/job-management-api/target/job-management-api-0.1.0-SNAPSHOT-exec.jar app.jar
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["sh", "-c", "kill -0 1"]
+
+USER streammux
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

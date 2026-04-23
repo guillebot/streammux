@@ -21,6 +21,7 @@ import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.WorkerMetadata;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -41,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class JobControllerTest {
 
     @Autowired
@@ -63,6 +65,19 @@ class JobControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.jobId").value("job-1"))
             .andExpect(jsonPath("$.jobVersion").value(1));
+    }
+
+    @Test
+    void createValidationErrorReturnsBadRequestWithMessage() throws Exception {
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE);
+        when(jobService.createJob(definition)).thenThrow(new IllegalArgumentException("routeAppConfig.inputTopic is not allowed: input-topic"));
+
+        mockMvc.perform(post("/jobs")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(definition)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message").value("routeAppConfig.inputTopic is not allowed: input-topic"));
     }
 
     @Test
@@ -159,6 +174,8 @@ class JobControllerTest {
                 Map.of(),
                 Map.of()
             ),
+            null,
+            null,
             Map.of("team", "mux"),
             List.of("test"),
             Instant.parse("2024-01-01T00:00:00Z"),

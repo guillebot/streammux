@@ -98,13 +98,15 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         KafkaTopicProperties topics
     ) {
         when(runner.supports(any())).thenReturn(true);
+        LeaseManager leaseManager = new LeaseManager(new SiteIdentityProperties(siteId, instanceId));
         OrchestratorService orchestratorService = new OrchestratorService(
-            new LeaseManager(new SiteIdentityProperties(siteId, instanceId)),
+            leaseManager,
             new JobRunnerRegistry(List.of(runner))
         );
         return new OrchestratorCoordinator(
             new OrchestratorStateStore(),
             orchestratorService,
+            leaseManager,
             new KafkaOrchestratorPublisher(kafkaTemplate, topics)
         );
     }
@@ -153,6 +155,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
                 Map.of(),
                 Map.of()
             ),
+            null,
+            null,
             Map.of(),
             List.of(),
             Instant.parse("2024-01-01T00:00:00Z"),

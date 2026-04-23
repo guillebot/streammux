@@ -1,8 +1,15 @@
+server:
+  forward-headers-strategy: framework
+
 spring:
   application:
     name: job-management-api
+  security:
+    user:
+      name: ${STREAMMUX_API_USERNAME:streammux}
+      password: ${STREAMMUX_API_PASSWORD:change-me-now}
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:techarch-kafka1.srv.lab.bthpny.alticeusa.net:9092}
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
     consumer:
       group-id: ${STREAMMUX_API_CONSUMER_GROUP:job-management-api-read-model-${random.uuid}}
       auto-offset-reset: earliest
@@ -18,15 +25,25 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info
+
+springdoc:
+  show-actuator: true
+  swagger-ui:
+    # Swagger UI’s upstream default URL is petstore; disable it so direct hits to
+    # /swagger-ui/index.html don’t show Petstore when configUrl isn’t applied.
+    disable-swagger-default-url: true
+    url: /v3/api-docs
+    operationsSorter: method
+    tagsSorter: alpha
 
 streammux:
   topics:
-    job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:job-definitions}
-    job-leases: ${STREAMMUX_TOPIC_JOB_LEASES:job-leases}
-    job-status: ${STREAMMUX_TOPIC_JOB_STATUS:job-status}
-    job-events: ${STREAMMUX_TOPIC_JOB_EVENTS:job-events}
-    job-commands: ${STREAMMUX_TOPIC_JOB_COMMANDS:job-commands}
+    job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
+    job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}
+    job-status: ${STREAMMUX_TOPIC_JOB_STATUS}
+    job-events: ${STREAMMUX_TOPIC_JOB_EVENTS}
+    job-commands: ${STREAMMUX_TOPIC_JOB_COMMANDS}
   validation:
     topics:
       allowed-input-topics: ${STREAMMUX_ALLOWED_INPUT_TOPICS:}

@@ -29,7 +29,7 @@ class KafkaJobCommandPublisherTest {
             new KafkaTopicProperties("defs", "leases", "status", "events", "commands")
         );
 
-        JobDefinition definition = new JobDefinition("job-1", 1, JobType.ROUTE_APP, null, 1, "site-a", LeasePolicy.defaults(), 1, null, Map.of(), List.of(), Instant.parse("2024-01-01T00:00:00Z"), "tester");
+        JobDefinition definition = new JobDefinition("job-1", 1, JobType.ROUTE_APP, null, 1, "site-a", LeasePolicy.defaults(), 1, null, null, null, Map.of(), List.of(), Instant.parse("2024-01-01T00:00:00Z"), "tester");
         JobCommand command = new JobCommand("cmd-1", "job-1", 1, CommandType.RESTART, Instant.parse("2024-01-01T00:00:00Z"), "api", Map.of());
         JobEvent event = new JobEvent("evt-1", "job-1", 1, EventType.UPDATED, Instant.parse("2024-01-01T00:00:00Z"), null, "api", "updated", Map.of());
 

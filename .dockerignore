@@ -1,5 +1,13 @@
 .git
 .idea
 .cursor
+.env
+*.pem
+*.key
+*.p12
+*.jks
 **/target
 **/.DS_Store
+web-ui/node_modules
+web-ui/dist
+job-catalog-api/node_modules

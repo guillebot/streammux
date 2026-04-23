@@ -107,6 +107,8 @@ class LeaseManagerTest {
             new LeasePolicy(heartbeatIntervalSeconds, leaseDurationSeconds, 1000, true),
             1,
             null,
+            null,
+            null,
             Map.of(),
             List.of(),
             Instant.parse("2024-01-01T00:00:00Z"),

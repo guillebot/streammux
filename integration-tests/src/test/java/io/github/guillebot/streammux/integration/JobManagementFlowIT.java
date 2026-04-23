@@ -144,6 +144,8 @@ class JobManagementFlowIT extends KafkaIntegrationSupport {
                 Map.of(),
                 Map.of()
             ),
+            null,
+            null,
             Map.of("team", "mux"),
             List.of("integration"),
             Instant.parse("2024-01-01T00:00:00Z"),

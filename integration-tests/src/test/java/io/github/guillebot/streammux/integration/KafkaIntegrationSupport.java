@@ -26,7 +26,9 @@ import java.util.UUID;
 @Testcontainers
 abstract class KafkaIntegrationSupport {
     @Container
-    protected static final KafkaContainer KAFKA = new KafkaContainer(DockerImageName.parse("apache/kafka-native:3.8.0"));
+    protected static final KafkaContainer KAFKA = new KafkaContainer(
+        DockerImageName.parse("apache/kafka-native:3.8.0").asCompatibleSubstituteFor("confluentinc/cp-kafka")
+    );
 
     private final List<KafkaConsumer<String, byte[]>> consumers = new ArrayList<>();
 
