@@ -42,7 +42,7 @@ public class JobService {
     public JobDefinition createJob(JobDefinition definition) {
         JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());
         if (stateStore.getJob(definition.jobId()).isPresent()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Job already exists: " + definition.jobId());
-        JobDefinition normalized = new JobDefinition(definition.jobId(), 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
+        JobDefinition normalized = new JobDefinition(definition.jobId(), 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.randomSamplerConfig(), definition.alarmsToZtrConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
         stateStore.upsertDefinition(normalized);
         commandPublisher.publishDefinition(normalized);
         JobEvent createdEvent = newEvent(normalized.jobId(), normalized.jobVersion(), EventType.CREATED, "Job created");
@@ -54,7 +54,7 @@ public class JobService {
     public JobDefinition updateJob(String jobId, JobDefinition definition) {
         JobDefinition current = getJob(jobId);
         JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());
-        JobDefinition updated = new JobDefinition(jobId, current.jobVersion() + 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
+        JobDefinition updated = new JobDefinition(jobId, current.jobVersion() + 1, definition.jobType(), definition.desiredState(), definition.priority(), definition.siteAffinity(), definition.leasePolicy(), definition.parallelism(), definition.routeAppConfig(), definition.randomSamplerConfig(), definition.alarmsToZtrConfig(), definition.labels(), definition.tags(), Instant.now(), definition.updatedBy());
         stateStore.upsertDefinition(updated);
         commandPublisher.publishDefinition(updated);
         JobEvent updatedEvent = newEvent(jobId, updated.jobVersion(), EventType.UPDATED, "Job updated");
@@ -75,6 +75,8 @@ public class JobService {
             current.leasePolicy(),
             current.parallelism(),
             current.routeAppConfig(),
+            current.randomSamplerConfig(),
+            current.alarmsToZtrConfig(),
             current.labels(),
             current.tags(),
             Instant.now(),

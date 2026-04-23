@@ -174,6 +174,8 @@ class JobServiceTest {
                 Map.of(),
                 Map.of()
             ),
+            null,
+            null,
             Map.of("team", "mux"),
             List.of("test"),
             Instant.parse("2024-01-01T00:00:00Z"),

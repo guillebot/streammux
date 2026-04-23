@@ -6,6 +6,7 @@ import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
+import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +23,18 @@ public class OrchestratorCoordinator {
 
     private final OrchestratorStateStore stateStore;
     private final OrchestratorService orchestratorService;
+    private final LeaseManager leaseManager;
     private final KafkaOrchestratorPublisher publisher;
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
         OrchestratorService orchestratorService,
+        LeaseManager leaseManager,
         KafkaOrchestratorPublisher publisher
     ) {
         this.stateStore = stateStore;
         this.orchestratorService = orchestratorService;
+        this.leaseManager = leaseManager;
         this.publisher = publisher;
     }
 
@@ -93,11 +97,21 @@ public class OrchestratorCoordinator {
                 }
             }
 
+            // Only the lease owner should publish job-status. Non-owners have no local runner and would
+            // emit STOPPED on every reconcile, causing last-write-wins flapping in the API when multiple
+            // orchestrators use different Kafka consumer groups (e.g. distinct STREAMMUX_INSTANCE_ID).
             JobRuntimeStatus status = orchestratorService.status(definition.jobId(), definition);
-            if (status != null) {
+            if (status != null && shouldPublishRuntimeStatus(updatedLease)) {
                 publisher.publishStatus(status);
             }
         });
+    }
+
+    /**
+     * Publish after release ({@code updatedLease == null}) or while this site/instance holds the lease.
+     */
+    private boolean shouldPublishRuntimeStatus(JobLease updatedLease) {
+        return updatedLease == null || leaseManager.ownsLease(updatedLease);
     }
 
     private <T> T read(byte[] payload, Class<T> type) {

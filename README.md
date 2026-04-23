@@ -11,6 +11,8 @@
 
 At runtime, `job-management-api` and one or more `site-orchestrator` instances communicate through Kafka. The API does not call orchestrators directly over HTTP. Instead, it publishes job definitions, commands, and events to Kafka, and both services build their current view from those topics.
 
+> Current behavior: each job will run in one worker at a time (the current lease owner).
+
 ```mermaid
 flowchart LR
   Client[Operators / scripts]
@@ -85,7 +87,10 @@ flowchart LR
 - `job-contracts`: shared records, enums, topic names, validation, and the `JobRunner` SPI
 - `job-management-api`: Spring Boot REST API that creates and updates jobs, publishes Kafka messages, and maintains an in-memory read model from Kafka listeners
 - `site-orchestrator`: Spring Boot service that consumes job definitions and leases, decides lease ownership, and starts or stops local workers
-- `job-runner-route-app`: current `JobRunner` implementation for `ROUTE_APP` jobs using Kafka Streams
+- `runners/`: Maven modules for pluggable `JobRunner` implementations (artifact IDs remain `job-runner-*`)
+  - `runners/job-runner-route-app`: `ROUTE_APP` jobs using Kafka Streams
+  - `runners/job-runner-random-sampler`: `RANDOM_SAMPLER` (sampling / tests)
+  - `runners/job-runner-alarms-to-ztr`: `ALARMS_TO_ZTR` (JSON alarm normalization via inline mapping/filter templates)
 - `integration-tests`: Testcontainers-based integration test module
 
 ## How The System Works
@@ -117,6 +122,8 @@ Lease ownership is driven by desired state and lease expiry:
 - if no lease exists or the lease is expired, an orchestrator may claim it
 - if the local orchestrator owns the lease, it renews it before expiry
 - if the job is no longer `ACTIVE`, the orchestrator releases it
+
+> Current behavior: each job will run in one worker at a time (the current lease owner).
 
 ### 4. Workers run behind the orchestrator
 
@@ -248,6 +255,21 @@ The repository includes `create-job.sh`, which posts a sample `ROUTE_APP` job to
 ```bash
 ./create-job.sh
 ```
+
+For an `ALARMS_TO_ZTR` job use `create-alarms-to-ztr-job.sh`, which posts a job that
+carries its mapping and filter inline in the job definition (no sidecar files):
+
+```bash
+./create-alarms-to-ztr-job.sh
+```
+
+See [runners/job-runner-alarms-to-ztr](runners/job-runner-alarms-to-ztr) for the runner
+itself. The config shape lives in
+[`AlarmsToZtrConfig`](job-contracts/src/main/java/io/github/guillebot/streammux/contracts/config/AlarmsToZtrConfig.java):
+a named map of JSON mapping templates (same shape as the output message, with `$input.<path>`
+references and `{"$input": "...", "$map": {...}}` value maps) plus an optional `filter`
+with ordered rules (`eq`, `ne`/`not_eq`, `in`, `not_in`, `regex`, `exists`) where each rule
+may override which mapping is applied.
 
 ## Build
 

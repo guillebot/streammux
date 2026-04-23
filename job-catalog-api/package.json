@@ -1,0 +1,13 @@
+{
+  "name": "job-catalog-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "kafkajs": "^2.2.4"
+  }
+}
