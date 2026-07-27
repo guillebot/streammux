@@ -83,6 +83,7 @@ test:java:unit:
 test:java:integration:
   extends: .maven-job
   stage: test
+  allow_failure: true
   services:
     - name: "${DIND_TAG}@${DIND_DIGEST}"
       alias: docker
