@@ -1,5 +1,9 @@
 ARG DOCKER_HUB_PROXY=
-FROM ${DOCKER_HUB_PROXY}maven:3.9.9-eclipse-temurin-21 AS build
+FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jdk@sha256:da9d3a4f7650db39b918fc5a2c3da76556fb8cc8e5f3767cdea0bb409286951a AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends maven \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -24,7 +28,7 @@ COPY integration-tests integration-tests
 RUN mvn -pl site-orchestrator -am package -DskipTests
 
 ARG DOCKER_HUB_PROXY=
-FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jre
+FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jre@sha256:273396ed5998598ed1091e8d72711c2d36980a0e65103859c55a4e977a41ffd3
 
 WORKDIR /app
 
