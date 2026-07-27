@@ -49,9 +49,6 @@ export function JobBuilder() {
           catalog.outputTopics.length > 0 ? catalog.outputTopics : JOB_BUILDER_FALLBACK_OUTPUT_TOPICS;
         setInputTopics(nextInput);
         setOutputTopics(nextOutput);
-        if (catalog.bootstrapServers.trim()) {
-          setBootstrapServers(catalog.bootstrapServers.trim());
-        }
         setInputTopic((current) => (nextInput.includes(current) ? current : nextInput[0] ?? current));
         setOutputTopic((current) => (nextOutput.includes(current) ? current : nextOutput[0] ?? current));
       } catch (e) {
@@ -133,14 +130,17 @@ export function JobBuilder() {
 
           <label className="form-field">
             <span className="form-label">Bootstrap servers</span>
-            <input
-              className="text-input mono"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
+            <select
+              className="select-inline form-select mono"
               value={bootstrapServers}
               onChange={(e) => setBootstrapServers(e.target.value)}
-            />
+            >
+              {JOB_BUILDER_BOOTSTRAP_SERVERS.map((servers) => (
+                <option key={servers} value={servers}>
+                  {servers}
+                </option>
+              ))}
+            </select>
           </label>
 
           <label className="form-field">
