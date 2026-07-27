@@ -4,8 +4,15 @@
 # Primary path: GitLab CI (.gitlab-ci.yml) builds and pushes on every branch/tag push
 # using CI_REGISTRY_* credentials. Use this script for manual semver releases.
 #
-# Prerequisites: docker, docker login to registry.gitlab.com
-#   (Personal Access Token with read_registry + write_registry).
+# Prerequisites:
+#   docker login registry.gitlab.com
+#     (PAT with read_registry + write_registry; also pulls Hub bases via dependency proxy)
+#   If DOCKER_HUB_PROXY is unset (empty), base images come from Docker Hub — then run:
+#     docker login docker.io
+#     (anonymous/rate-limited pulls often fail with CloudFront 403 on blob download)
+#
+# By default this script sets DOCKER_HUB_PROXY to this project's GitLab dependency proxy
+# (override: export DOCKER_HUB_PROXY= to force Docker Hub, or set a mirrors prefix).
 #
 # Usage:
 #   export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux
@@ -25,6 +32,12 @@ cd "$ROOT"
 
 VERSION_FILE="${VERSION_FILE:-VERSION}"
 IMAGE_REPO="${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}"
+# GitLab dependency proxy prefix for Docker Hub images (trailing slash required).
+DEFAULT_DOCKER_HUB_PROXY="${IMAGE_REPO}/dependency_proxy/containers/"
+if [[ -z "${DOCKER_HUB_PROXY+x}" ]]; then
+  DOCKER_HUB_PROXY="$DEFAULT_DOCKER_HUB_PROXY"
+fi
+BASE_BUILD_ARGS=(--build-arg "DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}")
 API_IMAGE_NAME="${STREAMMUX_API_IMAGE_NAME:-job-management-api}"
 ORCH_IMAGE_NAME="${STREAMMUX_ORCH_IMAGE_NAME:-site-orchestrator}"
 WEB_IMAGE_NAME="${STREAMMUX_WEB_IMAGE_NAME:-web-ui}"
@@ -97,13 +110,14 @@ echo "API image:                             ${API_TAG}"
 echo "Orchestrator image:                    ${ORCH_TAG}"
 echo "Web UI image:                          ${WEB_TAG}"
 echo "Job catalog API image:                 ${CATALOG_TAG}"
+echo "Docker Hub proxy prefix:               ${DOCKER_HUB_PROXY:-<direct docker.io>}"
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
 
-docker build -f Dockerfile.api -t "$API_TAG" -t "$API_LATEST" "$ROOT"
-docker build -f Dockerfile.orchestrator -t "$ORCH_TAG" -t "$ORCH_LATEST" "$ROOT"
+docker build -f Dockerfile.api "${BASE_BUILD_ARGS[@]}" -t "$API_TAG" -t "$API_LATEST" "$ROOT"
+docker build -f Dockerfile.orchestrator "${BASE_BUILD_ARGS[@]}" -t "$ORCH_TAG" -t "$ORCH_LATEST" "$ROOT"
 WEB_DOCKER_ARGS=()
 # Bake-time default for the "New job" template field. Inlined into the JS bundle
 # by Vite — do NOT set when building images for public registries, or you will
@@ -111,8 +125,8 @@ WEB_DOCKER_ARGS=()
 if [[ -n "${VITE_EXAMPLE_KAFKA_BOOTSTRAP:-}" ]]; then
   WEB_DOCKER_ARGS+=(--build-arg "VITE_EXAMPLE_KAFKA_BOOTSTRAP=${VITE_EXAMPLE_KAFKA_BOOTSTRAP}")
 fi
-docker build -f Dockerfile.web "${WEB_DOCKER_ARGS[@]}" -t "$WEB_TAG" -t "$WEB_LATEST" "$ROOT"
-docker build -f Dockerfile.catalog -t "$CATALOG_TAG" -t "$CATALOG_LATEST" "$ROOT"
+docker build -f Dockerfile.web "${BASE_BUILD_ARGS[@]}" "${WEB_DOCKER_ARGS[@]}" -t "$WEB_TAG" -t "$WEB_LATEST" "$ROOT"
+docker build -f Dockerfile.catalog "${BASE_BUILD_ARGS[@]}" -t "$CATALOG_TAG" -t "$CATALOG_LATEST" "$ROOT"
 
 if [[ "$DO_PUSH" -eq 1 ]]; then
   docker push "$API_TAG"

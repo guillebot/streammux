@@ -31,7 +31,8 @@ stages:
   - package
 
 variables:
-  MAVEN_IMAGE: "maven:3.9.9-eclipse-temurin-21"
+  DOCKER_HUB_PROXY: "${CI_REGISTRY_IMAGE}/dependency_proxy/containers/"
+  MAVEN_IMAGE: "${CI_REGISTRY_IMAGE}/dependency_proxy/containers/maven:3.9.9-eclipse-temurin-21"
   IMAGE_REPO: "$CI_REGISTRY_IMAGE"
   DOCKER_TAG: "docker:29.1.3-cli"
   DOCKER_DIGEST: "sha256:4fa0ee1f3a7e4354c4ea34558b6d4ee32859baf4973d4c8ccc8e7fe3dd730c04"
@@ -141,16 +142,16 @@ images:build:
       - IMAGE_NAME: job-management-api
         DOCKERFILE: Dockerfile.api
         BUILD_CONTEXT: .
-        BUILD_ARGS: ""
+        BUILD_ARGS: "--build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"
       - IMAGE_NAME: site-orchestrator
         DOCKERFILE: Dockerfile.orchestrator
         BUILD_CONTEXT: .
-        BUILD_ARGS: ""
+        BUILD_ARGS: "--build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"
       - IMAGE_NAME: web-ui
         DOCKERFILE: Dockerfile.web
         BUILD_CONTEXT: .
-        BUILD_ARGS: ""
+        BUILD_ARGS: "--build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"
       - IMAGE_NAME: job-catalog-api
         DOCKERFILE: Dockerfile.catalog
         BUILD_CONTEXT: .
-        BUILD_ARGS: ""
+        BUILD_ARGS: "--build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"

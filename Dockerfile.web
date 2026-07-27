@@ -1,4 +1,5 @@
-FROM node:22-alpine AS build
+ARG DOCKER_HUB_PROXY=
+FROM ${DOCKER_HUB_PROXY}node:22-alpine AS build
 
 WORKDIR /app
 
@@ -10,7 +11,8 @@ ARG VITE_EXAMPLE_KAFKA_BOOTSTRAP=
 ENV VITE_EXAMPLE_KAFKA_BOOTSTRAP=${VITE_EXAMPLE_KAFKA_BOOTSTRAP}
 RUN npm run build
 
-FROM nginx:1.27-alpine
+ARG DOCKER_HUB_PROXY=
+FROM ${DOCKER_HUB_PROXY}nginx:1.27-alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY web-ui/nginx/default.conf.template /etc/nginx/templates/default.conf.template

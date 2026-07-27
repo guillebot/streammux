@@ -1,4 +1,7 @@
-FROM maven:3.9.9-eclipse-temurin-21 AS build
+# Optional prefix for base images (GitLab dependency proxy or empty for Docker Hub).
+# Example: registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux/dependency_proxy/containers/
+ARG DOCKER_HUB_PROXY=
+FROM ${DOCKER_HUB_PROXY}maven:3.9.9-eclipse-temurin-21 AS build
 
 WORKDIR /app
 
@@ -22,7 +25,8 @@ COPY integration-tests integration-tests
 
 RUN mvn -pl job-management-api -am package -DskipTests
 
-FROM eclipse-temurin:21-jre
+ARG DOCKER_HUB_PROXY=
+FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jre
 
 WORKDIR /app
 
