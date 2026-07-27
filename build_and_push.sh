@@ -175,7 +175,7 @@ preflight_registry_push_auth
 
 docker build -f Dockerfile.api "${BASE_BUILD_ARGS[@]}" -t "$API_TAG" -t "$API_LATEST" "$ROOT"
 docker build -f Dockerfile.orchestrator "${BASE_BUILD_ARGS[@]}" -t "$ORCH_TAG" -t "$ORCH_LATEST" "$ROOT"
-WEB_DOCKER_ARGS=()
+WEB_DOCKER_ARGS=(--build-arg "VITE_APP_VERSION=${NEW_VER}")
 # Bake-time default for the "New job" template field. Inlined into the JS bundle
 # by Vite — do NOT set when building images for public registries, or you will
 # leak the internal Kafka hostname to anyone who pulls the image.

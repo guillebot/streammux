@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { appVersion } from "./version";
 
 export function AppLayout() {
   return (
@@ -30,6 +31,9 @@ export function AppLayout() {
             Settings
           </NavLink>
         </nav>
+        <div className="sidebar-footer">
+          <span className="sidebar-version">v{appVersion}</span>
+        </div>
       </aside>
       <div className="layout-main">
         <Outlet />

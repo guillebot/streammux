@@ -57,11 +57,14 @@ a:hover {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   width: 220px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--surface);
   padding: 0.6rem 0 1rem;
+  min-height: 100vh;
 }
 
 .sidebar-header {
@@ -91,6 +94,19 @@ a:hover {
   flex-direction: column;
   gap: 0.15rem;
   padding: 0 0.5rem;
+  flex: 1;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 0.75rem 1rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-version {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .sidebar-link {

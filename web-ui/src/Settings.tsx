@@ -6,6 +6,7 @@ import {
   type CatalogSettings,
   type PlatformSettings,
 } from "./api/settingsClient";
+import { appVersion } from "./version";
 
 function formatLoadedAt(iso: string | undefined): string {
   if (!iso) return "—";
@@ -86,6 +87,13 @@ export function Settings() {
 
       {platformError ? <div className="banner error">job-management-api: {platformError}</div> : null}
       {catalogError ? <div className="banner error">job-catalog-api: {catalogError}</div> : null}
+
+      <section className="panel">
+        <h2>Web console</h2>
+        <div className="health-kv-grid">
+          <SettingsKv label="Release version" value={appVersion} />
+        </div>
+      </section>
 
       <section className="panel">
         <h2>job-management-api</h2>
