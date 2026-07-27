@@ -4,15 +4,19 @@
 # Primary path: GitLab CI (.gitlab-ci.yml) builds and pushes on every branch/tag push
 # using CI_REGISTRY_* credentials. Use this script for manual semver releases.
 #
-# Prerequisites:
-#   docker login registry.gitlab.com
-#     (PAT with read_registry + write_registry; also pulls Hub bases via dependency proxy)
-#   If DOCKER_HUB_PROXY is unset (empty), base images come from Docker Hub — then run:
-#     docker login docker.io
-#     (anonymous/rate-limited pulls often fail with CloudFront 403 on blob download)
+# Base image sources (DOCKER_HUB_PROXY build-arg prefix in Dockerfiles):
+#   1. Direct Docker Hub (default, matches CI): DOCKER_HUB_PROXY="" (empty).
+#      Requires outbound docker.io access; run `docker login docker.io` if pulls fail.
+#   2. GitLab dependency proxy (optional): export DOCKER_HUB_PROXY="${IMAGE_REPO}/dependency_proxy/containers/"
+#      Requires dependency proxy enabled on the GitLab project and `docker login registry.gitlab.com`
+#      with read_registry. This streammux project does NOT have dependency proxy enabled.
+#   3. Internal mirror registry (orbgny / air-gapped deploy hosts only): base images must be
+#      referenced by full mirror path in Dockerfiles — see devops inventory/group_vars/all/mirror-images.yml
+#      and scripts/mirror-images-to-gitlab.sh. There is no single-prefix mirror for eclipse-temurin/node;
+#      nginx:1.27-alpine is mirrored; temurin/node are not yet in the manifest.
 #
-# By default this script sets DOCKER_HUB_PROXY to this project's GitLab dependency proxy
-# (override: export DOCKER_HUB_PROXY= to force Docker Hub, or set a mirrors prefix).
+# Prerequisites:
+#   docker login registry.gitlab.com   (PAT with read_registry + write_registry; needed to push)
 #
 # Usage:
 #   export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux
@@ -32,11 +36,61 @@ cd "$ROOT"
 
 VERSION_FILE="${VERSION_FILE:-VERSION}"
 IMAGE_REPO="${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}"
-# GitLab dependency proxy prefix for Docker Hub images (trailing slash required).
-DEFAULT_DOCKER_HUB_PROXY="${IMAGE_REPO}/dependency_proxy/containers/"
+# Match .gitlab-ci.yml: dependency proxy is not enabled on this project; pull Hub directly.
+DEFAULT_DOCKER_HUB_PROXY=""
+DEPENDENCY_PROXY_PREFIX="${IMAGE_REPO}/dependency_proxy/containers/"
 if [[ -z "${DOCKER_HUB_PROXY+x}" ]]; then
   DOCKER_HUB_PROXY="$DEFAULT_DOCKER_HUB_PROXY"
 fi
+
+BASE_PROBE_IMAGE="eclipse-temurin:21-jdk@sha256:da9d3a4f7650db39b918fc5a2c3da76556fb8cc8e5f3767cdea0bb409286951a"
+
+preflight_base_image_source() {
+  local ref="${DOCKER_HUB_PROXY}${BASE_PROBE_IMAGE}"
+  if docker pull "$ref" >/dev/null 2>&1; then
+    echo "Base image source OK: ${DOCKER_HUB_PROXY:-docker.io (direct)}"
+    return 0
+  fi
+
+  echo "Failed to pull probe base image: ${ref}" >&2
+
+  if [[ -n "$DOCKER_HUB_PROXY" && "$DOCKER_HUB_PROXY" == "$DEPENDENCY_PROXY_PREFIX" ]]; then
+    cat >&2 <<EOF
+Hint: GitLab dependency proxy is not enabled for this project (see .gitlab-ci.yml).
+  export DOCKER_HUB_PROXY=
+  docker login docker.io   # if anonymous pulls fail
+EOF
+  elif [[ -n "$DOCKER_HUB_PROXY" ]]; then
+    cat >&2 <<EOF
+Hint: custom DOCKER_HUB_PROXY prefix may be wrong or you lack registry auth.
+  export DOCKER_HUB_PROXY=   # direct Docker Hub (default)
+  docker login registry.gitlab.com   # for dependency proxy or push
+  docker login docker.io             # for direct Hub pulls
+EOF
+  else
+    cat >&2 <<EOF
+Hint: direct Docker Hub pull failed. Try:
+  docker login docker.io
+  docker pull ${BASE_PROBE_IMAGE}
+If you are on a host without docker.io access, mirror bases via devops/scripts/mirror-images-to-gitlab.sh
+and build on a machine with Hub access, or ask ops to add eclipse-temurin/node to mirror-images.yml.
+EOF
+  fi
+  exit 1
+}
+
+preflight_registry_push_auth() {
+  [[ "$DO_PUSH" -eq 1 ]] || return 0
+  local registry_host="${REPO%%/*}"
+  if docker pull "${REPO}/job-management-api:latest" >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! grep -q "$registry_host" "${HOME}/.docker/config.json" 2>/dev/null; then
+    echo "Warning: no docker credentials for ${registry_host}; push may fail." >&2
+    echo "  docker login ${registry_host}" >&2
+  fi
+}
+
 BASE_BUILD_ARGS=(--build-arg "DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}")
 API_IMAGE_NAME="${STREAMMUX_API_IMAGE_NAME:-job-management-api}"
 ORCH_IMAGE_NAME="${STREAMMUX_ORCH_IMAGE_NAME:-site-orchestrator}"
@@ -115,6 +169,9 @@ echo "Docker Hub proxy prefix:               ${DOCKER_HUB_PROXY:-<direct docker.
 if [[ "$DRY_RUN" -eq 1 ]]; then
   exit 0
 fi
+
+preflight_base_image_source
+preflight_registry_push_auth
 
 docker build -f Dockerfile.api "${BASE_BUILD_ARGS[@]}" -t "$API_TAG" -t "$API_LATEST" "$ROOT"
 docker build -f Dockerfile.orchestrator "${BASE_BUILD_ARGS[@]}" -t "$ORCH_TAG" -t "$ORCH_LATEST" "$ROOT"
