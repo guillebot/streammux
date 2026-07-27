@@ -1,30 +1,20 @@
 import type { JobDefinition, JobType } from "./types";
 import { exampleBootstrapServers, newJobTemplate } from "./templates";
 
-/**
- * Static lists for the Job Builder UI. Replace input/output topic sources with a broker API when available.
- */
 export const JOB_BUILDER_BOOTSTRAP_SERVERS: string[] = [
   exampleBootstrapServers(),
   "localhost:9092",
   "kafka:9092",
 ];
 
-/** Defaults must satisfy typical `STREAMMUX_ALLOWED_*` rules (see repo `.env.example`). */
-const EXAMPLE_ALLOWED_INPUT = "net.optimum.monitoring.netscout.fixed.voicesip.json";
-const EXAMPLE_OUTPUT_PREFIX = "lab.optimum.experimental.streamlens.streammux.";
-
-export const JOB_BUILDER_INPUT_TOPICS: string[] = [
-  EXAMPLE_ALLOWED_INPUT,
-  "net.optimum.monitoring.example-in",
-  "events-raw",
-  "telemetry-in",
+/** Used only when the broker topic catalog API is unavailable. */
+export const JOB_BUILDER_FALLBACK_INPUT_TOPICS: string[] = [
+  "net.optimum.monitoring.netscout.fixed.voicesip.json",
 ];
 
-export const JOB_BUILDER_OUTPUT_TOPICS: string[] = [
-  `${EXAMPLE_OUTPUT_PREFIX}alerts`,
-  `${EXAMPLE_OUTPUT_PREFIX}events-processed`,
-  `${EXAMPLE_OUTPUT_PREFIX}telemetry-out`,
+/** Used only when the broker topic catalog API is unavailable. */
+export const JOB_BUILDER_FALLBACK_OUTPUT_TOPICS: string[] = [
+  "lab.optimum.experimental.streamlens.streammux.alerts",
 ];
 
 export const JOB_BUILDER_JOB_TYPES: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER"];

@@ -1,5 +1,6 @@
 package io.github.guillebot.streammux.api.controller;
 
+import org.apache.kafka.common.KafkaException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,6 +19,12 @@ public class ApiExceptionHandler {
         String code = ex.getStatusCode().toString();
         String message = ex.getReason() == null ? "Request failed" : ex.getReason();
         return ResponseEntity.status(ex.getStatusCode()).body(new ErrorResponse(code, message));
+    }
+
+    @ExceptionHandler(KafkaException.class)
+    public ResponseEntity<ErrorResponse> handleKafka(KafkaException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(new ErrorResponse("KAFKA_UNAVAILABLE", ex.getMessage()));
     }
 
     public record ErrorResponse(String code, String message) {}

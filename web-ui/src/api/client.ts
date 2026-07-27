@@ -2,6 +2,12 @@ import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "../typ
 
 const JOBS = "/jobs";
 
+export interface KafkaTopicCatalog {
+  bootstrapServers: string;
+  inputTopics: string[];
+  outputTopics: string[];
+}
+
 async function readJson<T>(response: Response): Promise<T | null> {
   const text = await response.text();
   if (!text.trim()) return null;
@@ -26,6 +32,12 @@ async function handleError(response: Response): Promise<never> {
     /* ignore */
   }
   throw new Error(`${response.status} ${detail}`);
+}
+
+export async function getKafkaTopicCatalog(): Promise<KafkaTopicCatalog> {
+  const res = await fetch(`${JOBS}/meta/kafka-topics`);
+  if (!res.ok) await handleError(res);
+  return (await res.json()) as KafkaTopicCatalog;
 }
 
 export async function listJobs(): Promise<JobDefinition[]> {

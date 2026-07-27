@@ -1,14 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { getKafkaTopicCatalog } from "./api/client";
 import {
   JOB_BUILDER_BOOTSTRAP_SERVERS,
-  JOB_BUILDER_INPUT_TOPICS,
+  JOB_BUILDER_FALLBACK_INPUT_TOPICS,
+  JOB_BUILDER_FALLBACK_OUTPUT_TOPICS,
   JOB_BUILDER_JOB_TYPES,
-  JOB_BUILDER_OUTPUT_TOPICS,
   buildJobDefinition,
 } from "./jobBuilderOptions";
 import { stashJobDefinitionForNew } from "./jobBuilderStash";
 import { newJobTemplate } from "./templates";
+
+function withSelectedTopic(topics: string[], selected: string): string[] {
+  if (!selected || topics.includes(selected)) return topics;
+  return [selected, ...topics];
+}
 
 export function JobBuilder() {
   const navigate = useNavigate();
@@ -17,14 +23,48 @@ export function JobBuilder() {
   const [jobId, setJobId] = useState(defaults.jobId);
   const [jobType, setJobType] = useState<(typeof JOB_BUILDER_JOB_TYPES)[number]>(JOB_BUILDER_JOB_TYPES[0]);
   const [bootstrapServers, setBootstrapServers] = useState(JOB_BUILDER_BOOTSTRAP_SERVERS[0] ?? "");
+  const [inputTopics, setInputTopics] = useState(JOB_BUILDER_FALLBACK_INPUT_TOPICS);
+  const [outputTopics, setOutputTopics] = useState(JOB_BUILDER_FALLBACK_OUTPUT_TOPICS);
+  const [topicsLoading, setTopicsLoading] = useState(true);
+  const [topicsError, setTopicsError] = useState<string | null>(null);
   const [inputTopic, setInputTopic] = useState(
-    JOB_BUILDER_INPUT_TOPICS[0] ?? defaults.routeAppConfig?.inputTopic ?? "",
+    JOB_BUILDER_FALLBACK_INPUT_TOPICS[0] ?? defaults.routeAppConfig?.inputTopic ?? "",
   );
   const [outputTopic, setOutputTopic] = useState(
-    JOB_BUILDER_OUTPUT_TOPICS[0] ?? defaults.routeAppConfig?.routes[0]?.outputTopic ?? "alerts",
+    JOB_BUILDER_FALLBACK_OUTPUT_TOPICS[0] ?? defaults.routeAppConfig?.routes[0]?.outputTopic ?? "alerts",
   );
   /** Percent (0–100): API `randomSamplerConfig.rate` = this value ÷ 100 (e.g. 1 → 0.01 ≈ 1 in 100). */
   const [samplePercent, setSamplePercent] = useState(25);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setTopicsLoading(true);
+      setTopicsError(null);
+      try {
+        const catalog = await getKafkaTopicCatalog();
+        if (cancelled) return;
+        const nextInput = catalog.inputTopics.length > 0 ? catalog.inputTopics : JOB_BUILDER_FALLBACK_INPUT_TOPICS;
+        const nextOutput =
+          catalog.outputTopics.length > 0 ? catalog.outputTopics : JOB_BUILDER_FALLBACK_OUTPUT_TOPICS;
+        setInputTopics(nextInput);
+        setOutputTopics(nextOutput);
+        if (catalog.bootstrapServers.trim()) {
+          setBootstrapServers(catalog.bootstrapServers.trim());
+        }
+        setInputTopic((current) => (nextInput.includes(current) ? current : nextInput[0] ?? current));
+        setOutputTopic((current) => (nextOutput.includes(current) ? current : nextOutput[0] ?? current));
+      } catch (e) {
+        if (cancelled) return;
+        setTopicsError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setTopicsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const preview = useMemo(
     () =>
@@ -47,6 +87,9 @@ export function JobBuilder() {
     navigate("/job/new");
   };
 
+  const inputOptions = withSelectedTopic(inputTopics, inputTopic);
+  const outputOptions = withSelectedTopic(outputTopics, outputTopic);
+
   return (
     <div className="page">
       <div className="back-row">
@@ -57,7 +100,8 @@ export function JobBuilder() {
         <div>
           <h1 className="page-title">Job Builder</h1>
           <p className="page-subtitle muted">
-            Pick Kafka connection and topics; opens the JSON editor to review and create. Topic lists are static for now (broker API later).
+            Pick Kafka connection and topics; opens the JSON editor to review and create. Topic lists come from the
+            broker and match the configured allowlists.
           </p>
         </div>
       </header>
@@ -89,19 +133,29 @@ export function JobBuilder() {
 
           <label className="form-field">
             <span className="form-label">Bootstrap servers</span>
-            <select className="select-inline form-select" value={bootstrapServers} onChange={(e) => setBootstrapServers(e.target.value)}>
-              {JOB_BUILDER_BOOTSTRAP_SERVERS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+            <input
+              className="text-input mono"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={bootstrapServers}
+              onChange={(e) => setBootstrapServers(e.target.value)}
+            />
           </label>
 
           <label className="form-field">
-            <span className="form-label">Input topic</span>
-            <select className="select-inline form-select" value={inputTopic} onChange={(e) => setInputTopic(e.target.value)}>
-              {JOB_BUILDER_INPUT_TOPICS.map((t) => (
+            <span className="form-label">
+              Input topic
+              {topicsLoading ? <span className="muted"> (loading…)</span> : null}
+              {!topicsLoading ? <span className="muted"> ({inputOptions.length})</span> : null}
+            </span>
+            <select
+              className="select-inline form-select"
+              value={inputTopic}
+              disabled={topicsLoading}
+              onChange={(e) => setInputTopic(e.target.value)}
+            >
+              {inputOptions.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
@@ -110,15 +164,30 @@ export function JobBuilder() {
           </label>
 
           <label className="form-field">
-            <span className="form-label">Output topic</span>
-            <select className="select-inline form-select" value={outputTopic} onChange={(e) => setOutputTopic(e.target.value)}>
-              {JOB_BUILDER_OUTPUT_TOPICS.map((t) => (
+            <span className="form-label">
+              Output topic
+              {topicsLoading ? <span className="muted"> (loading…)</span> : null}
+              {!topicsLoading ? <span className="muted"> ({outputOptions.length})</span> : null}
+            </span>
+            <select
+              className="select-inline form-select"
+              value={outputTopic}
+              disabled={topicsLoading}
+              onChange={(e) => setOutputTopic(e.target.value)}
+            >
+              {outputOptions.map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
             </select>
           </label>
+
+          {topicsError ? (
+            <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+              Could not load topics from the broker ({topicsError}). Showing fallback lists.
+            </p>
+          ) : null}
 
           {jobType === "RANDOM_SAMPLER" ? (
             <label className="form-field">
