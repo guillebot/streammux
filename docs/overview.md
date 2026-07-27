@@ -28,11 +28,12 @@ The main job type implemented today is **ROUTE_APP**: a Kafka Streams applicatio
 
 These names can be overridden with environment variables (see [deployment.md](deployment.md)):
 
-- `job-definitions` — desired job configuration
-- `job-leases` — which site/instance owns a job
-- `job-status` — runtime status from orchestrators
-- `job-events` — audit-style events
-- `job-commands` — commands (e.g. pause, resume); see [limitations](#current-limitations) below
+- `net.optimum.experimental.streamlens.streammux.jobdefinitions` — desired job configuration
+- `net.optimum.experimental.streamlens.streammux.jobleases` — which site/instance owns a job
+- `net.optimum.experimental.streamlens.streammux.jobstatus` — runtime status from orchestrators
+- `net.optimum.experimental.streamlens.streammux.jobevents` — audit-style events
+- `net.optimum.experimental.streamlens.streammux.jobcommands` — commands (e.g. pause, resume); see [limitations](#current-limitations) below
+- `net.optimum.experimental.streamlens.streammux.jobcatalog` — reusable job templates (catalog API)
 
 ## End-to-end flow (summary)
 
@@ -56,7 +57,7 @@ Full detail and examples are in the [root README](../README.md#route-app-filter-
 
 Accurate as of this documentation pass; verify against code and release notes before production decisions:
 
-- **job-commands** are published by the API, but there is **no command consumer** in this repository yet; operational control is largely via `desiredState` and leases.
+- **net.optimum.experimental.streamlens.streammux.jobcommands** are published by the API, but there is **no command consumer** in this repository yet; operational control is largely via `desiredState` and leases.
 - **siteAffinity** and **priority** exist on job definitions but are **not** used by the current lease logic.
 - **Read models** in both API and orchestrator are **in-memory** (restart loses local view until replayed from Kafka).
 - **integration-tests** include placeholder scenarios; not all paths are covered end-to-end in CI.

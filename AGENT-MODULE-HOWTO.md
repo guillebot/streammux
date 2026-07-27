@@ -158,7 +158,7 @@ The UI is **not** part of the Maven reactor; ship UI changes separately if you u
 ## Operational reminders (from docs)
 
 - Kafka is the source of truth for definitions and leases; runners execute **local** work when this instance holds the lease ([docs/overview.md](docs/overview.md)).
-- `job-commands` consumption is **not** implemented in-repo yet; do not rely on command topics for runner lifecycle.
+- `net.optimum.experimental.streamlens.streammux.jobcommands` consumption is **not** implemented in-repo yet; do not rely on command topics for runner lifecycle.
 - Topic allowlists may be enabled in deployment; validate topics in `JobDefinitionValidator` as noted above ([docs/deployment.md](docs/deployment.md)).
 
 ---
@@ -167,7 +167,7 @@ The UI is **not** part of the Maven reactor; ship UI changes separately if you u
 
 1. `mvn -pl job-contracts,site-orchestrator,runners/job-runner-<name> -am test` (expand to full `mvn package` before merge; `-pl :job-runner-<name>` by artifactId also works).
 2. Create a job via `POST /jobs` with your `jobType` and config; confirm `job-management-api` accepts it when validation passes.
-3. Run orchestrator against a real or Testcontainers Kafka; confirm lease claim starts your runner and status appears on `job-status` for the lease owner.
+3. Run orchestrator against a real or Testcontainers Kafka; confirm lease claim starts your runner and status appears on `net.optimum.experimental.streamlens.streammux.jobstatus` for the lease owner.
 
 ---
 

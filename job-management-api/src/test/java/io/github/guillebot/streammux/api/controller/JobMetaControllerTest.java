@@ -15,6 +15,7 @@ import io.github.guillebot.streammux.api.service.PlatformSettingsService.ModuleS
 import io.github.guillebot.streammux.api.service.PlatformSettingsService.PlatformSettings;
 import io.github.guillebot.streammux.api.service.PlatformSettingsService.TopicSettings;
 import io.github.guillebot.streammux.api.service.PlatformSettingsService.TopicValidationSettings;
+import io.github.guillebot.streammux.contracts.model.TopicNames;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -50,7 +51,7 @@ class JobMetaControllerTest {
         when(kafkaTopicCatalogService.listAllowedTopics()).thenReturn(new KafkaTopicCatalog(
             "kafka1:9092,kafka2:9092",
             List.of("lab.optimum.events.in", "lab.optimum.telemetry.in"),
-            List.of("lab.optimum.experimental.streamlens.streammux.alerts")
+            List.of("net.optimum.experimental.streamlens.streammux.alerts")
         ));
 
         mockMvc.perform(get("/jobs/meta/kafka-topics"))
@@ -59,7 +60,7 @@ class JobMetaControllerTest {
             .andExpect(jsonPath("$.inputTopics.length()").value(2))
             .andExpect(jsonPath("$.inputTopics[0]").value("lab.optimum.events.in"))
             .andExpect(jsonPath("$.outputTopics.length()").value(1))
-            .andExpect(jsonPath("$.outputTopics[0]").value("lab.optimum.experimental.streamlens.streammux.alerts"));
+            .andExpect(jsonPath("$.outputTopics[0]").value("net.optimum.experimental.streamlens.streammux.alerts"));
     }
 
     @Test
@@ -73,7 +74,7 @@ class JobMetaControllerTest {
                 "kafka1:9092",
                 "cluster-1",
                 3,
-                List.of(new TopicPresence("jobDefinitions", "job-definitions", true))
+                List.of(new TopicPresence("jobDefinitions", TopicNames.JOB_DEFINITIONS, true))
             ),
             new ReadModelHealth(2, 1, 1, 1)
         ));
@@ -92,12 +93,18 @@ class JobMetaControllerTest {
             Instant.parse("2026-01-01T00:00:00Z"),
             new ModuleSettings("job-management-api"),
             new KafkaSettings("kafka1:9092", "job-management-api-read-model"),
-            new TopicSettings("job-definitions", "job-leases", "job-status", "job-events", "job-commands"),
+            new TopicSettings(
+                TopicNames.JOB_DEFINITIONS,
+                TopicNames.JOB_LEASES,
+                TopicNames.JOB_STATUS,
+                TopicNames.JOB_EVENTS,
+                TopicNames.JOB_COMMANDS
+            ),
             new TopicValidationSettings(
                 List.of("net.optimum.monitoring.in"),
                 List.of("net.optimum.monitoring."),
                 List.of(),
-                List.of("lab.optimum.experimental.streamlens.streammux.")
+                List.of("net.optimum.experimental.streamlens.streammux.")
             ),
             new ApiSettings(List.of("health", "info"), true)
         ));
@@ -106,7 +113,7 @@ class JobMetaControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.module.applicationName").value("job-management-api"))
             .andExpect(jsonPath("$.kafka.bootstrapServers").value("kafka1:9092"))
-            .andExpect(jsonPath("$.topics.jobDefinitions").value("job-definitions"))
+            .andExpect(jsonPath("$.topics.jobDefinitions").value(TopicNames.JOB_DEFINITIONS))
             .andExpect(jsonPath("$.validation.allowedInputTopics[0]").value("net.optimum.monitoring.in"))
             .andExpect(jsonPath("$.api.exposedActuatorEndpoints[0]").value("health"))
             .andExpect(jsonPath("$.api.springdocShowActuator").value(true));

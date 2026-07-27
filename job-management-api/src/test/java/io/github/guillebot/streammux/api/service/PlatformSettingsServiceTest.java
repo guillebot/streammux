@@ -19,7 +19,7 @@ class PlatformSettingsServiceTest {
             List.of("net.optimum.monitoring.example.in"),
             List.of("net.optimum.monitoring."),
             List.of(),
-            List.of("lab.optimum.experimental.streamlens.streammux.")
+            List.of("net.optimum.experimental.streamlens.streammux.")
         );
         PlatformSettingsService service = new PlatformSettingsService(
             "job-management-api",

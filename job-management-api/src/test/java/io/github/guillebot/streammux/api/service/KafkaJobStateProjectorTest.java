@@ -15,6 +15,7 @@ import io.github.guillebot.streammux.contracts.model.LeasePolicy;
 import io.github.guillebot.streammux.contracts.model.LeaseStatus;
 import io.github.guillebot.streammux.contracts.model.RuntimeState;
 import io.github.guillebot.streammux.contracts.model.WorkerMetadata;
+import io.github.guillebot.streammux.contracts.model.TopicNames;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,7 @@ class KafkaJobStateProjectorTest {
         store.upsertDefinition(jobDefinition("job-1", DesiredJobState.ACTIVE));
         KafkaJobStateProjector projector = new KafkaJobStateProjector(store);
 
-        projector.onJobDefinition(new ConsumerRecord<>("job-definitions", 0, 0L, "job-1", null));
+        projector.onJobDefinition(new ConsumerRecord<>(TopicNames.JOB_DEFINITIONS, 0, 0L, "job-1", null));
 
         assertTrue(store.getJob("job-1").isEmpty());
     }
@@ -46,7 +47,7 @@ class KafkaJobStateProjectorTest {
         store.upsertDefinition(jobDefinition("job-1", DesiredJobState.ACTIVE));
         KafkaJobStateProjector projector = new KafkaJobStateProjector(store);
 
-        projector.onJobDefinition(record("job-definitions", "job-1", jobDefinition("job-1", DesiredJobState.DELETED)));
+        projector.onJobDefinition(record(TopicNames.JOB_DEFINITIONS, "job-1", jobDefinition("job-1", DesiredJobState.DELETED)));
 
         assertTrue(store.getJob("job-1").isEmpty());
     }
@@ -69,9 +70,9 @@ class KafkaJobStateProjectorTest {
         );
         JobEvent event = new JobEvent("event-1", "job-1", 2, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "Started", Map.of());
 
-        projector.onJobLease(record("job-leases", "job-1", lease));
-        projector.onJobStatus(record("job-status", "job-1", status));
-        projector.onJobEvent(record("job-events", "job-1", event));
+        projector.onJobLease(record(TopicNames.JOB_LEASES, "job-1", lease));
+        projector.onJobStatus(record(TopicNames.JOB_STATUS, "job-1", status));
+        projector.onJobEvent(record(TopicNames.JOB_EVENTS, "job-1", event));
 
         assertEquals(lease, store.getLease("job-1").orElseThrow());
         assertEquals(status, store.getStatus("job-1").orElseThrow());
@@ -84,7 +85,7 @@ class KafkaJobStateProjectorTest {
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
-            () -> projector.onJobDefinition(new ConsumerRecord<>("job-definitions", 0, 0L, "job-1", "not-json".getBytes()))
+            () -> projector.onJobDefinition(new ConsumerRecord<>(TopicNames.JOB_DEFINITIONS, 0, 0L, "job-1", "not-json".getBytes()))
         );
 
         assertTrue(exception.getMessage().contains("Failed to deserialize JobDefinition"));

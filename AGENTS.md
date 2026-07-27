@@ -67,7 +67,7 @@ Kafka is **never** started by this repo’s compose; you must point `KAFKA_BOOTS
 
 Summarized from [README.md](README.md) and [docs/overview.md](docs/overview.md):
 
-- **`job-commands`** is written by the API; there is **no command consumer** in-repo yet — lifecycle is mostly **desiredState** + leases.
+- **`net.optimum.experimental.streamlens.streammux.jobcommands`** is written by the API; there is **no command consumer** in-repo yet — lifecycle is mostly **desiredState** + leases.
 - **`siteAffinity`** and **`priority`** on job definitions exist but **lease logic does not use them** yet.
 - **Read models** are in-memory (restart until Kafka replay).
 - Some **integration-tests** are placeholders, not full E2E.

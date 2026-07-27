@@ -27,7 +27,7 @@ curl -X POST "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/jobs" \
     \"parallelism\": 1,
     \"alarmsToZtrConfig\": {
       \"inputTopic\": \"net.optimum.monitoring.nokia.raw-alarms\",
-      \"outputTopic\": \"lab.optimum.experimental.streamlens.streammux.nokia-ztr\",
+      \"outputTopic\": \"net.optimum.experimental.streamlens.streammux.nokia-ztr\",
       \"source\": \"nokia\",
       \"sampleRate\": 1.0,
       \"defaultMappingName\": \"default\",

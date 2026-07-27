@@ -6,11 +6,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?set KAFKA_BOOTSTRAP_SERVERS}
       STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
       STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
-      STREAMMUX_TOPIC_JOB_DEFINITIONS: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:-job-definitions}
-      STREAMMUX_TOPIC_JOB_LEASES: ${STREAMMUX_TOPIC_JOB_LEASES:-job-leases}
-      STREAMMUX_TOPIC_JOB_STATUS: ${STREAMMUX_TOPIC_JOB_STATUS:-job-status}
-      STREAMMUX_TOPIC_JOB_EVENTS: ${STREAMMUX_TOPIC_JOB_EVENTS:-job-events}
-      STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-job-commands}
+      STREAMMUX_TOPIC_JOB_DEFINITIONS: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:-net.optimum.experimental.streamlens.streammux.jobdefinitions}
+      STREAMMUX_TOPIC_JOB_LEASES: ${STREAMMUX_TOPIC_JOB_LEASES:-net.optimum.experimental.streamlens.streammux.jobleases}
+      STREAMMUX_TOPIC_JOB_STATUS: ${STREAMMUX_TOPIC_JOB_STATUS:-net.optimum.experimental.streamlens.streammux.jobstatus}
+      STREAMMUX_TOPIC_JOB_EVENTS: ${STREAMMUX_TOPIC_JOB_EVENTS:-net.optimum.experimental.streamlens.streammux.jobevents}
+      STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-net.optimum.experimental.streamlens.streammux.jobcommands}
       STREAMMUX_ALLOWED_INPUT_TOPICS: ${STREAMMUX_ALLOWED_INPUT_TOPICS:-}
       STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES: ${STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES:-}
       STREAMMUX_ALLOWED_OUTPUT_TOPICS: ${STREAMMUX_ALLOWED_OUTPUT_TOPICS:-}
@@ -24,7 +24,7 @@ services:
     pull_policy: always
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?set KAFKA_BOOTSTRAP_SERVERS}
-      STREAMMUX_TOPIC_JOB_CATALOG: ${STREAMMUX_TOPIC_JOB_CATALOG:-job-catalog-entries}
+      STREAMMUX_TOPIC_JOB_CATALOG: ${STREAMMUX_TOPIC_JOB_CATALOG:-net.optimum.experimental.streamlens.streammux.jobcatalog}
       JOB_MANAGEMENT_API_URL: http://job-management-api:8080
     depends_on:
       - job-management-api
@@ -50,11 +50,11 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?set KAFKA_BOOTSTRAP_SERVERS}
       STREAMMUX_SITE_ID: ${STREAMMUX_SITE_ID:-site-a}
       STREAMMUX_INSTANCE_ID: ${STREAMMUX_INSTANCE_ID:-orchestrator-1}
-      STREAMMUX_TOPIC_JOB_DEFINITIONS: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:-job-definitions}
-      STREAMMUX_TOPIC_JOB_LEASES: ${STREAMMUX_TOPIC_JOB_LEASES:-job-leases}
-      STREAMMUX_TOPIC_JOB_STATUS: ${STREAMMUX_TOPIC_JOB_STATUS:-job-status}
-      STREAMMUX_TOPIC_JOB_EVENTS: ${STREAMMUX_TOPIC_JOB_EVENTS:-job-events}
-      STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-job-commands}
+      STREAMMUX_TOPIC_JOB_DEFINITIONS: ${STREAMMUX_TOPIC_JOB_DEFINITIONS:-net.optimum.experimental.streamlens.streammux.jobdefinitions}
+      STREAMMUX_TOPIC_JOB_LEASES: ${STREAMMUX_TOPIC_JOB_LEASES:-net.optimum.experimental.streamlens.streammux.jobleases}
+      STREAMMUX_TOPIC_JOB_STATUS: ${STREAMMUX_TOPIC_JOB_STATUS:-net.optimum.experimental.streamlens.streammux.jobstatus}
+      STREAMMUX_TOPIC_JOB_EVENTS: ${STREAMMUX_TOPIC_JOB_EVENTS:-net.optimum.experimental.streamlens.streammux.jobevents}
+      STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-net.optimum.experimental.streamlens.streammux.jobcommands}
     restart: unless-stopped
     depends_on:
       - job-management-api

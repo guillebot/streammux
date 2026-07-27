@@ -27,12 +27,12 @@ class JobDefinitionValidatorTest {
             List.of("net.optimum.monitoring.netscout.fixed.voicesip.json"),
             List.of(),
             List.of(),
-            List.of("lab.optimum.experimental.streamlens.streammux.")
+            List.of("net.optimum.experimental.streamlens.streammux.")
         );
 
         assertDoesNotThrow(() -> JobDefinitionValidator.validate(jobDefinition(
             "net.optimum.monitoring.netscout.fixed.voicesip.json",
-            "lab.optimum.experimental.streamlens.streammux.output1"
+            "net.optimum.experimental.streamlens.streammux.output1"
         ), policy));
     }
 
@@ -76,12 +76,12 @@ class JobDefinitionValidatorTest {
             List.of("net.optimum.monitoring.netscout.fixed.voicesip.json"),
             List.of(),
             List.of(),
-            List.of("lab.optimum.experimental.streamlens.streammux.")
+            List.of("net.optimum.experimental.streamlens.streammux.")
         );
 
         assertDoesNotThrow(() -> JobDefinitionValidator.validate(randomSamplerJob(
             "net.optimum.monitoring.netscout.fixed.voicesip.json",
-            "lab.optimum.experimental.streamlens.streammux.sampled",
+            "net.optimum.experimental.streamlens.streammux.sampled",
             0.5d
         ), policy));
     }
@@ -105,12 +105,12 @@ class JobDefinitionValidatorTest {
             List.of("net.optimum.monitoring.nokia.raw-alarms"),
             List.of(),
             List.of(),
-            List.of("lab.optimum.experimental.streamlens.streammux.")
+            List.of("net.optimum.experimental.streamlens.streammux.")
         );
 
         assertDoesNotThrow(() -> JobDefinitionValidator.validate(alarmsToZtrJob(
             "net.optimum.monitoring.nokia.raw-alarms",
-            "lab.optimum.experimental.streamlens.streammux.nokia-ztr",
+            "net.optimum.experimental.streamlens.streammux.nokia-ztr",
             "default",
             null
         ), policy));

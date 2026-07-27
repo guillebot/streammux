@@ -35,7 +35,7 @@ export function newJobTemplate(): JobDefinition {
         {
           routeId: "route-1",
           filterExpression: 'message.type == "ALARM"',
-          outputTopic: "lab.optimum.experimental.streamlens.streammux.alerts",
+          outputTopic: "net.optimum.experimental.streamlens.streammux.alerts",
         },
       ],
       streamProperties: {

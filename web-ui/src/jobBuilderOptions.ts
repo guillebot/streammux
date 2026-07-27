@@ -14,7 +14,7 @@ export const JOB_BUILDER_FALLBACK_INPUT_TOPICS: string[] = [
 
 /** Used only when the broker topic catalog API is unavailable. */
 export const JOB_BUILDER_FALLBACK_OUTPUT_TOPICS: string[] = [
-  "lab.optimum.experimental.streamlens.streammux.alerts",
+  "net.optimum.experimental.streamlens.streammux.alerts",
 ];
 
 export const JOB_BUILDER_JOB_TYPES: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER"];

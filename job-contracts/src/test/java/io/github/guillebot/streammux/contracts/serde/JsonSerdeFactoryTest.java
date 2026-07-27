@@ -15,6 +15,7 @@ import io.github.guillebot.streammux.contracts.model.JobType;
 import io.github.guillebot.streammux.contracts.model.LeasePolicy;
 import io.github.guillebot.streammux.contracts.model.PayloadFormat;
 import io.github.guillebot.streammux.contracts.model.RouteDefinition;
+import io.github.guillebot.streammux.contracts.model.TopicNames;
 import org.apache.kafka.common.serialization.Serde;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +58,7 @@ class JsonSerdeFactoryTest {
 
         Serde<JobDefinition> serde = JsonSerdeFactory.jsonSerde(JobDefinition.class);
 
-        JobDefinition restored = serde.deserializer().deserialize("job-definitions", serde.serializer().serialize("job-definitions", definition));
+        JobDefinition restored = serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, serde.serializer().serialize(TopicNames.JOB_DEFINITIONS, definition));
 
         assertEquals(definition, restored);
     }
@@ -84,7 +85,7 @@ class JsonSerdeFactoryTest {
 
         Serde<JobDefinition> serde = JsonSerdeFactory.jsonSerde(JobDefinition.class);
 
-        JobDefinition restored = serde.deserializer().deserialize("job-definitions", serde.serializer().serialize("job-definitions", definition));
+        JobDefinition restored = serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, serde.serializer().serialize(TopicNames.JOB_DEFINITIONS, definition));
 
         assertEquals(definition, restored);
     }
@@ -133,7 +134,7 @@ class JsonSerdeFactoryTest {
 
         Serde<JobDefinition> serde = JsonSerdeFactory.jsonSerde(JobDefinition.class);
 
-        JobDefinition restored = serde.deserializer().deserialize("job-definitions", serde.serializer().serialize("job-definitions", definition));
+        JobDefinition restored = serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, serde.serializer().serialize(TopicNames.JOB_DEFINITIONS, definition));
 
         assertEquals(definition, restored);
     }
@@ -152,7 +153,7 @@ class JsonSerdeFactoryTest {
 
         Serde<JobCommand> serde = JsonSerdeFactory.jsonSerde(JobCommand.class);
 
-        JobCommand restored = serde.deserializer().deserialize("job-commands", serde.serializer().serialize("job-commands", command));
+        JobCommand restored = serde.deserializer().deserialize(TopicNames.JOB_COMMANDS, serde.serializer().serialize(TopicNames.JOB_COMMANDS, command));
 
         assertEquals(command, restored);
     }
@@ -173,7 +174,7 @@ class JsonSerdeFactoryTest {
 
         Serde<JobEvent> serde = JsonSerdeFactory.jsonSerde(JobEvent.class);
 
-        JobEvent restored = serde.deserializer().deserialize("job-events", serde.serializer().serialize("job-events", event));
+        JobEvent restored = serde.deserializer().deserialize(TopicNames.JOB_EVENTS, serde.serializer().serialize(TopicNames.JOB_EVENTS, event));
 
         assertEquals(event, restored);
     }
@@ -182,6 +183,6 @@ class JsonSerdeFactoryTest {
     void returnsNullWhenDeserializingNullPayload() {
         Serde<JobDefinition> serde = JsonSerdeFactory.jsonSerde(JobDefinition.class);
 
-        assertNull(serde.deserializer().deserialize("job-definitions", null));
+        assertNull(serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, null));
     }
 }

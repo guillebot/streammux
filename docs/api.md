@@ -131,7 +131,7 @@ curl -u "$AUTH" -X POST "$API/jobs" \
         {
           "routeId": "sip-alarms",
           "filterExpression": "application_name == \"SIP_TCP\"",
-          "outputTopic": "lab.optimum.experimental.streamlens.streammux.output1"
+          "outputTopic": "net.optimum.experimental.streamlens.streammux.output1"
         }
       ],
       "streamProperties": {
@@ -169,7 +169,7 @@ curl -u "$AUTH" -X POST "$API/jobs" \
     "parallelism": 1,
     "randomSamplerConfig": {
       "inputTopic": "net.optimum.monitoring.example.input",
-      "outputTopic": "lab.optimum.experimental.streamlens.streammux.sampled",
+      "outputTopic": "net.optimum.experimental.streamlens.streammux.sampled",
       "rate": 0.01,
       "streamProperties": {
         "bootstrap.servers": "localhost:9092",
@@ -195,7 +195,7 @@ curl -u "$AUTH" -sS "$API/jobs/route-poc-1/events" | jq .
 
 ### Pause, resume, and update desired state
 
-Pause via command endpoint (publishes to `job-commands`; see [overview.md](overview.md#current-limitations) for consumer maturity):
+Pause via command endpoint (publishes to `net.optimum.experimental.streamlens.streammux.jobcommands`; see [overview.md](overview.md#current-limitations) for consumer maturity):
 
 ```bash
 curl -u "$AUTH" -X POST "$API/jobs/route-poc-1/pause"
@@ -271,7 +271,7 @@ Duplicate create returns **`409 Conflict`**. Missing jobs return **`404 Not Foun
 
 ## API-managed lifecycle (what happens after you call the API)
 
-1. **POST/PUT /jobs** — API validates, assigns version/timestamps, publishes `JobDefinition` to `job-definitions` and audit events to `job-events`.
+1. **POST/PUT /jobs** — API validates, assigns version/timestamps, publishes `JobDefinition` to `net.optimum.experimental.streamlens.streammux.jobdefinitions` and audit events to `net.optimum.experimental.streamlens.streammux.jobevents`.
 2. **Orchestrators** — consume definitions and leases; compete for lease ownership; start/stop the appropriate runner locally.
 3. **GET /jobs/***, **status**, **lease**, **events** — served from the API’s Kafka-backed in-memory read model (rebuilt on restart from topic replay).
 

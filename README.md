@@ -47,11 +47,12 @@ flowchart LR
 
 These topic names are shared across modules and default to the values below:
 
-- `job-definitions`
-- `job-leases`
-- `job-status`
-- `job-events`
-- `job-commands`
+- `net.optimum.experimental.streamlens.streammux.jobdefinitions`
+- `net.optimum.experimental.streamlens.streammux.jobleases`
+- `net.optimum.experimental.streamlens.streammux.jobstatus`
+- `net.optimum.experimental.streamlens.streammux.jobevents`
+- `net.optimum.experimental.streamlens.streammux.jobcommands`
+- `net.optimum.experimental.streamlens.streammux.jobcatalog` (catalog API only)
 
 The current message flow is:
 
@@ -60,11 +61,11 @@ flowchart LR
   API[job-management-api]
   ORCH[site-orchestrator]
 
-  DEF[(job-definitions)]
-  LEASE[(job-leases)]
-  STATUS[(job-status)]
-  EVENTS[(job-events)]
-  COMMANDS[(job-commands)]
+  DEF[(jobdefinitions)]
+  LEASE[(jobleases)]
+  STATUS[(jobstatus)]
+  EVENTS[(jobevents)]
+  COMMANDS[(jobcommands)]
 
   API --> DEF
   API --> EVENTS
@@ -101,9 +102,9 @@ Streammux is **100% API-managed**: operators and automation interact only throug
 
 Clients create or update jobs through `job-management-api`, typically via `POST /jobs` or `PUT /jobs/{jobId}`. The API validates the payload, normalizes job metadata such as version and timestamps, then publishes:
 
-- the `JobDefinition` to `job-definitions`
-- audit-style `JobEvent` records to `job-events`
-- command messages to `job-commands` for pause, resume, restart, and delete endpoints
+- the `JobDefinition` to `net.optimum.experimental.streamlens.streammux.jobdefinitions`
+- audit-style `JobEvent` records to `net.optimum.experimental.streamlens.streammux.jobevents`
+- command messages to `net.optimum.experimental.streamlens.streammux.jobcommands` for pause, resume, restart, and delete endpoints
 
 ### 2. The API builds a read model from Kafka
 
@@ -113,7 +114,7 @@ The API also consumes Kafka and stores the latest definitions, leases, statuses,
 
 Each `site-orchestrator` instance:
 
-- consumes `job-definitions` and `job-leases`
+- consumes `net.optimum.experimental.streamlens.streammux.jobdefinitions` and `net.optimum.experimental.streamlens.streammux.jobleases`
 - keeps a local in-memory state store
 - runs a scheduled reconcile loop
 - decides whether to claim, renew, release, or ignore a lease
@@ -231,7 +232,7 @@ STREAMMUX_SITE_ID=site-a
 STREAMMUX_INSTANCE_ID=orchestrator-1
 STREAMMUX_ALLOWED_INPUT_TOPICS=net.optimum.monitoring.netscout.fixed.voicesip.json
 STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES=net.optimum.monitoring.
-STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES=lab.optimum.experimental.streamlens.streammux.
+STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES=net.optimum.experimental.streamlens.streammux.
 ```
 
 Topic restrictions are enforced by `job-management-api` during job create and update validation.
@@ -291,7 +292,7 @@ mvn package
 
 These details are important for understanding the current state of the project:
 
-- `job-management-api` publishes to `job-commands`, but there is no command consumer in this repository yet
+- `job-management-api` publishes to `net.optimum.experimental.streamlens.streammux.jobcommands`, but there is no command consumer in this repository yet
 - operational control is currently driven primarily by `desiredState` on `JobDefinition` and by lease expiry/ownership
 - `siteAffinity` and `priority` exist on `JobDefinition`, but the current lease logic does not use them
 - both services keep their query/state views in memory

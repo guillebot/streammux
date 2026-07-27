@@ -34,12 +34,12 @@ curl -X POST "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/jobs" \
         {
           \"routeId\": \"contains-foo\",
           \"filterExpression\": \"application_name == \\\"SIP_TCP\\\"\",
-          \"outputTopic\": \"lab.optimum.experimental.streamlens.streammux.output1\"
+          \"outputTopic\": \"net.optimum.experimental.streamlens.streammux.output1\"
         },
         {
           \"routeId\": \"contains-bar\",
           \"filterExpression\": \"bar\",
-          \"outputTopic\": \"lab.optimum.experimental.streamlens.streammux.output2\"
+          \"outputTopic\": \"net.optimum.experimental.streamlens.streammux.output2\"
         }
       ],
       \"streamProperties\": {

@@ -19,7 +19,7 @@ if [[ -f ".env" ]]; then
 fi
 
 JOB_ID="${JOB_ID:-alarmmanager-noise-filter}"
-OUTPUT_TOPIC="${OUTPUT_TOPIC:-lab.optimum.experimental.streamlens.streammux.alarmmanager.filtered}"
+OUTPUT_TOPIC="${OUTPUT_TOPIC:-net.optimum.experimental.streamlens.streammux.alarmmanager.filtered}"
 API_PORT="${JOB_MANAGEMENT_API_PORT:-8080}"
 
 curl -sS -X POST "http://localhost:${API_PORT}/jobs" \
