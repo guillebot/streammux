@@ -32,8 +32,8 @@ public class RouteAppRunner implements JobRunner {
         Properties properties = topologyFactory.properties(jobDefinition, leaseEpoch);
         KafkaStreams streams = new KafkaStreams(topology, properties);
         try {
-            streams.start();
             streamsSupport.register(jobDefinition.jobId(), streams);
+            streams.start();
             LOGGER.info("Started route-app job {} at lease epoch {}", jobDefinition.jobId(), leaseEpoch);
         } catch (RuntimeException ex) {
             streamsSupport.recordStartFailure(jobDefinition.jobId(), ex);
