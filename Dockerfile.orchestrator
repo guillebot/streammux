@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 ARG DOCKER_HUB_PROXY=
 FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jdk@sha256:da9d3a4f7650db39b918fc5a2c3da76556fb8cc8e5f3767cdea0bb409286951a AS build
 
@@ -17,6 +18,9 @@ COPY runners/job-runner-alarms-to-ztr/pom.xml runners/job-runner-alarms-to-ztr/p
 COPY site-orchestrator/pom.xml site-orchestrator/pom.xml
 COPY integration-tests/pom.xml integration-tests/pom.xml
 
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    mvn -B -pl site-orchestrator -am dependency:go-offline -DskipTests
+
 COPY job-contracts job-contracts
 COPY job-management-api job-management-api
 COPY runners/job-runner-route-app runners/job-runner-route-app
@@ -25,7 +29,8 @@ COPY runners/job-runner-alarms-to-ztr runners/job-runner-alarms-to-ztr
 COPY site-orchestrator site-orchestrator
 COPY integration-tests integration-tests
 
-RUN mvn -pl site-orchestrator -am package -DskipTests
+RUN --mount=type=cache,target=/root/.m2,sharing=locked \
+    mvn -B -pl site-orchestrator -am package -DskipTests
 
 ARG DOCKER_HUB_PROXY=
 FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jre@sha256:273396ed5998598ed1091e8d72711c2d36980a0e65103859c55a4e977a41ffd3

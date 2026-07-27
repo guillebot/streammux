@@ -2,6 +2,7 @@ import express from "express";
 import { Kafka } from "kafkajs";
 import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
+import { buildKafkaClientConfig } from "./kafka-config.mjs";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const JOB_API_RAW = (process.env.JOB_MANAGEMENT_API_URL ?? "").trim().replace(/\/$/, "");
@@ -30,7 +31,7 @@ if (!TOPIC) {
 
 const JOB_API = JOB_API_RAW;
 
-const kafka = new Kafka({ clientId: CLIENT_ID, brokers: BROKERS });
+const kafka = new Kafka(buildKafkaClientConfig({ clientId: CLIENT_ID, brokers: BROKERS }));
 const producer = kafka.producer({
   allowAutoTopicCreation: false,
   idempotent: true,

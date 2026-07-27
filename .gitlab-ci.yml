@@ -56,9 +56,13 @@ default:
 .maven-job:
   image: "${MAVEN_IMAGE}"
   cache:
-    key: "${CI_COMMIT_REF_SLUG}-maven"
+    key:
+      files:
+        - pom.xml
+        - "**/pom.xml"
     paths:
       - .m2/repository
+    policy: pull-push
 
 test:
   extends: .maven-job

@@ -6,7 +6,7 @@ WORKDIR /app
 COPY --chown=node:node job-catalog-api/package.json job-catalog-api/package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY --chown=node:node job-catalog-api/server.mjs ./
+COPY --chown=node:node job-catalog-api/server.mjs job-catalog-api/kafka-config.mjs ./
 
 ENV PORT=3000
 ENV JOB_MANAGEMENT_API_URL=http://job-management-api:8080

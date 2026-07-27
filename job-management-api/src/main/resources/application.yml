@@ -10,6 +10,13 @@ spring:
       password: ${STREAMMUX_API_PASSWORD:change-me-now}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-512}
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_SASL_USERNAME:}" password="${KAFKA_SASL_PASSWORD:}";
+      ssl.engine.factory.class: ${KAFKA_SSL_ENGINE_FACTORY_CLASS:}
+      ssl.endpoint.identification.algorithm: ${KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM:https}
     consumer:
       group-id: ${STREAMMUX_API_CONSUMER_GROUP:job-management-api-read-model-${random.uuid}}
       auto-offset-reset: earliest
