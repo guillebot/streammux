@@ -396,6 +396,38 @@ router.post("/entries/:id/push", async (req, res) => {
   }
 });
 
+router.get("/health", (_req, res) => {
+  res.json({
+    status: "UP",
+    module: { name: "job-catalog-api", status: "UP" },
+    kafka: {
+      status: "UP",
+      bootstrapServers: BROKERS.join(","),
+      topic: TOPIC,
+    },
+    catalog: {
+      entryCount: entries.size,
+    },
+  });
+});
+
+router.get("/settings", (_req, res) => {
+  res.json({
+    module: { name: "job-catalog-api" },
+    kafka: {
+      bootstrapServers: BROKERS.join(","),
+      topic: TOPIC,
+      clientId: CLIENT_ID,
+    },
+    jobManagementApiUrl: JOB_API,
+    topicConfig: {
+      createTopic: CREATE_TOPIC,
+      partitions: PARTITIONS,
+      replicationFactor: REPLICATION,
+    },
+  });
+});
+
 const app = express();
 app.use(express.json({ limit: "4mb" }));
 app.use("/catalog", router);

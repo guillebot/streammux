@@ -40,4 +40,8 @@ public class JobStateStore {
         statuses.remove(jobId);
         events.remove(jobId);
     }
+
+    public int snapshotLeaseCount() { return leases.size(); }
+    public int snapshotStatusCount() { return statuses.size(); }
+    public int snapshotEventJobCount() { return events.size(); }
 }

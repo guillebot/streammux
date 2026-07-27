@@ -452,3 +452,49 @@ select.form-select {
   max-width: 28rem;
   min-width: 0;
 }
+
+.health-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+}
+
+.health-badge--ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+
+.health-badge--warn {
+  color: #d97706;
+  border-color: color-mix(in srgb, #d97706 45%, var(--border));
+  background: color-mix(in srgb, #d97706 14%, transparent);
+}
+
+.health-badge--bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.health-badge--neutral {
+  color: var(--muted);
+}
+
+.health-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.85rem 1.25rem;
+}
+
+.health-kv-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}

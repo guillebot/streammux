@@ -23,6 +23,12 @@ export function AppLayout() {
           <NavLink className="sidebar-link" to="/job/builder">
             Job Builder
           </NavLink>
+          <NavLink className="sidebar-link" to="/health">
+            Health
+          </NavLink>
+          <NavLink className="sidebar-link" to="/settings">
+            Settings
+          </NavLink>
         </nav>
       </aside>
       <div className="layout-main">
