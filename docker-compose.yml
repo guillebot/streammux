@@ -37,6 +37,8 @@ services:
       <<: *kafka-env
       STREAMMUX_TOPIC_JOB_CATALOG: ${STREAMMUX_TOPIC_JOB_CATALOG:-net.optimum.experimental.streamlens.streammux.jobcatalog}
       JOB_MANAGEMENT_API_URL: http://job-management-api:8080
+      STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
+      STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
     depends_on:
       - job-management-api
     restart: unless-stopped
@@ -50,6 +52,8 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?set KAFKA_BOOTSTRAP_SERVERS}
       STREAMMUX_JOB_MANAGEMENT_API: ${STREAMMUX_JOB_MANAGEMENT_API_UPSTREAM:-job-management-api:8080}
       STREAMMUX_JOB_CATALOG_API: ${STREAMMUX_JOB_CATALOG_API_UPSTREAM:-job-catalog-api:3000}
+      STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
+      STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
     depends_on:
       - job-management-api
       - job-catalog-api

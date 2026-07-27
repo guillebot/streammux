@@ -30,6 +30,16 @@ if (!TOPIC) {
 }
 
 const JOB_API = JOB_API_RAW;
+const API_USERNAME = (process.env.STREAMMUX_API_USERNAME ?? "streammux").trim();
+const API_PASSWORD = (process.env.STREAMMUX_API_PASSWORD ?? "").trim();
+
+function jobApiHeaders(extra = {}) {
+  const headers = { ...extra };
+  if (API_USERNAME && API_PASSWORD) {
+    headers.Authorization = `Basic ${Buffer.from(`${API_USERNAME}:${API_PASSWORD}`).toString("base64")}`;
+  }
+  return headers;
+}
 
 const TOPIC_CLEANUP = {
   COMPACT: "compact",
@@ -425,18 +435,18 @@ router.post("/entries/:id/push", async (req, res) => {
   const jobId = job.jobId;
   const url = `${JOB_API}/jobs/${encodeURIComponent(jobId)}`;
   try {
-    let probe = await fetch(url, { method: "GET" });
+    let probe = await fetch(url, { method: "GET", headers: jobApiHeaders() });
     let apiRes;
     if (probe.status === 404) {
       apiRes = await fetch(`${JOB_API}/jobs`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
       });
     } else if (probe.ok) {
       apiRes = await fetch(url, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
       });
     } else {
