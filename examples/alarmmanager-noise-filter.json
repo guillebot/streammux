@@ -1,0 +1,113 @@
+{
+  "title": "Alarm Manager — drop massive FTTH Agora ONU and HFC cable-modem noise",
+  "sourceTopic": "com.optimum.monitoring.alarmmanager.alarms",
+  "sourceCluster": "red",
+  "sampledAt": "2026-07-27",
+  "sampleNotes": "Built from ~800 live tail samples (4x200 msgs) via Kafka Atlas on Rednet. FTTH-AGORA-SNMP and ONU/GPON specificProblem values were consistently present. HFC cable-modem subsystems were not observed in the sample window — HFC subsystem names below are placeholders to validate against your Alarm Manager probe list before prod.",
+  "semantics": "ALARMS_TO_ZTR filter: first matching rule wins; no match drops the record. Rules are an allowlist — each rule describes a slice of alarms to KEEP. Order matters: broad non-noisy subsystems pass first; Agora/HFC slices only apply when earlier rules did not match.",
+  "onuSpecificProblems": [
+    "Loss of signal for ONUi",
+    "Receive dying-gasp of ONUi",
+    "Signal degraded of ONUi",
+    "Start-up failure of ONUi",
+    "Deactivate failure of ONUi",
+    "RX GPON optical signal above rated value",
+    "RX GPON optical signal below rated value",
+    "New ONT Detected"
+  ],
+  "hfcSubsystemsToValidate": [
+    "HFC-CM-SNMP",
+    "HFC-DOCSIS-SNMP",
+    "HFC-CMTS-SNMP",
+    "SDL-HFC-SNMP",
+    "OPT-HFC-SNMP"
+  ],
+  "hfcCmSpecificProblemsToValidate": [
+    "CM Status Change",
+    "Modem Offline",
+    "Modem Online",
+    "CM On/offline",
+    "UsChannelSNRAlarm",
+    "DsChannelSNRAlarm",
+    "Power Adjustment"
+  ],
+  "filter": {
+    "defaultMappingName": "passthrough",
+    "rules": [
+      {
+        "_comment": "Pass everything not sourced from high-volume FTTH Agora or HFC CM probes.",
+        "path": "subsystem",
+        "op": "not_in",
+        "values": [
+          "FTTH-AGORA-SNMP",
+          "HFC-CM-SNMP",
+          "HFC-DOCSIS-SNMP",
+          "HFC-CMTS-SNMP",
+          "SDL-HFC-SNMP",
+          "OPT-HFC-SNMP"
+        ],
+        "mappingName": "passthrough"
+      },
+      {
+        "_comment": "Agora: pass when the trap is not a per-ONU/GPON customer alarm.",
+        "path": "specificProblem",
+        "op": "not_in",
+        "values": [
+          "Loss of signal for ONUi",
+          "Receive dying-gasp of ONUi",
+          "Signal degraded of ONUi",
+          "Start-up failure of ONUi",
+          "Deactivate failure of ONUi",
+          "RX GPON optical signal above rated value",
+          "RX GPON optical signal below rated value",
+          "New ONT Detected"
+        ],
+        "mappingName": "passthrough"
+      },
+      {
+        "_comment": "Agora: pass when managed object is not ONU/PON (keeps OLT/chassis-level).",
+        "path": "managedObjectClass",
+        "op": "not_in",
+        "values": [
+          "ONU",
+          "PON"
+        ],
+        "mappingName": "passthrough"
+      },
+      {
+        "_comment": "Agora: pass non-GPON technology (undef on OLT/syslog-derived alarms).",
+        "path": "technology",
+        "op": "ne",
+        "value": "GPON",
+        "mappingName": "passthrough"
+      },
+      {
+        "_comment": "HFC: pass when managed object is not a cable modem class (keeps CMTS/headend).",
+        "path": "managedObjectClass",
+        "op": "not_in",
+        "values": [
+          "CableModem",
+          "CM",
+          "MTA",
+          "docsCableMaclayer"
+        ],
+        "mappingName": "passthrough"
+      },
+      {
+        "_comment": "HFC: pass when specificProblem is not a known per-modem flap/noise trap.",
+        "path": "specificProblem",
+        "op": "not_in",
+        "values": [
+          "CM Status Change",
+          "Modem Offline",
+          "Modem Online",
+          "CM On/offline",
+          "UsChannelSNRAlarm",
+          "DsChannelSNRAlarm",
+          "Power Adjustment"
+        ],
+        "mappingName": "passthrough"
+      }
+    ]
+  }
+}
