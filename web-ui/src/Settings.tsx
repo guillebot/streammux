@@ -180,7 +180,12 @@ export function Settings() {
       <section className="panel">
         <h2>Documentation</h2>
         <p className="muted">
-          OpenAPI docs:{" "}
+          API reference:{" "}
+          <a href="https://gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux/-/blob/main/docs/api.md" target="_blank" rel="noreferrer">
+            docs/api.md
+          </a>
+          {" · "}
+          OpenAPI:{" "}
           <a href="/swagger-ui/index.html" target="_blank" rel="noreferrer">
             Swagger UI
           </a>

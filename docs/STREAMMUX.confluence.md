@@ -79,17 +79,27 @@ Detailed steps, variable tables, and Compose file differences are in **`docs/dep
 
 ---
 
+## 100% API-managed
+
+Streammux has **no supported manual control path** on orchestrator hosts. Every operational change — defining a job, changing routes, pausing, checking who holds the lease, or deleting a pipeline — goes through **HTTP APIs**. The web console and job catalog are thin clients over the same endpoints; automation should call the API directly.
+
+The management API validates requests, publishes desired state to Kafka, and serves a read model built from Kafka topics. Site orchestrators react to that event log; they are not called over HTTP for normal operations.
+
 ## How to use it (high level)
 
 1. **Create a job** by sending a JSON description to the API (for example `POST /jobs`). The system validates the configuration and records it in Kafka.
 2. **Check status** with read endpoints (list jobs, get one job, optional status and lease views).
 3. **Change or retire** jobs with update and delete endpoints. Pause, resume, and restart commands exist on the API; note that some command paths may still be evolving—see repository docs for the current behavior.
 
-**Interactive API docs:** when the API is running, OpenAPI/Swagger UI is available under the standard Springdoc paths (for example `/swagger-ui/index.html`).
+**API documentation:**
+
+- **`docs/api.md`** — full reference, authentication, curl examples, catalog API
+- **`docs/openapi.json`** — checked-in OpenAPI snapshot for job-management-api
+- **Swagger UI** — `/swagger-ui/index.html` when the API is running (Springdoc)
 
 The repository includes small shell scripts that create a sample job, list jobs, and delete a job for local testing.
 
-Full endpoint list and script names are in **`docs/usage.md`**.
+Full endpoint list and script names are in **`docs/api.md`** and **`docs/usage.md`**.
 
 ---
 

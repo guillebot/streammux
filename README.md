@@ -95,6 +95,8 @@ flowchart LR
 
 ## How The System Works
 
+Streammux is **100% API-managed**: operators and automation interact only through the job management REST API (and the catalog API for templates). There is no supported workflow to configure runners by shell access on orchestrator hosts.
+
 ### 1. Desired state enters through the API
 
 Clients create or update jobs through `job-management-api`, typically via `POST /jobs` or `PUT /jobs/{jobId}`. The API validates the payload, normalizes job metadata such as version and timestamps, then publishes:
@@ -270,6 +272,12 @@ a named map of JSON mapping templates (same shape as the output message, with `$
 references and `{"$input": "...", "$map": {...}}` value maps) plus an optional `filter`
 with ordered rules (`eq`, `ne`/`not_eq`, `in`, `not_in`, `regex`, `exists`) where each rule
 may override which mapping is applied.
+
+## Documentation
+
+- [docs/api.md](docs/api.md) — **100% API-managed** control plane, complete OpenAPI reference, curl examples
+- [docs/usage.md](docs/usage.md) — quick endpoint index, helper scripts, health endpoints
+- [docs/openapi.json](docs/openapi.json) — checked-in OpenAPI snapshot for job-management-api
 
 ## Build
 

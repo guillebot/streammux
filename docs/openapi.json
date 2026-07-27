@@ -1,0 +1,1228 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Streammux Job Management API",
+        "description": "REST API for job definitions and lifecycle commands. The service validates payloads, maintains a Kafka-projected read model, and publishes definitions, commands, and events to Kafka.",
+        "license": {
+            "name": "Apache 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "0.1.0-SNAPSHOT"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8080",
+            "description": "Local Compose (JOB_MANAGEMENT_API_PORT)"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Job metadata",
+            "description": "Broker-backed metadata for job authoring"
+        },
+        {
+            "name": "Actuator",
+            "description": "Monitor and interact",
+            "externalDocs": {
+                "description": "Spring Boot Actuator Web API Documentation",
+                "url": "https://docs.spring.io/spring-boot/docs/current/actuator-api/html/"
+            }
+        },
+        {
+            "name": "Jobs",
+            "description": "Job definitions, lifecycle commands, and Kafka-projected status, lease, and event views"
+        }
+    ],
+    "paths": {
+        "/jobs/{jobId}": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Get job",
+                "operationId": "get",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job definition",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Update job",
+                "description": "Increments version, validates payload, and publishes the updated definition.",
+                "operationId": "update",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/JobDefinition"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Job updated",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Delete job",
+                "description": "Marks the job deleted, publishes commands/events, and removes it from the local read model.",
+                "operationId": "delete",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Delete accepted"
+                    },
+                    "404": {
+                        "description": "Job not found"
+                    }
+                }
+            }
+        },
+        "/jobs": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "List jobs",
+                "operationId": "list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JobDefinition"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Create job",
+                "description": "Registers a new job and publishes the definition to Kafka.",
+                "operationId": "create",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/JobDefinition"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Job created",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Job id already exists",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/resume": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Resume job",
+                "operationId": "resume",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Resume command accepted"
+                    },
+                    "404": {
+                        "description": "Job not found"
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/restart": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Restart job",
+                "operationId": "restart",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Restart command accepted"
+                    },
+                    "404": {
+                        "description": "Job not found"
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/pause": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Pause job",
+                "operationId": "pause",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Pause command accepted"
+                    },
+                    "404": {
+                        "description": "Job not found"
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/status": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Runtime status",
+                "description": "Returns JSON when status exists for this job; empty body with HTTP 200 when the read model has no status yet.",
+                "operationId": "status",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobRuntimeStatus"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/lease": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Lease",
+                "description": "Returns JSON when a lease exists for this job; empty body with HTTP 200 when none is projected yet.",
+                "operationId": "lease",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobLease"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/{jobId}/events": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Job events",
+                "description": "Audit-style events for the job from the read model (may be empty).",
+                "operationId": "events",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JobEvent"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/meta/settings": {
+            "get": {
+                "tags": [
+                    "Job metadata"
+                ],
+                "summary": "Platform settings snapshot",
+                "description": "Curated non-secret configuration: Kafka, topic names, validation allowlists, and API metadata.",
+                "operationId": "settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlatformSettings"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/meta/kafka-topics": {
+            "get": {
+                "tags": [
+                    "Job metadata"
+                ],
+                "summary": "List allowed Kafka topics",
+                "description": "Returns broker topic names filtered by the configured input/output allowlists.",
+                "operationId": "kafkaTopics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/KafkaTopicCatalog"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/jobs/meta/health": {
+            "get": {
+                "tags": [
+                    "Job metadata"
+                ],
+                "summary": "Platform health snapshot",
+                "description": "Kafka connectivity, configured topic presence, and in-memory read-model counts.",
+                "operationId": "health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PlatformHealth"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/actuator": {
+            "get": {
+                "tags": [
+                    "Actuator"
+                ],
+                "summary": "Actuator root web endpoint",
+                "operationId": "links",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/vnd.spring-boot.actuator.v3+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "$ref": "#/components/schemas/Link"
+                                        }
+                                    }
+                                }
+                            },
+                            "application/vnd.spring-boot.actuator.v2+json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "$ref": "#/components/schemas/Link"
+                                        }
+                                    }
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "$ref": "#/components/schemas/Link"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/actuator/info": {
+            "get": {
+                "tags": [
+                    "Actuator"
+                ],
+                "summary": "Actuator web endpoint 'info'",
+                "operationId": "info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/vnd.spring-boot.actuator.v3+json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/vnd.spring-boot.actuator.v2+json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/actuator/health": {
+            "get": {
+                "tags": [
+                    "Actuator"
+                ],
+                "summary": "Actuator web endpoint 'health'",
+                "operationId": "health_1",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/vnd.spring-boot.actuator.v3+json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/vnd.spring-boot.actuator.v2+json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "AlarmsToZtrConfig": {
+                "type": "object",
+                "properties": {
+                    "inputTopic": {
+                        "type": "string"
+                    },
+                    "outputTopic": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "sampleRate": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "mappings": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        }
+                    },
+                    "defaultMappingName": {
+                        "type": "string"
+                    },
+                    "filter": {
+                        "$ref": "#/components/schemas/AlarmsToZtrFilter"
+                    },
+                    "streamProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "AlarmsToZtrFilter": {
+                "type": "object",
+                "properties": {
+                    "defaultMappingName": {
+                        "type": "string"
+                    },
+                    "rules": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AlarmsToZtrFilterRule"
+                        }
+                    }
+                }
+            },
+            "AlarmsToZtrFilterRule": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string"
+                    },
+                    "op": {
+                        "type": "string"
+                    },
+                    "value": {},
+                    "values": {
+                        "type": "array",
+                        "items": {}
+                    },
+                    "mappingName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "JobDefinition": {
+                "type": "object",
+                "properties": {
+                    "jobId": {
+                        "type": "string"
+                    },
+                    "jobVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "jobType": {
+                        "type": "string",
+                        "enum": [
+                            "ROUTE_APP",
+                            "RANDOM_SAMPLER",
+                            "ALARMS_TO_ZTR"
+                        ]
+                    },
+                    "desiredState": {
+                        "type": "string",
+                        "enum": [
+                            "ACTIVE",
+                            "PAUSED",
+                            "DRAINING",
+                            "DELETED"
+                        ]
+                    },
+                    "priority": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "siteAffinity": {
+                        "type": "string"
+                    },
+                    "leasePolicy": {
+                        "$ref": "#/components/schemas/LeasePolicy"
+                    },
+                    "parallelism": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "routeAppConfig": {
+                        "$ref": "#/components/schemas/RouteAppConfig"
+                    },
+                    "randomSamplerConfig": {
+                        "$ref": "#/components/schemas/RandomSamplerConfig"
+                    },
+                    "alarmsToZtrConfig": {
+                        "$ref": "#/components/schemas/AlarmsToZtrConfig"
+                    },
+                    "labels": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "updatedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updatedBy": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LeasePolicy": {
+                "type": "object",
+                "properties": {
+                    "heartbeatIntervalSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "leaseDurationSeconds": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "claimBackoffMillis": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "allowFailover": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "RandomSamplerConfig": {
+                "type": "object",
+                "properties": {
+                    "inputTopic": {
+                        "type": "string"
+                    },
+                    "outputTopic": {
+                        "type": "string"
+                    },
+                    "rate": {
+                        "type": "number",
+                        "format": "double"
+                    },
+                    "streamProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "RouteAppConfig": {
+                "type": "object",
+                "properties": {
+                    "inputTopic": {
+                        "type": "string"
+                    },
+                    "inputFormat": {
+                        "type": "string",
+                        "enum": [
+                            "JSON",
+                            "PROTOBUF"
+                        ]
+                    },
+                    "outputFormat": {
+                        "type": "string",
+                        "enum": [
+                            "JSON",
+                            "PROTOBUF"
+                        ]
+                    },
+                    "protobufSchemaSubject": {
+                        "type": "string"
+                    },
+                    "routes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RouteDefinition"
+                        }
+                    },
+                    "streamProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    },
+                    "serdeProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "RouteDefinition": {
+                "type": "object",
+                "properties": {
+                    "routeId": {
+                        "type": "string"
+                    },
+                    "filterExpression": {
+                        "type": "string"
+                    },
+                    "outputTopic": {
+                        "type": "string"
+                    }
+                }
+            },
+            "JobRuntimeStatus": {
+                "type": "object",
+                "properties": {
+                    "jobId": {
+                        "type": "string"
+                    },
+                    "jobVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": [
+                            "PENDING",
+                            "STARTING",
+                            "RUNNING",
+                            "PAUSED",
+                            "DEGRADED",
+                            "FAILED",
+                            "STOPPED"
+                        ]
+                    },
+                    "health": {
+                        "type": "string",
+                        "enum": [
+                            "UNKNOWN",
+                            "HEALTHY",
+                            "DEGRADED",
+                            "UNHEALTHY"
+                        ]
+                    },
+                    "lastHeartbeatAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "workerMetadata": {
+                        "$ref": "#/components/schemas/WorkerMetadata"
+                    },
+                    "failureReason": {
+                        "type": "string"
+                    },
+                    "lagMetrics": {
+                        "$ref": "#/components/schemas/LagMetrics"
+                    }
+                }
+            },
+            "LagMetrics": {
+                "type": "object",
+                "properties": {
+                    "inputLag": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "outputRatePerSecond": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "processedCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "WorkerMetadata": {
+                "type": "object",
+                "properties": {
+                    "workerId": {
+                        "type": "string"
+                    },
+                    "topologyName": {
+                        "type": "string"
+                    },
+                    "localState": {
+                        "type": "string"
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                }
+            },
+            "JobLease": {
+                "type": "object",
+                "properties": {
+                    "jobId": {
+                        "type": "string"
+                    },
+                    "jobVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "leaseOwnerSite": {
+                        "type": "string"
+                    },
+                    "leaseOwnerInstance": {
+                        "type": "string"
+                    },
+                    "leaseEpoch": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "CLAIMED",
+                            "RUNNING",
+                            "RELEASING",
+                            "LOST",
+                            "EXPIRED"
+                        ]
+                    },
+                    "leaseExpiresAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "lastHeartbeatAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "JobEvent": {
+                "type": "object",
+                "properties": {
+                    "eventId": {
+                        "type": "string"
+                    },
+                    "jobId": {
+                        "type": "string"
+                    },
+                    "jobVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "eventType": {
+                        "type": "string",
+                        "enum": [
+                            "CREATED",
+                            "UPDATED",
+                            "CLAIMED",
+                            "STARTED",
+                            "HEARTBEAT",
+                            "PAUSED",
+                            "RESUMED",
+                            "FAILED",
+                            "RELEASED",
+                            "STOPPED",
+                            "DELETED"
+                        ]
+                    },
+                    "eventTime": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "siteId": {
+                        "type": "string"
+                    },
+                    "instanceId": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                }
+            },
+            "ApiSettings": {
+                "type": "object",
+                "properties": {
+                    "exposedActuatorEndpoints": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "springdocShowActuator": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "KafkaSettings": {
+                "type": "object",
+                "properties": {
+                    "bootstrapServers": {
+                        "type": "string"
+                    },
+                    "consumerGroupId": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ModuleSettings": {
+                "type": "object",
+                "properties": {
+                    "applicationName": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PlatformSettings": {
+                "type": "object",
+                "properties": {
+                    "loadedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "module": {
+                        "$ref": "#/components/schemas/ModuleSettings"
+                    },
+                    "kafka": {
+                        "$ref": "#/components/schemas/KafkaSettings"
+                    },
+                    "topics": {
+                        "$ref": "#/components/schemas/TopicSettings"
+                    },
+                    "validation": {
+                        "$ref": "#/components/schemas/TopicValidationSettings"
+                    },
+                    "api": {
+                        "$ref": "#/components/schemas/ApiSettings"
+                    }
+                }
+            },
+            "TopicSettings": {
+                "type": "object",
+                "properties": {
+                    "jobDefinitions": {
+                        "type": "string"
+                    },
+                    "jobLeases": {
+                        "type": "string"
+                    },
+                    "jobStatus": {
+                        "type": "string"
+                    },
+                    "jobEvents": {
+                        "type": "string"
+                    },
+                    "jobCommands": {
+                        "type": "string"
+                    }
+                }
+            },
+            "TopicValidationSettings": {
+                "type": "object",
+                "properties": {
+                    "allowedInputTopics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedInputTopicPrefixes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedOutputTopics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedOutputTopicPrefixes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "KafkaTopicCatalog": {
+                "type": "object",
+                "properties": {
+                    "bootstrapServers": {
+                        "type": "string"
+                    },
+                    "inputTopics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "outputTopics": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "KafkaHealth": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "bootstrapServers": {
+                        "type": "string"
+                    },
+                    "clusterId": {
+                        "type": "string"
+                    },
+                    "brokerCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "topics": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TopicPresence"
+                        }
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ModuleHealth": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "PlatformHealth": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    },
+                    "checkedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "module": {
+                        "$ref": "#/components/schemas/ModuleHealth"
+                    },
+                    "kafka": {
+                        "$ref": "#/components/schemas/KafkaHealth"
+                    },
+                    "readModel": {
+                        "$ref": "#/components/schemas/ReadModelHealth"
+                    }
+                }
+            },
+            "ReadModelHealth": {
+                "type": "object",
+                "properties": {
+                    "jobCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "leaseCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "statusCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "eventJobCount": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "TopicPresence": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "present": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "Link": {
+                "type": "object",
+                "properties": {
+                    "href": {
+                        "type": "string"
+                    },
+                    "templated": {
+                        "type": "boolean"
+                    }
+                }
+            }
+        }
+    }
+}

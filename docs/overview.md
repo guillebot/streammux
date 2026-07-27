@@ -61,4 +61,4 @@ Accurate as of this documentation pass; verify against code and release notes be
 - **Read models** in both API and orchestrator are **in-memory** (restart loses local view until replayed from Kafka).
 - **integration-tests** include placeholder scenarios; not all paths are covered end-to-end in CI.
 
-See also [usage.md](usage.md) for API and observability.
+See [api.md](api.md) for the full API reference (Streammux is **100% API-managed**) and [usage.md](usage.md) for scripts and observability shortcuts.

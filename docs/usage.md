@@ -1,39 +1,23 @@
 # Usage
 
+Streammux is **100% API-managed**: create, update, pause, and retire jobs through HTTP; the web UI and catalog are clients of the same APIs. For the full reference — OpenAPI snapshot, authentication, every endpoint, and curl examples — see **[api.md](api.md)**.
+
 ## Base URL
 
 By default the management API listens on port **8080** inside the container. With Compose, the host port is `JOB_MANAGEMENT_API_PORT` (default `8080`).
 
 Example: `http://localhost:8080`
 
-## REST API (jobs)
+## Quick endpoint index
 
-All routes are under **`/jobs`** (see `JobController` in the codebase).
+| Area | Base path | Details |
+| ---- | --------- | ------- |
+| Jobs | `/jobs` | CRUD, pause/resume/restart, status, lease, events |
+| Metadata | `/jobs/meta` | Kafka topics, platform health, settings |
+| Catalog | `/catalog` | Template library and push-to-live (via web UI proxy locally) |
+| OpenAPI | `/swagger-ui/index.html`, `/v3/api-docs` | Interactive docs; repo snapshot in [openapi.json](openapi.json) |
 
-| Method | Path | Description |
-| ------ | ---- | ----------- |
-| `POST` | `/jobs` | Create job (`201`; `409` if id exists) |
-| `GET` | `/jobs` | List job definitions |
-| `GET` | `/jobs/{jobId}` | Get one job |
-| `PUT` | `/jobs/{jobId}` | Update job (version incremented server-side) |
-| `DELETE` | `/jobs/{jobId}` | Delete job (`202`) |
-| `POST` | `/jobs/{jobId}/pause` | Pause command (`202`) |
-| `POST` | `/jobs/{jobId}/resume` | Resume command (`202`) |
-| `POST` | `/jobs/{jobId}/restart` | Restart command (`202`) |
-| `GET` | `/jobs/{jobId}/status` | Runtime status (`Optional` — empty body with `200` if none yet) |
-| `GET` | `/jobs/{jobId}/lease` | Lease (`Optional` — empty body with `200` if none yet) |
-| `GET` | `/jobs/{jobId}/events` | Audit events list (may be empty) |
-
-Request and response bodies are JSON aligned with the **job-contracts** models (e.g. `JobDefinition` with `jobType`, `desiredState`, `routeAppConfig` for `ROUTE_APP`).
-
-## OpenAPI / Swagger UI
-
-The API includes **springdoc-openapi**. Typical locations (Springdoc defaults):
-
-- **Swagger UI:** `/swagger-ui/index.html`
-- **OpenAPI JSON:** `/v3/api-docs`
-
-Actuator endpoints can appear in the OpenAPI listing when enabled (`springdoc.show-actuator: true`).
+See [api.md](api.md) for the complete table, schemas, and examples.
 
 ## Helper scripts
 
