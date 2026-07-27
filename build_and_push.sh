@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Build Streammux Docker images, bump VERSION (patch by default), push to GitLab Container Registry.
 #
+# Primary path: GitLab CI (.gitlab-ci.yml) builds and pushes on every branch/tag push
+# using CI_REGISTRY_* credentials. Use this script for manual semver releases.
+#
 # Prerequisites: docker, docker login to registry.gitlab.com
-#   (Personal Access Token with read_registry + write_registry, or CI job token in pipeline).
+#   (Personal Access Token with read_registry + write_registry).
 #
 # Usage:
 #   export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux

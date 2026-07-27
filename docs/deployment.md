@@ -98,9 +98,28 @@ Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-
 
 ## Building and publishing images
 
+### GitLab CI (primary)
+
+File: [.gitlab-ci.yml](../.gitlab-ci.yml)
+
+On every push to a branch, tag, or same-project merge request, CI runs `mvn test` then builds and pushes all four images to the GitLab Container Registry:
+
+| Service | Image path |
+| ------- | ---------- |
+| Job management API | `registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux/job-management-api` |
+| Site orchestrator | `.../site-orchestrator` |
+| Web UI | `.../web-ui` |
+| Job catalog API | `.../job-catalog-api` |
+
+Tags per commit: `<short-sha>`, `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main` and git tags, `:latest` is also pushed.
+
+Deploy hosts pull via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to a commit SHA to pin a release.
+
+### Manual semver releases
+
 Script: [build_and_push.sh](../build_and_push.sh)
 
-- Builds all four Dockerfiles, tags with a version from the `VERSION` file (bumped per run), and pushes to GitLab Container Registry when not using `--no-push`.
+- Builds all four Dockerfiles, tags with a version from the `VERSION` file (bumped per run), and pushes semver + `:latest` tags.
 - Set `IMAGE_REPO` to your GitLab registry path (defaults to `registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux`).
 
 ```bash
