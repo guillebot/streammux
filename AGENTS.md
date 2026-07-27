@@ -61,6 +61,34 @@ Kafka is **never** started by this repo’s compose; you must point `KAFKA_BOOTS
 - Copy [.env.example](.env.example) to `.env` and adjust. **Do not commit real credentials or internal hostnames** if the repo is shared publicly.
 - Common variables: `KAFKA_BOOTSTRAP_SERVERS`, `JOB_MANAGEMENT_API_PORT`, `STREAMMUX_SITE_ID`, `STREAMMUX_INSTANCE_ID`, topic overrides `STREAMMUX_TOPIC_JOB_*`, allowlists `STREAMMUX_ALLOWED_INPUT_*` / `STREAMMUX_ALLOWED_OUTPUT_*`, API basic auth `STREAMMUX_API_USERNAME` / `STREAMMUX_API_PASSWORD`, `STREAMMUX_WEB_PORT` for the UI.
 
+### Locked naming (do not change without operator approval)
+
+| Category | Prefix / value |
+| -------- | -------------- |
+| App/control-plane topics | `net.optimum.experimental.streamlens.streammux.` |
+| Job input allowlist (prod) | `net.optimum.`, `com.optimum.`, `gcp.optimum.` |
+| Job output allowlist (Rednet data plane) | `net.optimum.` |
+| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:9095`, SASL_SSL) |
+
+App topics (definitions, leases, status, events, commands, catalog) are **not** the same as job route input/output allowlists. Output allowlist is `net.optimum.` — do **not** set it to the app topic prefix.
+
+OneLab may additionally allow `lab.optimum.` for **job input** only (`roles/kstreams/streammux/defaults/main.yml`); production must not.
+
+### Environment definitions (locked for production)
+
+| | **Production** (`kafka_streams` / kstreams1–4) | **OneLab / local dev** |
+| --- | --- | --- |
+| **Purpose** | Live control plane | Lab, CI, local compose |
+| **Kafka cluster** | **Rednet PNR Kafka** (kb101–kb105 `:9095`, SASL_SSL) | techarch-kafka (`*.srv.lab.bthpny.alticeusa.net:9092`, PLAINTEXT) |
+| **`KAFKA_BOOTSTRAP_SERVERS`** | Rednet bootstrap (see Ansible) | techarch-kafka or localhost |
+| **App topic prefix** | **`net.optimum.experimental.streamlens.streammux.`** (all environments) | same |
+| **Job input allowlist** | `com.optimum.,net.optimum.,gcp.optimum.` | above + `lab.optimum.` (OneLab only) |
+| **Job output allowlist** | `net.optimum.` | same |
+| **`STREAMMUX_SITE_ID`** | `rednet` | `onelab` / `site-a` |
+| **Deploy source of truth** | `devops/inventory/group_vars/kafka_streams/streammux.yml` | role defaults + OneLab inventory |
+
+**Production uses Rednet Kafka for configuration and management** — job definitions, leases, status, events, commands, and catalog. **App topics always use `net.optimum.experimental.streamlens.streammux.`** (see `TopicNames.java`). Do not change prod cluster, app topic prefix, allowlists, or topic names without explicit operator approval. See `.cursor/rules/prod-kafka.mdc`.
+
 ---
 
 ## Known limitations (verify in code before relying on them)

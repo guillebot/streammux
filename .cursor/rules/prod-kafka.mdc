@@ -1,0 +1,72 @@
+---
+description: Production Streammux uses Rednet PNR Kafka for configuration and management — do not change without explicit operator approval.
+alwaysApply: true
+---
+
+# Production Kafka (locked decision)
+
+**Production Streammux** (`kafka_streams` / kstreams1–4, hcvlny) uses **Rednet PNR Kafka** as the sole Kafka cluster for **configuration and management** (the control plane). This is intentional and must not be changed by agents unless the operator explicitly requests it.
+
+## Locked naming (do not change without operator approval)
+
+| Category | Prefix / value |
+| -------- | -------------- |
+| App/control-plane topics | `net.optimum.experimental.streamlens.streammux.` |
+| Job input allowlist (prod) | `net.optimum.`, `com.optimum.`, `gcp.optimum.` |
+| Job output allowlist (Rednet data plane) | `net.optimum.` |
+| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:9095`, SASL_SSL) |
+
+OneLab may additionally allow `lab.optimum.` for **job input** only; production must not.
+
+## What “configuration and management” means
+
+All Streammux platform services connect to Rednet via `KAFKA_BOOTSTRAP_SERVERS`:
+
+- **job-management-api** — job CRUD, read model, topic allowlists
+- **site-orchestrator** — definitions, leases, status, events
+- **job-catalog-api** — compacted catalog topic
+
+## App topic prefix (locked — all environments)
+
+All Streammux **app-related** Kafka topics use the prefix:
+
+**`net.optimum.experimental.streamlens.streammux.`**
+
+Canonical names (from `job-contracts` `TopicNames.java`):
+
+- `…jobdefinitions`, `…jobleases`, `…jobstatus`, `…jobevents`, `…jobcommands`, `…jobcatalog`
+
+This prefix applies in **production and OneLab**. Do **not** shorten to `net.optimum.streammux.*` or rename topics without explicit operator approval.
+
+## Job topic allowlists (separate from app topics)
+
+- **Input** — prod allows topics under `net.optimum.`, `com.optimum.`, `gcp.optimum.` only.
+- **Output** — prod allows topics under `net.optimum.` (Rednet data plane). Do **not** set output allowlist to the app topic prefix.
+
+Deploy source of truth: `devops/inventory/group_vars/kafka_streams/streammux.yml`.
+
+## Production values (canonical)
+
+| Setting | Value |
+| ------- | ----- |
+| Cluster | Rednet PNR Kafka |
+| Bootstrap | `kb101.srv.hcvlny.alticeusa.net:9095` … `kb105.srv.hcvlny.alticeusa.net:9095` |
+| Security | `SASL_SSL`, SCRAM-SHA-512, user `techarch_streammux` |
+| App topic prefix | `net.optimum.experimental.streamlens.streammux.` |
+| Job input allowlist | `com.optimum.,net.optimum.,gcp.optimum.` |
+| Job output allowlist | `net.optimum.` |
+| `STREAMMUX_SITE_ID` | `rednet` |
+
+## OneLab differs only on Kafka cluster (not app topics)
+
+OneLab / local dev may use **techarch-kafka** (`*.srv.lab.bthpny.alticeusa.net:9092`, PLAINTEXT) but keeps the **same app topic prefix** above. OneLab input allowlist may include `lab.optimum.`; output allowlist remains `net.optimum.`.
+
+Do **not** copy OneLab Kafka *cluster* settings into production, and do **not** “fix” production by pointing it at techarch-kafka.
+
+## Agent rules
+
+- Do not change `streammux_kafka_bootstrap_servers`, prod SASL settings, app topic names/prefix, or prod allowlists in Ansible unless the operator explicitly asks.
+- Do not suggest moving prod Streammux back to `techarch-kapps` or techarch-kafka for the control plane.
+- Do not rename app topics to `net.optimum.streammux.*` — that prefix is wrong for this app.
+- Do not conflate app topic prefix with job output allowlist — output is `net.optimum.`, not `net.optimum.experimental.streamlens.streammux.`.
+- Per-job `streamProperties.bootstrap.servers` in job definitions are separate (job data plane); prod jobs often also use Rednet, but the **platform** cluster above is fixed.

@@ -230,9 +230,8 @@ KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 JOB_MANAGEMENT_API_PORT=8080
 STREAMMUX_SITE_ID=site-a
 STREAMMUX_INSTANCE_ID=orchestrator-1
-STREAMMUX_ALLOWED_INPUT_TOPICS=net.optimum.monitoring.netscout.fixed.voicesip.json
-STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES=net.optimum.monitoring.
-STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES=net.optimum.experimental.streamlens.streammux.
+STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES=com.optimum.,net.optimum.,gcp.optimum.
+STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES=net.optimum.
 ```
 
 Topic restrictions are enforced by `job-management-api` during job create and update validation.

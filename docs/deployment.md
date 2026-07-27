@@ -13,6 +13,29 @@ Streammux ships as **two container images** plus a **Kafka cluster** you must pr
 
 Images are pulled from GitLab Container Registry under `IMAGE_REPO` (see [.env.example](../.env.example)).
 
+## Production vs OneLab Kafka
+
+### Locked naming (do not change without operator approval)
+
+| Category | Prefix / value |
+| -------- | -------------- |
+| App/control-plane topics | `net.optimum.experimental.streamlens.streammux.` |
+| Job input allowlist (prod) | `net.optimum.`, `com.optimum.`, `gcp.optimum.` |
+| Job output allowlist (Rednet data plane) | `net.optimum.` |
+| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:9095`, SASL_SSL) |
+
+App topics (definitions, leases, status, events, commands, catalog) are separate from job route input/output allowlists. Do **not** set the output allowlist to the app topic prefix.
+
+| | Production | OneLab / local |
+| --- | --- | --- |
+| Cluster | **Rednet PNR Kafka** (kb101–kb105 `:9095`, SASL_SSL) | techarch-kafka (`:9092`, PLAINTEXT) or localhost |
+| App topic prefix | **`net.optimum.experimental.streamlens.streammux.`** (all environments) | same |
+| Job input allowlist | `com.optimum.,net.optimum.,gcp.optimum.` | above + `lab.optimum.` (OneLab only) |
+| Job output allowlist | `net.optimum.` | same |
+| Ansible source of truth | `devops/inventory/group_vars/kafka_streams/streammux.yml` | role defaults + OneLab inventory |
+
+Production Streammux uses **Rednet Kafka for configuration and management**. App-related topics **always** use the `net.optimum.experimental.streamlens.streammux.` prefix — do not shorten to `net.optimum.streammux.*`.
+
 ## Prerequisites
 
 - **Kafka** reachable from every host running these containers (`KAFKA_BOOTSTRAP_SERVERS`).
@@ -86,9 +109,9 @@ Comma-separated lists. If **both** exact and prefix lists are empty for a catego
 | Variable | Purpose |
 | -------- | ------- |
 | `STREAMMUX_ALLOWED_INPUT_TOPICS` | Exact allowlist for route input topics |
-| `STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES` | Prefix allowlist for input topics |
+| `STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES` | Prefix allowlist for input topics (prod lock: `com.optimum.,net.optimum.,gcp.optimum.`) |
 | `STREAMMUX_ALLOWED_OUTPUT_TOPICS` | Exact allowlist for route output topics |
-| `STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES` | Prefix allowlist for output topics |
+| `STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES` | Prefix allowlist for output topics (prod lock: `net.optimum.` — Rednet data plane) |
 
 Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-job.sh](../create-job.sh), [list-jobs.sh](../list-jobs.sh), and [remove-job.sh](../remove-job.sh) source `.env` when present.
 
