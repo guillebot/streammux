@@ -7,6 +7,7 @@ import {
   type CatalogSettings,
   type PlatformSettings,
 } from "./api/settingsClient";
+import { CommaWrapped } from "./CommaWrapped";
 import { appVersion } from "./version";
 
 function formatLoadedAt(iso: string | undefined): string {
@@ -16,12 +17,24 @@ function formatLoadedAt(iso: string | undefined): string {
   return date.toLocaleString();
 }
 
-function SettingsKv({ label, value }: { label: string; value: string | number | boolean }) {
+function SettingsKv({
+  label,
+  value,
+  wrapCommas,
+}: {
+  label: string;
+  value: string | number | boolean;
+  wrapCommas?: boolean;
+}) {
   const display = typeof value === "boolean" ? (value ? "Yes" : "No") : value;
   return (
     <div>
       <div className="health-kv-label">{label}</div>
-      <div className="mono">{display}</div>
+      {wrapCommas && typeof display === "string" ? (
+        <CommaWrapped value={display} />
+      ) : (
+        <div className="mono">{display}</div>
+      )}
     </div>
   );
 }
@@ -102,7 +115,7 @@ export function Settings() {
           <>
             <div className="health-kv-grid">
               <SettingsKv label="Application name" value={platform.module.applicationName} />
-              <SettingsKv label="Bootstrap servers" value={platform.kafka.bootstrapServers} />
+              <SettingsKv label="Bootstrap servers" value={platform.kafka.bootstrapServers} wrapCommas />
               <SettingsKv label="Consumer group ID" value={platform.kafka.consumerGroupId} />
               <SettingsKv
                 label="Exposed actuator endpoints"
@@ -171,7 +184,7 @@ export function Settings() {
         {catalog ? (
           <div className="health-kv-grid">
             <SettingsKv label="Module" value={catalog.module.name} />
-            <SettingsKv label="Bootstrap servers" value={catalog.kafka.bootstrapServers} />
+            <SettingsKv label="Bootstrap servers" value={catalog.kafka.bootstrapServers} wrapCommas />
             <SettingsKv label="Catalog topic" value={catalog.kafka.topic} />
             <SettingsKv label="Kafka client ID" value={catalog.kafka.clientId} />
             <SettingsKv label="Job management API URL" value={catalog.jobManagementApiUrl} />

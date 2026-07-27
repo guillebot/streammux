@@ -507,6 +507,18 @@ select.form-select {
   gap: 0.85rem 1.25rem;
 }
 
+.health-kv-grid > div {
+  min-width: 0;
+}
+
+.comma-wrapped {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .health-kv-label {
   font-size: 0.78rem;
   text-transform: uppercase;

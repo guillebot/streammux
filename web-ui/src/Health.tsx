@@ -7,6 +7,7 @@ import {
   type HealthStatus,
   type PlatformHealth,
 } from "./api/healthClient";
+import { CommaWrapped } from "./CommaWrapped";
 
 function statusLabel(status: HealthStatus): string {
   if (status === "UP") return "Healthy";
@@ -141,7 +142,7 @@ export function Health() {
               </div>
               <div>
                 <div className="health-kv-label">Bootstrap servers</div>
-                <div className="mono">{platform.kafka.bootstrapServers}</div>
+                <CommaWrapped value={platform.kafka.bootstrapServers} />
               </div>
               <div>
                 <div className="health-kv-label">Cluster ID</div>
