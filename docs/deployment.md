@@ -22,13 +22,13 @@ Images are pulled from GitLab Container Registry under `IMAGE_REPO` (see [.env.e
 | App/control-plane topics | `net.optimum.experimental.streamlens.streammux.` |
 | Job input allowlist (prod) | `net.optimum.`, `com.optimum.`, `gcp.optimum.` |
 | Job output allowlist (Rednet data plane) | `net.optimum.` |
-| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:9095`, SASL_SSL) |
+| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:19092`, PLAINTEXT) |
 
 App topics (definitions, leases, status, events, commands, catalog) are separate from job route input/output allowlists. Do **not** set the output allowlist to the app topic prefix.
 
 | | Production | OneLab / local |
 | --- | --- | --- |
-| Cluster | **Rednet PNR Kafka** (kb101–kb105 `:9095`, SASL_SSL) | techarch-kafka (`:9092`, PLAINTEXT) or localhost |
+| Cluster | **Rednet PNR Kafka** (kb101–kb105 `:19092`, PLAINTEXT) | techarch-kafka (`:9092`, PLAINTEXT) or localhost |
 | App topic prefix | **`net.optimum.experimental.streamlens.streammux.`** (all environments) | same |
 | Job input allowlist | `com.optimum.,net.optimum.,gcp.optimum.` | above + `lab.optimum.` (OneLab only) |
 | Job output allowlist | `net.optimum.` | same |

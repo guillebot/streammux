@@ -68,7 +68,7 @@ Kafka is **never** started by this repo’s compose; you must point `KAFKA_BOOTS
 | App/control-plane topics | `net.optimum.experimental.streamlens.streammux.` |
 | Job input allowlist (prod) | `net.optimum.`, `com.optimum.`, `gcp.optimum.` |
 | Job output allowlist (Rednet data plane) | `net.optimum.` |
-| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:9095`, SASL_SSL) |
+| Prod Kafka cluster | Rednet PNR (kb101–kb105 `:19092`, PLAINTEXT) |
 
 App topics (definitions, leases, status, events, commands, catalog) are **not** the same as job route input/output allowlists. Output allowlist is `net.optimum.` — do **not** set it to the app topic prefix.
 
@@ -79,7 +79,7 @@ OneLab may additionally allow `lab.optimum.` for **job input** only (`roles/kstr
 | | **Production** (`kafka_streams` / kstreams1–4) | **OneLab / local dev** |
 | --- | --- | --- |
 | **Purpose** | Live control plane | Lab, CI, local compose |
-| **Kafka cluster** | **Rednet PNR Kafka** (kb101–kb105 `:9095`, SASL_SSL) | techarch-kafka (`*.srv.lab.bthpny.alticeusa.net:9092`, PLAINTEXT) |
+| **Kafka cluster** | **Rednet PNR Kafka** (kb101–kb105 `:19092`, PLAINTEXT) | techarch-kafka (`*.srv.lab.bthpny.alticeusa.net:9092`, PLAINTEXT) |
 | **`KAFKA_BOOTSTRAP_SERVERS`** | Rednet bootstrap (see Ansible) | techarch-kafka or localhost |
 | **App topic prefix** | **`net.optimum.experimental.streamlens.streammux.`** (all environments) | same |
 | **Job input allowlist** | `com.optimum.,net.optimum.,gcp.optimum.` | above + `lab.optimum.` (OneLab only) |
