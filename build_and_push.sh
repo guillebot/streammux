@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Build Streammux Docker images, bump VERSION (patch by default), push to Docker Hub.
+# Build Streammux Docker images, bump VERSION (patch by default), push to GitLab Container Registry.
 #
-# Prerequisites: docker, docker login to Docker Hub (private repos: create
-#   streammux-job-management-api, streammux-site-orchestrator, streammux-web-ui,
-#   and streammux-job-catalog-api under your namespace).
+# Prerequisites: docker, docker login to registry.gitlab.com
+#   (Personal Access Token with read_registry + write_registry, or CI job token in pipeline).
 #
 # Usage:
-#   export DOCKERHUB_NAMESPACE=your-dockerhub-username   # optional; defaults to gschimmel
+#   export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux
 #   ./build_and_push.sh
 #   ./build_and_push.sh --minor
 #   ./build_and_push.sh --major
@@ -22,11 +21,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 VERSION_FILE="${VERSION_FILE:-VERSION}"
-NAMESPACE="${DOCKERHUB_NAMESPACE:-${DOCKERHUB_USERNAME:-gschimmel}}"
-API_IMAGE_NAME="${STREAMMUX_API_IMAGE_NAME:-streammux-job-management-api}"
-ORCH_IMAGE_NAME="${STREAMMUX_ORCH_IMAGE_NAME:-streammux-site-orchestrator}"
-WEB_IMAGE_NAME="${STREAMMUX_WEB_IMAGE_NAME:-streammux-web-ui}"
-CATALOG_IMAGE_NAME="${STREAMMUX_CATALOG_IMAGE_NAME:-streammux-job-catalog-api}"
+IMAGE_REPO="${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}"
+API_IMAGE_NAME="${STREAMMUX_API_IMAGE_NAME:-job-management-api}"
+ORCH_IMAGE_NAME="${STREAMMUX_ORCH_IMAGE_NAME:-site-orchestrator}"
+WEB_IMAGE_NAME="${STREAMMUX_WEB_IMAGE_NAME:-web-ui}"
+CATALOG_IMAGE_NAME="${STREAMMUX_CATALOG_IMAGE_NAME:-job-catalog-api}"
 
 DO_PUSH=1
 DRY_RUN=0
@@ -48,12 +47,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$NAMESPACE" && "$DRY_RUN" -eq 0 ]]; then
-  echo "Set DOCKERHUB_NAMESPACE or DOCKERHUB_USERNAME to your Docker Hub user or org." >&2
+if [[ -z "$IMAGE_REPO" && "$DRY_RUN" -eq 0 ]]; then
+  echo "Set IMAGE_REPO to your GitLab container registry path." >&2
   exit 1
 fi
 
-TAG_NS="${NAMESPACE:-your-dockerhub-namespace}"
+REPO="${IMAGE_REPO:-registry.gitlab.com/your-group/your-project}"
 
 read_version() {
   if [[ -f "$VERSION_FILE" ]]; then
@@ -80,14 +79,14 @@ bump_version() {
 
 CURRENT="$(read_version)"
 NEW_VER="$(bump_version "$CURRENT" "$BUMP")"
-API_TAG="${TAG_NS}/${API_IMAGE_NAME}:${NEW_VER}"
-ORCH_TAG="${TAG_NS}/${ORCH_IMAGE_NAME}:${NEW_VER}"
-WEB_TAG="${TAG_NS}/${WEB_IMAGE_NAME}:${NEW_VER}"
-CATALOG_TAG="${TAG_NS}/${CATALOG_IMAGE_NAME}:${NEW_VER}"
-API_LATEST="${TAG_NS}/${API_IMAGE_NAME}:latest"
-ORCH_LATEST="${TAG_NS}/${ORCH_IMAGE_NAME}:latest"
-WEB_LATEST="${TAG_NS}/${WEB_IMAGE_NAME}:latest"
-CATALOG_LATEST="${TAG_NS}/${CATALOG_IMAGE_NAME}:latest"
+API_TAG="${REPO}/${API_IMAGE_NAME}:${NEW_VER}"
+ORCH_TAG="${REPO}/${ORCH_IMAGE_NAME}:${NEW_VER}"
+WEB_TAG="${REPO}/${WEB_IMAGE_NAME}:${NEW_VER}"
+CATALOG_TAG="${REPO}/${CATALOG_IMAGE_NAME}:${NEW_VER}"
+API_LATEST="${REPO}/${API_IMAGE_NAME}:latest"
+ORCH_LATEST="${REPO}/${ORCH_IMAGE_NAME}:latest"
+WEB_LATEST="${REPO}/${WEB_IMAGE_NAME}:latest"
+CATALOG_LATEST="${REPO}/${CATALOG_IMAGE_NAME}:latest"
 
 echo "Last version (from ${VERSION_FILE}): ${CURRENT}"
 echo "New version:                         ${NEW_VER}"

@@ -73,7 +73,7 @@ The API does **not** call orchestrators directly over the network for normal ope
 
 **Production-style:** pull published images using `docker-compose.yml`, with your registry namespace and image tag.
 
-**Publishing images:** the repository includes a script that builds both images and can push them to a container registry (for example Docker Hub), with version tagging.
+**Publishing images:** the repository includes a script that builds all container images and pushes them to the GitLab Container Registry, with version tagging.
 
 Detailed steps, variable tables, and Compose file differences are in **`docs/deployment.md`** in the repo.
 

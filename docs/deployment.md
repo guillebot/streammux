@@ -6,10 +6,12 @@ Streammux ships as **two container images** plus a **Kafka cluster** you must pr
 
 | Image (default name) | Service | Purpose |
 | -------------------- | ------- | ------- |
-| `streammux-job-management-api` | `job-management-api` | REST control plane and Kafka-projected read model |
-| `streammux-site-orchestrator` | `site-orchestrator` | Lease reconciliation and local runner lifecycle |
+| `job-management-api` | `job-management-api` | REST control plane and Kafka-projected read model |
+| `site-orchestrator` | `site-orchestrator` | Lease reconciliation and local runner lifecycle |
+| `web-ui` | `web-ui` | React management console |
+| `job-catalog-api` | `job-catalog-api` | Reusable job template catalog |
 
-Image names and registry namespace are controlled by Compose environment variables (see below).
+Images are pulled from GitLab Container Registry under `IMAGE_REPO` (see [.env.example](../.env.example)).
 
 ## Prerequisites
 
@@ -30,7 +32,7 @@ File: [docker-compose.yml](../docker-compose.yml)
 Typical variables:
 
 - `KAFKA_BOOTSTRAP_SERVERS` (required)
-- `DOCKERHUB_NAMESPACE` / `STREAMMUX_API_IMAGE_NAME` / `STREAMMUX_ORCH_IMAGE_NAME` / `STREAMMUX_IMAGE_TAG`
+- `IMAGE_REPO` / `TAG` (GitLab Container Registry; see [.env.example](../.env.example))
 - Topic overrides: `STREAMMUX_TOPIC_JOB_*`
 - API validation allowlists: `STREAMMUX_ALLOWED_*` (see [.env.example](../.env.example))
 
@@ -98,11 +100,12 @@ Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-
 
 Script: [build_and_push.sh](../build_and_push.sh)
 
-- Builds both Dockerfiles, tags with a version from the `VERSION` file (bumped per run), and pushes to Docker Hub when not using `--no-push`.
-- Set `DOCKERHUB_NAMESPACE` (or `DOCKERHUB_USERNAME`) to your registry namespace.
+- Builds all four Dockerfiles, tags with a version from the `VERSION` file (bumped per run), and pushes to GitLab Container Registry when not using `--no-push`.
+- Set `IMAGE_REPO` to your GitLab registry path (defaults to `registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux`).
 
 ```bash
-export DOCKERHUB_NAMESPACE=your-namespace
+export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux
+docker login registry.gitlab.com
 ./build_and_push.sh           # patch bump + push
 ./build_and_push.sh --minor
 ./build_and_push.sh --no-push # build only
