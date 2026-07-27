@@ -1,3 +1,8 @@
+x-health-defaults: &health-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 5
+
 services:
   job-management-api:
     build:
@@ -17,6 +22,10 @@ services:
     ports:
       - "${JOB_MANAGEMENT_API_PORT:-8080}:8080"
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 60s
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health -o /dev/null || exit 1"]
 
   job-catalog-api:
     build:
@@ -27,8 +36,13 @@ services:
       STREAMMUX_TOPIC_JOB_CATALOG: ${STREAMMUX_TOPIC_JOB_CATALOG:-net.optimum.experimental.streamlens.streammux.jobcatalog}
       JOB_MANAGEMENT_API_URL: http://job-management-api:8080
     depends_on:
-      - job-management-api
+      job-management-api:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 60s
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
 
   web-ui:
     build:
@@ -42,9 +56,15 @@ services:
       STREAMMUX_JOB_MANAGEMENT_API: job-management-api:8080
       STREAMMUX_JOB_CATALOG_API: job-catalog-api:3000
     depends_on:
-      - job-management-api
-      - job-catalog-api
+      job-management-api:
+        condition: service_healthy
+      job-catalog-api:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 30s
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
 
   site-orchestrator:
     build:
@@ -61,5 +81,9 @@ services:
       STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-net.optimum.experimental.streamlens.streammux.jobcommands}
     restart: unless-stopped
     depends_on:
-      - job-management-api
-
+      job-management-api:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-defaults
+      start_period: 30s
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
