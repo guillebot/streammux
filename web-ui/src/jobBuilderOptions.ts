@@ -1,7 +1,12 @@
 import type { JobDefinition, JobType } from "./types";
 import { exampleBootstrapServers, newJobTemplate } from "./templates";
 
+/** Rednet PNR Kafka (kb101–kb105 :9095) — primary data plane for stream jobs. */
+export const REDNET_PNR_KAFKA_BOOTSTRAP =
+  "kb101.srv.hcvlny.alticeusa.net:9095,kb102.srv.hcvlny.alticeusa.net:9095,kb103.srv.hcvlny.alticeusa.net:9095,kb104.srv.hcvlny.alticeusa.net:9095,kb105.srv.hcvlny.alticeusa.net:9095";
+
 export const JOB_BUILDER_BOOTSTRAP_SERVERS: string[] = [
+  REDNET_PNR_KAFKA_BOOTSTRAP,
   exampleBootstrapServers(),
   "localhost:9092",
   "kafka:9092",
