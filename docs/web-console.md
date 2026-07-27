@@ -12,8 +12,10 @@ Production deployments (for example OneLab) typically expose the UI at `streammu
 | Job catalog | `/catalog` | Browse reusable job definition templates |
 | Job Builder | `/job/builder` | Visual wizard for common job types |
 | Health | `/health` | Platform and catalog health snapshots |
+| Logs | `/logs` | Global activity feed (user actions, orchestrator lifecycle) |
 | Settings | `/settings` | Non-secret runtime configuration |
 | Documentation | `/docs` | In-app guides (this documentation set) |
+| MCP | `/mcp` | MCP endpoint, tool catalog, token management |
 
 Routes use **hash-based** URLs (`/#/jobs`, `/#/docs/overview`, etc.) so the static nginx host can serve the SPA without server-side routing rules.
 
@@ -26,7 +28,9 @@ The home page lists all jobs returned by `GET /jobs`. Each row links to the job 
 - **Job builder** — opens the visual builder for `ROUTE_APP` or `RANDOM_SAMPLER` jobs.
 - **New job** — opens a blank job editor (`/job/new`) where you can paste or edit the full JSON definition.
 
-The job detail page (`/job/:jobId`) shows definition, status, lease, and events. Use it to create, update, pause, resume, restart, or delete jobs. Validation errors from the API (for example topic allowlist violations) appear inline.
+The job detail page (`/job/:jobId`) shows definition, status, lease, and an **events timeline** (API and orchestrator entries). Use it to create, update, pause, resume, restart, or delete jobs. Pause/resume update `desiredState` via `PUT /jobs/{id}` so orchestrators react consistently. Validation errors from the API (for example topic allowlist violations) appear inline.
+
+The **Logs** page (`/logs`) lists recent activity across all jobs with filters for job id, event type, and user. On OneLab, the user column shows your Authelia identity when the edge proxy forwards `Remote-User` headers. See [observability.md](observability.md) for retention limits and the OTLP roadmap.
 
 ## Job Builder
 

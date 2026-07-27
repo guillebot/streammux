@@ -12,11 +12,10 @@ import {
   getJob,
   getLease,
   getStatus,
-  pauseJob,
-  restartJob,
-  resumeJob,
   updateJob,
 } from "./api/client";
+import { resolveActor } from "./actorCache";
+import { JobEventTimeline } from "./JobEventTimeline";
 import { InlineSpinner } from "./InlineSpinner";
 import { takeStashedJobDefinition } from "./jobBuilderStash";
 import { newJobTemplate } from "./templates";
@@ -37,6 +36,7 @@ export function JobDetail() {
   const [status, setStatus] = useState<JobRuntimeStatus | null | undefined>(undefined);
   const [lease, setLease] = useState<JobLease | null | undefined>(undefined);
   const [events, setEvents] = useState<JobEvent[] | null | undefined>(undefined);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const newJobSeededRef = useRef(false);
 
@@ -88,6 +88,12 @@ export function JobDetail() {
     if (jobId && !isNew) void loadProjections();
   }, [jobId, isNew, loadProjections]);
 
+  useEffect(() => {
+    if (!jobId || isNew || !autoRefresh) return;
+    const id = window.setInterval(() => void loadProjections(), 10_000);
+    return () => window.clearInterval(id);
+  }, [jobId, isNew, autoRefresh, loadProjections]);
+
   const parseDefinition = (): JobDefinition => {
     const parsed: unknown = JSON.parse(jsonText);
     if (typeof parsed !== "object" || parsed === null) throw new Error("JSON must be an object");
@@ -100,8 +106,10 @@ export function JobDetail() {
     try {
       setBusyAction("save");
       const def = parseDefinition();
+      const actor = await resolveActor();
+      const withActor = { ...def, updatedBy: actor };
       if (isNew) {
-        const created = await createJob(def);
+        const created = await createJob(withActor);
         try {
           await createCatalogEntry(created.jobId, created);
           setNotice(`Created job ${created.jobId} and saved to catalog.`);
@@ -113,7 +121,7 @@ export function JobDetail() {
         return;
       }
       if (!jobId) return;
-      const updated = await updateJob(jobId, def);
+      const updated = await updateJob(jobId, withActor);
       setJsonText(JSON.stringify(updated, null, 2));
       try {
         const catalogRows = await listCatalogEntries();
@@ -137,14 +145,36 @@ export function JobDetail() {
     }
   };
 
-  const runCommand = async (fn: (id: string) => Promise<void>, label: string) => {
+  const setDesiredState = async (desiredState: "ACTIVE" | "PAUSED", label: string) => {
     if (!jobId) return;
     setNotice(null);
     setError(null);
     try {
       setBusyAction(label.toLowerCase());
-      await fn(jobId);
+      const def = await getJob(jobId);
+      const actor = await resolveActor();
+      await updateJob(jobId, { ...def, desiredState, updatedBy: actor });
       setNotice(`${label} accepted.`);
+      void loadProjections();
+      void loadDefinition();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const onRestart = async () => {
+    if (!jobId) return;
+    setNotice(null);
+    setError(null);
+    try {
+      setBusyAction("restart");
+      const def = await getJob(jobId);
+      const actor = await resolveActor();
+      await updateJob(jobId, { ...def, desiredState: "PAUSED", updatedBy: actor });
+      await updateJob(jobId, { ...def, desiredState: "ACTIVE", updatedBy: actor });
+      setNotice("Restart accepted (paused then resumed).");
       void loadProjections();
       void loadDefinition();
     } catch (e) {
@@ -218,7 +248,7 @@ export function JobDetail() {
             </button>
             {!isNew && jobId ? (
               <>
-                <button type="button" disabled={busyAction !== null} onClick={() => void runCommand(pauseJob, "Pause")}>
+                <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("PAUSED", "Pause")}>
                   {busyAction === "pause" ? (
                     <>
                       <InlineSpinner />
@@ -228,7 +258,7 @@ export function JobDetail() {
                     "Pause"
                   )}
                 </button>
-                <button type="button" disabled={busyAction !== null} onClick={() => void runCommand(resumeJob, "Resume")}>
+                <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("ACTIVE", "Resume")}>
                   {busyAction === "resume" ? (
                     <>
                       <InlineSpinner />
@@ -238,7 +268,7 @@ export function JobDetail() {
                     "Resume"
                   )}
                 </button>
-                <button type="button" disabled={busyAction !== null} onClick={() => void runCommand(restartJob, "Restart")}>
+                <button type="button" disabled={busyAction !== null} onClick={() => void onRestart()}>
                   {busyAction === "restart" ? (
                     <>
                       <InlineSpinner />
@@ -248,6 +278,10 @@ export function JobDetail() {
                     "Restart"
                   )}
                 </button>
+                <label className="inline-check">
+                  <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+                  Auto-refresh
+                </label>
                 <button type="button" disabled={busyAction !== null} onClick={() => void loadProjections()}>
                   Refresh status
                 </button>
@@ -274,7 +308,21 @@ export function JobDetail() {
                 ) : status === null ? (
                   <p className="muted">No status projected yet.</p>
                 ) : (
-                  <pre className="pre-block mono">{JSON.stringify(status, null, 2)}</pre>
+                  <>
+                    {status.failureReason ? (
+                      <div className="banner error">Failure: {status.failureReason}</div>
+                    ) : null}
+                    <dl className="status-kv">
+                      <dt>State</dt>
+                      <dd>{status.state}</dd>
+                      <dt>Health</dt>
+                      <dd>{status.health}</dd>
+                      <dt>Last heartbeat</dt>
+                      <dd className="mono">{status.lastHeartbeatAt ?? "—"}</dd>
+                      <dt>Worker</dt>
+                      <dd className="mono">{status.workerMetadata?.topologyName ?? "—"}</dd>
+                    </dl>
+                  </>
                 )}
               </div>
 
@@ -293,10 +341,8 @@ export function JobDetail() {
                 <h2>Events</h2>
                 {events === undefined ? (
                   <p className="muted">Loading…</p>
-                ) : events.length === 0 ? (
-                  <p className="muted">No events.</p>
                 ) : (
-                  <pre className="pre-block mono">{JSON.stringify(events, null, 2)}</pre>
+                  <JobEventTimeline events={events} />
                 )}
               </div>
             </>

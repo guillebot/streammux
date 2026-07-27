@@ -46,6 +46,16 @@ export default defineConfig({
         target: catalogTarget,
         changeOrigin: true,
       },
+      "/mcp-admin": {
+        target: process.env.VITE_DEV_MCP_PROXY ?? "http://127.0.0.1:8090",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mcp-admin/, "/admin"),
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq) => {
+            proxyReq.setHeader("X-Streammux-Mcp-Admin", "1");
+          });
+        },
+      },
     },
   },
 });

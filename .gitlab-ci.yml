@@ -64,15 +64,81 @@ default:
       - .m2/repository
     policy: pull-push
 
-test:
+.test-rules:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+test:java:unit:
   extends: .maven-job
   stage: test
   script:
     - mvn -B test
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-    - if: $CI_COMMIT_TAG
+    - !reference [.test-rules, rules]
+
+test:java:integration:
+  extends: .maven-job
+  stage: test
+  services:
+    - name: "${DIND_TAG}@${DIND_DIGEST}"
+      alias: docker
+  variables:
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "/certs/client"
+    TESTCONTAINERS_RYUK_DISABLED: "true"
+  script:
+    - mvn -B install -DskipTests
+    - mvn -B verify -pl integration-tests
+  rules:
+    - !reference [.test-rules, rules]
+
+test:web-ui:
+  stage: test
+  image: node:22-alpine
+  cache:
+    key:
+      files:
+        - web-ui/package-lock.json
+    paths:
+      - web-ui/node_modules
+    policy: pull-push
+  script:
+    - cd web-ui
+    - npm ci
+    - npm run test
+    - npm run build
+  rules:
+    - !reference [.test-rules, rules]
+
+test:go:
+  stage: test
+  image: golang:1.25-bookworm
+  script:
+    - go test ./...
+  rules:
+    - !reference [.test-rules, rules]
+
+test:job-catalog-api:
+  stage: test
+  image: node:22-alpine
+  cache:
+    key:
+      files:
+        - job-catalog-api/package-lock.json
+    paths:
+      - job-catalog-api/node_modules
+    policy: pull-push
+  script:
+    - cd job-catalog-api
+    - npm ci
+    - node --check server.mjs
+    - node --check kafka-config.mjs
+  rules:
+    - !reference [.test-rules, rules]
 
 .docker-base:
   stage: package
@@ -82,7 +148,11 @@ test:
       alias: docker
   interruptible: false
   needs:
-    - job: test
+    - job: test:java:unit
+    - job: test:java:integration
+    - job: test:web-ui
+    - job: test:go
+    - job: test:job-catalog-api
   variables:
     DOCKER_HOST: "tcp://docker:2376"
     DOCKER_TLS_CERTDIR: "/certs"
@@ -165,3 +235,7 @@ images:build:
         DOCKERFILE: Dockerfile.catalog
         BUILD_CONTEXT: .
         BUILD_ARGS: "--build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"
+      - IMAGE_NAME: mcp
+        DOCKERFILE: deploy/go.Dockerfile
+        BUILD_CONTEXT: .
+        BUILD_ARGS: "--build-arg SERVICE=mcp --build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"

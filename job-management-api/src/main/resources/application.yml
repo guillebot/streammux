@@ -41,6 +41,8 @@ springdoc:
     tagsSorter: alpha
 
 streammux:
+  actor:
+    trusted-proxy-headers-enabled: ${STREAMMUX_TRUSTED_PROXY_HEADERS:true}
   topics:
     job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
     job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}

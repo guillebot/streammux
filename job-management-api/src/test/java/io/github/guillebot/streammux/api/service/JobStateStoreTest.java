@@ -97,17 +97,34 @@ class JobStateStoreTest {
         );
     }
 
-    private static JobEvent jobEvent(String jobId, EventType eventType) {
+    @Test
+    void listRecentEventsReturnsNewestFirstWithFilters() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("job-a", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z")));
+        store.appendEvent(jobEvent("job-b", EventType.STARTED, Instant.parse("2024-01-01T00:00:01Z")));
+        store.appendEvent(jobEvent("job-a", EventType.UPDATED, Instant.parse("2024-01-01T00:00:02Z")));
+
+        assertEquals(2, store.listRecentEvents(10, "job-a", null, null).size());
+        assertEquals(EventType.UPDATED, store.listRecentEvents(1, "job-a", null, null).getFirst().eventType());
+        assertEquals(1, store.listRecentEvents(10, null, EventType.STARTED, null).size());
+    }
+
+    private static JobEvent jobEvent(String jobId, EventType eventType, Instant eventTime) {
         return new JobEvent(
-            "event-" + eventType,
+            "event-" + jobId + "-" + eventType,
             jobId,
             1,
             eventType,
-            Instant.parse("2024-01-01T00:00:00Z"),
+            eventTime,
             null,
             "api",
             eventType.name(),
-            Map.of()
+            Map.of(),
+            "tester"
         );
+    }
+
+    private static JobEvent jobEvent(String jobId, EventType eventType) {
+        return jobEvent(jobId, eventType, Instant.parse("2024-01-01T00:00:00Z"));
     }
 }

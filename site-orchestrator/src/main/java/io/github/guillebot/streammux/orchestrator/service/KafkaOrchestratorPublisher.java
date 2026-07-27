@@ -1,5 +1,6 @@
 package io.github.guillebot.streammux.orchestrator.service;
 
+import io.github.guillebot.streammux.contracts.event.JobEvent;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.orchestrator.config.KafkaTopicProperties;
@@ -22,5 +23,9 @@ public class KafkaOrchestratorPublisher {
 
     public void publishStatus(JobRuntimeStatus status) {
         kafkaTemplate.send(topics.jobStatus(), status.jobId(), status);
+    }
+
+    public void publishEvent(JobEvent event) {
+        kafkaTemplate.send(topics.jobEvents(), event.jobId(), event);
     }
 }

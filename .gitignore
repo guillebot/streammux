@@ -18,3 +18,5 @@ web-ui/dist/
 
 job-catalog-api/node_modules/
 job-catalog-api/data/
+/mcp
+/stmctl

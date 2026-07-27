@@ -8,6 +8,7 @@ import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.api.service.JobStateStore;
 import io.github.guillebot.streammux.api.service.KafkaJobCommandPublisher;
 import io.github.guillebot.streammux.api.service.KafkaJobStateProjector;
+import io.github.guillebot.streammux.api.service.RequestActorResolver;
 import io.github.guillebot.streammux.contracts.command.JobCommand;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
@@ -37,6 +38,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JobManagementFlowIT extends KafkaIntegrationSupport {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -67,10 +70,13 @@ class JobManagementFlowIT extends KafkaIntegrationSupport {
         KafkaTemplate<String, Object> kafkaTemplate = kafkaTemplate();
         JobStateStore apiStateStore = new JobStateStore();
         JobStateStore projectedStateStore = new JobStateStore();
+        RequestActorResolver actorResolver = mock(RequestActorResolver.class);
+        when(actorResolver.currentActor()).thenReturn("integration-test");
         JobService service = new JobService(
             apiStateStore,
             new KafkaJobCommandPublisher(kafkaTemplate, topics),
-            new TopicValidationProperties(List.of(), List.of(), List.of(), List.of())
+            new TopicValidationProperties(List.of(), List.of(), List.of(), List.of()),
+            actorResolver
         );
         KafkaJobStateProjector projector = new KafkaJobStateProjector(projectedStateStore);
 

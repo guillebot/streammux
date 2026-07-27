@@ -339,6 +339,59 @@ tr:last-child td {
   vertical-align: middle;
 }
 
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.filter-row input {
+  min-width: 10rem;
+}
+
+.event-type-badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-family: var(--mono, ui-monospace, monospace);
+}
+
+.status-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+}
+
+.status-kv dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status-kv dd {
+  margin: 0;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .icon-btn-group {
   display: inline-flex;
   align-items: center;
@@ -556,6 +609,16 @@ select.form-select {
 .docs-card-desc {
   margin: 0;
   font-size: 0.9rem;
+}
+
+.mcp-tool-list {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+}
+
+.mcp-tool-list li {
+  margin-bottom: 0.35rem;
 }
 
 .docs-external-list {

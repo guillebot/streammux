@@ -1,7 +1,14 @@
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { recordSession } from "./api/activityClient";
 import { appVersion } from "./version";
 
 export function AppLayout() {
+  useEffect(() => {
+    void recordSession().catch(() => {
+      /* session ping is best-effort */
+    });
+  }, []);
   return (
     <div className="layout-root">
       <aside className="sidebar" aria-label="Main navigation">
@@ -27,8 +34,14 @@ export function AppLayout() {
           <NavLink className="sidebar-link" to="/health">
             Health
           </NavLink>
+          <NavLink className="sidebar-link" to="/logs">
+            Logs
+          </NavLink>
           <NavLink className="sidebar-link" to="/docs">
             Documentation
+          </NavLink>
+          <NavLink className="sidebar-link" to="/mcp">
+            MCP
           </NavLink>
           <NavLink className="sidebar-link" to="/settings">
             Settings

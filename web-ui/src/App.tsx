@@ -6,7 +6,9 @@ import { DocsRoutes } from "./Docs";
 import { JobBuilder } from "./JobBuilder";
 import { Health } from "./Health";
 import { JobDetail } from "./JobDetail";
+import { Logs } from "./Logs";
 import { ManagementHome } from "./ManagementHome";
+import { McpPage } from "./Mcp";
 import { Settings } from "./Settings";
 
 export function App() {
@@ -20,7 +22,9 @@ export function App() {
           <Route path="/catalog" element={<CatalogList />} />
           <Route path="/catalog/items/:id" element={<CatalogEditor />} />
           <Route path="/health" element={<Health />} />
+          <Route path="/logs" element={<Logs />} />
           <Route path="/docs/*" element={<DocsRoutes />} />
+          <Route path="/mcp" element={<McpPage />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

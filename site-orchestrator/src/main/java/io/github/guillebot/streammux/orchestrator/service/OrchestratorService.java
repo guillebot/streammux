@@ -1,5 +1,7 @@
 package io.github.guillebot.streammux.orchestrator.service;
 
+import io.github.guillebot.streammux.contracts.model.DesiredJobState;
+import io.github.guillebot.streammux.contracts.model.EventType;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
@@ -21,11 +23,17 @@ public class OrchestratorService {
 
     private final LeaseManager leaseManager;
     private final JobRunnerRegistry jobRunnerRegistry;
+    private final OrchestratorEventPublisher eventPublisher;
     private final Map<String, Long> activeLeaseEpochs = new ConcurrentHashMap<>();
 
-    public OrchestratorService(LeaseManager leaseManager, JobRunnerRegistry jobRunnerRegistry) {
+    public OrchestratorService(
+        LeaseManager leaseManager,
+        JobRunnerRegistry jobRunnerRegistry,
+        OrchestratorEventPublisher eventPublisher
+    ) {
         this.leaseManager = leaseManager;
         this.jobRunnerRegistry = jobRunnerRegistry;
+        this.eventPublisher = eventPublisher;
     }
 
     public JobLease reconcile(JobDefinition definition, JobLease currentLease) {
@@ -46,10 +54,35 @@ public class OrchestratorService {
 
     private JobLease claim(JobDefinition definition, JobLease currentLease, Instant now) {
         JobLease newLease = leaseManager.claim(definition, currentLease, now);
+        eventPublisher.publishForDefinition(
+            definition,
+            EventType.CLAIMED,
+            "Lease claimed",
+            Map.of("leaseEpoch", newLease.leaseEpoch())
+        );
+
         JobRunner runner = jobRunnerRegistry.resolve(definition);
-        runner.start(definition, newLease.leaseEpoch());
-        activeLeaseEpochs.put(definition.jobId(), newLease.leaseEpoch());
-        LOGGER.info("Claimed job {} with epoch {}", definition.jobId(), newLease.leaseEpoch());
+        try {
+            runner.start(definition, newLease.leaseEpoch());
+            activeLeaseEpochs.put(definition.jobId(), newLease.leaseEpoch());
+            eventPublisher.publishForDefinition(
+                definition,
+                EventType.STARTED,
+                "Runner started",
+                Map.of("leaseEpoch", newLease.leaseEpoch())
+            );
+            LOGGER.info("Claimed job {} with epoch {}", definition.jobId(), newLease.leaseEpoch());
+        } catch (RuntimeException ex) {
+            activeLeaseEpochs.remove(definition.jobId());
+            eventPublisher.publishForDefinition(
+                definition,
+                EventType.FAILED,
+                ex.getMessage() != null ? ex.getMessage() : "Runner start failed",
+                Map.of("leaseEpoch", newLease.leaseEpoch(), "error", ex.getClass().getSimpleName())
+            );
+            LOGGER.error("Failed to start job {} at epoch {}", definition.jobId(), newLease.leaseEpoch(), ex);
+            throw ex;
+        }
         return newLease;
     }
 
@@ -74,6 +107,15 @@ public class OrchestratorService {
             JobRunner runner = jobRunnerRegistry.resolve(definition);
             runner.stop(definition.jobId());
             activeLeaseEpochs.remove(definition.jobId());
+            String owner = currentLease == null
+                ? "unknown"
+                : currentLease.leaseOwnerSite() + "/" + currentLease.leaseOwnerInstance();
+            eventPublisher.publishForDefinition(
+                definition,
+                EventType.RELEASED,
+                "Stopped after losing lease to " + owner,
+                Map.of("leaseEpoch", activeLeaseEpoch, "newOwner", owner)
+            );
             LOGGER.info("Stopped job {} after losing lease ownership", definition.jobId());
         }
     }
@@ -82,6 +124,22 @@ public class OrchestratorService {
         JobRunner runner = jobRunnerRegistry.resolve(definition);
         runner.stop(definition.jobId());
         activeLeaseEpochs.remove(definition.jobId());
+
+        if (definition.desiredState() == DesiredJobState.PAUSED) {
+            eventPublisher.publishForDefinition(
+                definition,
+                EventType.STOPPED,
+                "Runner stopped (desiredState=PAUSED)",
+                Map.of("desiredState", definition.desiredState().name())
+            );
+        } else {
+            eventPublisher.publishForDefinition(
+                definition,
+                EventType.RELEASED,
+                "Runner released",
+                Map.of("desiredState", definition.desiredState().name())
+            );
+        }
         LOGGER.info("Released job {}", definition.jobId());
         return null;
     }

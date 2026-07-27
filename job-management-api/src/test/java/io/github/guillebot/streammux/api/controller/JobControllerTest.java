@@ -137,7 +137,7 @@ class JobControllerTest {
             new LagMetrics(0, 0, 1)
         )));
         when(jobService.getEvents("job-1")).thenReturn(List.of(
-            new JobEvent("evt-1", "job-1", 3, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "started", Map.of())
+            new JobEvent("evt-1", "job-1", 3, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "started", Map.of(), "orchestrator")
         ));
         when(jobService.listJobs()).thenReturn(List.of(jobDefinition("job-1", 3, DesiredJobState.ACTIVE)));
 

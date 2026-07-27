@@ -65,6 +65,9 @@ export function DocsIndex() {
         <h2>External references</h2>
         <ul className="docs-external-list">
           <li>
+            <a href="/#/mcp">MCP console</a> — tokens, tool catalog, and connection snippets
+          </li>
+          <li>
             <a href="/swagger-ui/index.html" target="_blank" rel="noreferrer">
               Swagger UI
             </a>{" "}

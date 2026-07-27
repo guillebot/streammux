@@ -104,4 +104,5 @@ export interface JobEvent {
   instanceId: string | null;
   message: string;
   attributes: Record<string, unknown>;
+  actor: string | null;
 }

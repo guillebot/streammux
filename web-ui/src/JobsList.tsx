@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { deleteJob, getLease, getStatus, listJobs, updateJob } from "./api/client";
+import { resolveActor } from "./actorCache";
 import { IconPause, IconPlay, IconTrash } from "./jobActionIcons";
 import { InlineSpinner } from "./InlineSpinner";
 import type { JobDefinition, JobLease, JobRuntimeStatus } from "./types";
@@ -145,16 +146,18 @@ export function JobsList() {
 
   const onPlay = (job: JobDefinition) => {
     if (job.desiredState !== "PAUSED") return;
-    void runRowAction(job, "play", () =>
-      updateJob(job.jobId, { ...job, desiredState: "ACTIVE", updatedBy: "web-ui" }),
-    );
+    void runRowAction(job, "play", async () => {
+      const actor = await resolveActor();
+      await updateJob(job.jobId, { ...job, desiredState: "ACTIVE", updatedBy: actor });
+    });
   };
 
   const onPause = (job: JobDefinition) => {
     if (job.desiredState !== "ACTIVE") return;
-    void runRowAction(job, "pause", () =>
-      updateJob(job.jobId, { ...job, desiredState: "PAUSED", updatedBy: "web-ui" }),
-    );
+    void runRowAction(job, "pause", async () => {
+      const actor = await resolveActor();
+      await updateJob(job.jobId, { ...job, desiredState: "PAUSED", updatedBy: actor });
+    });
   };
 
   const onDelete = (job: JobDefinition) => {

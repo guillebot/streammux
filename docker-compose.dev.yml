@@ -41,9 +41,11 @@ services:
     environment:
       STREAMMUX_JOB_MANAGEMENT_API: job-management-api:8080
       STREAMMUX_JOB_CATALOG_API: job-catalog-api:3000
+      STREAMMUX_MCP_API: mcp:8090
     depends_on:
       - job-management-api
       - job-catalog-api
+      - mcp
     restart: unless-stopped
 
   site-orchestrator:
@@ -62,4 +64,35 @@ services:
     restart: unless-stopped
     depends_on:
       - job-management-api
+
+  mcp:
+    build:
+      context: .
+      dockerfile: deploy/go.Dockerfile
+      args:
+        SERVICE: mcp
+    environment:
+      MCP_HTTP_ADDR: :8090
+      JOB_MANAGEMENT_API_URL: http://job-management-api:8080
+      JOB_CATALOG_API_URL: http://job-catalog-api:3000
+      STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
+      STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
+      MCP_TOKEN_DB_PATH: /data/tokens.db
+    volumes:
+      - mcp_tokens:/data
+    ports:
+      - "127.0.0.1:${STREAMMUX_MCP_PORT:-8090}:8090"
+    depends_on:
+      - job-management-api
+      - job-catalog-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/healthcheck", "8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mcp_tokens:
 

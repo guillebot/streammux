@@ -42,11 +42,19 @@ class JobServiceTest {
     @Mock
     private JobCommandPublisher commandPublisher;
 
+    @Mock
+    private RequestActorResolver actorResolver;
+
+    private JobService newService() {
+        return new JobService(stateStore, commandPublisher, topicValidationProperties(), actorResolver);
+    }
+
     @Test
     void createJobNormalizesVersionAndPublishesDefinitionAndEvent() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         JobDefinition input = jobDefinition("job-1", 99, DesiredJobState.ACTIVE, "alice");
         when(stateStore.getJob("job-1")).thenReturn(Optional.empty());
+        when(actorResolver.currentActor()).thenReturn("alice");
 
         JobDefinition created = service.createJob(input);
 
@@ -64,13 +72,14 @@ class JobServiceTest {
         verify(stateStore).appendEvent(eventCaptor.capture());
         verify(commandPublisher).publishEvent(eventCaptor.getValue());
         assertEquals(EventType.CREATED, eventCaptor.getValue().eventType());
+        assertEquals("alice", eventCaptor.getValue().actor());
         assertEquals(created.jobId(), eventCaptor.getValue().jobId());
         assertEquals(created.jobVersion(), eventCaptor.getValue().jobVersion());
     }
 
     @Test
     void createJobRejectsExistingJobId() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         when(stateStore.getJob("job-1")).thenReturn(Optional.of(jobDefinition("job-1", 1, DesiredJobState.ACTIVE, "alice")));
 
         ResponseStatusException exception = assertThrows(
@@ -84,10 +93,11 @@ class JobServiceTest {
 
     @Test
     void updateJobBumpsVersionAndPublishesUpdatedEvent() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         JobDefinition current = jobDefinition("job-1", 4, DesiredJobState.ACTIVE, "alice");
         JobDefinition requested = jobDefinition("ignored", 0, DesiredJobState.PAUSED, "bob");
         when(stateStore.getJob("job-1")).thenReturn(Optional.of(current));
+        when(actorResolver.currentActor()).thenReturn("bob");
 
         JobDefinition updated = service.updateJob("job-1", requested);
 
@@ -104,9 +114,10 @@ class JobServiceTest {
 
     @Test
     void deleteJobPublishesDeletedDefinitionAndRemovesStoredState() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         JobDefinition current = jobDefinition("job-1", 2, DesiredJobState.ACTIVE, "alice");
         when(stateStore.getJob("job-1")).thenReturn(Optional.of(current));
+        when(actorResolver.currentActor()).thenReturn("operator");
 
         service.deleteJob("job-1");
 
@@ -114,7 +125,7 @@ class JobServiceTest {
         verify(commandPublisher).publishDefinition(definitionCaptor.capture());
         assertEquals(DesiredJobState.DELETED, definitionCaptor.getValue().desiredState());
         assertEquals(3, definitionCaptor.getValue().jobVersion());
-        assertEquals("job-management-api", definitionCaptor.getValue().updatedBy());
+        assertEquals("operator", definitionCaptor.getValue().updatedBy());
 
         ArgumentCaptor<JobEvent> eventCaptor = ArgumentCaptor.forClass(JobEvent.class);
         verify(commandPublisher).publishEvent(eventCaptor.capture());
@@ -125,9 +136,10 @@ class JobServiceTest {
 
     @Test
     void issueCommandPublishesMappedEventAndCommand() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         JobDefinition current = jobDefinition("job-1", 6, DesiredJobState.ACTIVE, "alice");
         when(stateStore.getJob("job-1")).thenReturn(Optional.of(current));
+        when(actorResolver.currentActor()).thenReturn("operator");
 
         service.issueCommand("job-1", CommandType.DRAIN);
 
@@ -136,7 +148,7 @@ class JobServiceTest {
         assertEquals("job-1", commandCaptor.getValue().jobId());
         assertEquals(6, commandCaptor.getValue().jobVersion());
         assertEquals(CommandType.DRAIN, commandCaptor.getValue().commandType());
-        assertEquals("api", commandCaptor.getValue().issuedBy());
+        assertEquals("operator", commandCaptor.getValue().issuedBy());
 
         ArgumentCaptor<JobEvent> eventCaptor = ArgumentCaptor.forClass(JobEvent.class);
         verify(stateStore).appendEvent(eventCaptor.capture());
@@ -147,7 +159,7 @@ class JobServiceTest {
 
     @Test
     void getJobThrowsNotFoundForMissingJob() {
-        JobService service = new JobService(stateStore, commandPublisher, topicValidationProperties());
+        JobService service = newService();
         when(stateStore.getJob("missing")).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> service.getJob("missing"));

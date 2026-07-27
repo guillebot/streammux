@@ -68,7 +68,7 @@ class KafkaJobStateProjectorTest {
             null,
             new LagMetrics(0, 12, 34)
         );
-        JobEvent event = new JobEvent("event-1", "job-1", 2, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "Started", Map.of());
+        JobEvent event = new JobEvent("event-1", "job-1", 2, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "Started", Map.of(), "orchestrator");
 
         projector.onJobLease(record(TopicNames.JOB_LEASES, "job-1", lease));
         projector.onJobStatus(record(TopicNames.JOB_STATUS, "job-1", status));

@@ -19,6 +19,7 @@ import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import io.github.guillebot.streammux.orchestrator.service.KafkaOrchestratorPublisher;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorCoordinator;
+import io.github.guillebot.streammux.orchestrator.service.OrchestratorEventPublisher;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorService;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorStateStore;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -99,15 +100,18 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
     ) {
         when(runner.supports(any())).thenReturn(true);
         LeaseManager leaseManager = new LeaseManager(new SiteIdentityProperties(siteId, instanceId));
+        KafkaOrchestratorPublisher publisher = new KafkaOrchestratorPublisher(kafkaTemplate, topics);
+        OrchestratorEventPublisher eventPublisher = new OrchestratorEventPublisher(publisher, new SiteIdentityProperties(siteId, instanceId));
         OrchestratorService orchestratorService = new OrchestratorService(
             leaseManager,
-            new JobRunnerRegistry(List.of(runner))
+            new JobRunnerRegistry(List.of(runner)),
+            eventPublisher
         );
         return new OrchestratorCoordinator(
             new OrchestratorStateStore(),
             orchestratorService,
             leaseManager,
-            new KafkaOrchestratorPublisher(kafkaTemplate, topics)
+            publisher
         );
     }
 

@@ -169,7 +169,30 @@ class JsonSerdeFactoryTest {
             "site-a",
             "orchestrator-1",
             "Job started",
-            Map.of("attempt", 1, "source", "test")
+            Map.of("attempt", 1, "source", "test"),
+            "operator"
+        );
+
+        Serde<JobEvent> serde = JsonSerdeFactory.jsonSerde(JobEvent.class);
+
+        JobEvent restored = serde.deserializer().deserialize(TopicNames.JOB_EVENTS, serde.serializer().serialize(TopicNames.JOB_EVENTS, event));
+
+        assertEquals(event, restored);
+    }
+
+    @Test
+    void roundTripsSessionEventWithActor() {
+        JobEvent event = new JobEvent(
+            "sess-1",
+            JobEvent.PLATFORM_JOB_ID,
+            0,
+            EventType.SESSION,
+            Instant.parse("2024-01-02T03:04:05Z"),
+            null,
+            "job-management-api",
+            "Console session",
+            Map.of(),
+            "jsolarin"
         );
 
         Serde<JobEvent> serde = JsonSerdeFactory.jsonSerde(JobEvent.class);

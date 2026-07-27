@@ -22,7 +22,7 @@ The web console, catalog, and helper shell scripts in this repository are thin c
 | Path | Auth |
 | ---- | ---- |
 | `/actuator/health`, `/actuator/info` | None |
-| All other `/jobs`, `/jobs/meta`, `/actuator/*` (including `/actuator/prometheus` when exposed) | HTTP Basic |
+| All other `/jobs`, `/jobs/meta`, `/activity`, `/actuator/*` (including `/actuator/prometheus` when exposed) | HTTP Basic |
 
 Credentials come from `STREAMMUX_API_USERNAME` and `STREAMMUX_API_PASSWORD` (defaults in `.env.example`: `streammux` / `change-me-now`). Example:
 
@@ -67,6 +67,9 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `GET` | `/jobs/{jobId}/status` | Runtime status from Kafka read model | `200` (body empty if none yet) |
 | `GET` | `/jobs/{jobId}/lease` | Current lease | `200` (body empty if none yet) |
 | `GET` | `/jobs/{jobId}/events` | Audit events | `200` |
+| `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId`, `eventType`, `actor`) | `200` |
+| `GET` | `/activity/me` | Resolved actor for current request (Authelia user when proxied) | `200` |
+| `POST` | `/activity/session` | Record console session (`SESSION` event) | `202` |
 | `GET` | `/jobs/meta/kafka-topics` | Broker topics filtered by allowlists | `200` |
 | `GET` | `/jobs/meta/health` | Kafka connectivity and read-model counts | `200` |
 | `GET` | `/jobs/meta/settings` | Non-secret platform settings | `200` |

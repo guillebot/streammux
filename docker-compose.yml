@@ -52,6 +52,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:?set KAFKA_BOOTSTRAP_SERVERS}
       STREAMMUX_JOB_MANAGEMENT_API: ${STREAMMUX_JOB_MANAGEMENT_API_UPSTREAM:-job-management-api:8080}
       STREAMMUX_JOB_CATALOG_API: ${STREAMMUX_JOB_CATALOG_API_UPSTREAM:-job-catalog-api:3000}
+      STREAMMUX_MCP_API: ${STREAMMUX_MCP_API_UPSTREAM:-mcp:8090}
       STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
       STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
     depends_on:
@@ -75,6 +76,34 @@ services:
     depends_on:
       - job-management-api
 
+
+  mcp:
+    image: ${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}/mcp:${TAG:-latest}
+    pull_policy: always
+    environment:
+      MCP_HTTP_ADDR: :8090
+      JOB_MANAGEMENT_API_URL: http://job-management-api:8080
+      JOB_CATALOG_API_URL: http://job-catalog-api:3000
+      STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
+      STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
+      MCP_TOKEN_DB_PATH: /data/tokens.db
+    volumes:
+      - mcp_tokens:/data
+    ports:
+      - "127.0.0.1:${STREAMMUX_MCP_PORT:-8090}:8090"
+    depends_on:
+      - job-management-api
+      - job-catalog-api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/healthcheck", "8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mcp_tokens:
 
 networks:
   traefik:

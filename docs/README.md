@@ -12,6 +12,7 @@ This folder complements the [root README](../README.md) with structured guides f
 | [api.md](api.md) | Operators, integrators, automation | **100% API-managed** control plane, complete OpenAPI reference, curl examples |
 | [web-console.md](web-console.md) | Operators | Web UI pages: jobs, builder, catalog, health, settings |
 | [deployment.md](deployment.md) | DevOps, platform | Images, Compose files, environment variables, building and publishing |
+| [mcp.md](mcp.md) | Operators, AI clients | MCP server, tokens, tool catalog, multi-backend token storage |
 | [usage.md](usage.md) | Operators, API users | Quick API index, scripts, health endpoints (see [api.md](api.md) for full reference) |
 | [STREAMMUX.confluence.md](STREAMMUX.confluence.md) | Broad / wiki | Plain-language summary suitable for an internal wiki (e.g. Confluence) |
 | [confluence-publish.md](confluence-publish.md) | Who publishes the wiki | How to get wiki content into Confluence; includes publish scripts |
@@ -22,6 +23,7 @@ This folder complements the [root README](../README.md) with structured guides f
 - **Architecture diagrams (Mermaid):** [README § Architecture](../README.md#architecture)
 - **Filter expression reference:** [job-types.md § ROUTE_APP](job-types.md#route_app)
 - **Web console:** [web-console.md](web-console.md)
+- **MCP (AI clients):** [mcp.md](mcp.md) — also **MCP** page in the web UI (`/#/mcp`)
 - **API reference:** [api.md](api.md) — endpoints, examples, [openapi.json](openapi.json) snapshot
 - **Swagger UI:** `/swagger-ui/index.html` (via Traefik in production, or management API port locally)
 - **Wiki-oriented page:** [STREAMMUX.confluence.md](STREAMMUX.confluence.md)
