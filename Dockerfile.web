@@ -7,6 +7,7 @@ COPY web-ui/package.json web-ui/package-lock.json ./
 RUN npm ci
 
 COPY VERSION ./VERSION
+COPY docs/ /docs/
 COPY web-ui/ ./
 ARG VITE_APP_VERSION=
 ARG VITE_EXAMPLE_KAFKA_BOOTSTRAP=

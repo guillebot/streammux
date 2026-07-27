@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   formatSettingsList,
   getCatalogSettings,
@@ -188,11 +189,11 @@ export function Settings() {
       <section className="panel">
         <h2>Documentation</h2>
         <p className="muted">
-          API reference:{" "}
-          <a href="https://gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux/-/blob/main/docs/api.md" target="_blank" rel="noreferrer">
-            docs/api.md
-          </a>
+          In-app guides: <Link to="/docs">Documentation</Link>
           {" · "}
+          <Link to="/docs/api">API reference</Link>
+        </p>
+        <p className="muted">
           OpenAPI:{" "}
           <a href="/swagger-ui/index.html" target="_blank" rel="noreferrer">
             Swagger UI

@@ -27,6 +27,9 @@ export function AppLayout() {
           <NavLink className="sidebar-link" to="/health">
             Health
           </NavLink>
+          <NavLink className="sidebar-link" to="/docs">
+            Documentation
+          </NavLink>
           <NavLink className="sidebar-link" to="/settings">
             Settings
           </NavLink>

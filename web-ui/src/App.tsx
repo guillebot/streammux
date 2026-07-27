@@ -2,6 +2,7 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./AppLayout";
 import { CatalogEditor } from "./CatalogEditor";
 import { CatalogList } from "./CatalogList";
+import { DocsRoutes } from "./Docs";
 import { JobBuilder } from "./JobBuilder";
 import { Health } from "./Health";
 import { JobDetail } from "./JobDetail";
@@ -19,6 +20,7 @@ export function App() {
           <Route path="/catalog" element={<CatalogList />} />
           <Route path="/catalog/items/:id" element={<CatalogEditor />} />
           <Route path="/health" element={<Health />} />
+          <Route path="/docs/*" element={<DocsRoutes />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

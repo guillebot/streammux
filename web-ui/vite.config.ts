@@ -21,12 +21,24 @@ if (!process.env.VITE_APP_VERSION) {
 
 const apiTarget = process.env.VITE_DEV_API_PROXY ?? "http://127.0.0.1:8080";
 const catalogTarget = process.env.VITE_DEV_CATALOG_PROXY ?? "http://127.0.0.1:3000";
+const repoRoot = resolve(__dirname, "..");
 
 export default defineConfig({
   plugins: [react()],
   server: {
+    fs: {
+      allow: [repoRoot],
+    },
     proxy: {
       "/jobs": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
+      "/swagger-ui": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
+      "/v3/api-docs": {
         target: apiTarget,
         changeOrigin: true,
       },
