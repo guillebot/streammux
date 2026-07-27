@@ -21,7 +21,8 @@ FROM ${DOCKER_HUB_PROXY}nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY web-ui/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY web-ui/nginx/docker-entrypoint-streammux.sh /docker-entrypoint.d/19-streammux-verify-env.sh
-RUN chmod +x /docker-entrypoint.d/19-streammux-verify-env.sh \
+COPY web-ui/nginx/docker-entrypoint-auth-inject.sh /docker-entrypoint.d/21-streammux-auth-inject.sh
+RUN chmod +x /docker-entrypoint.d/19-streammux-verify-env.sh /docker-entrypoint.d/21-streammux-auth-inject.sh \
     && mkdir -p /var/cache/nginx /var/run/nginx \
     && chown -R nginx:nginx /var/cache/nginx /var/run/nginx /usr/share/nginx/html
 
