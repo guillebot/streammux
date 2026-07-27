@@ -21,7 +21,9 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /catalog {
+    # Proxy only job-catalog-api REST paths. React routes also live under /catalog
+    # (/catalog, /catalog/items/*) and must fall through to index.html.
+    location ~ ^/catalog/(entries|health|settings) {
         set $catalog_upstream http://${STREAMMUX_JOB_CATALOG_API};
         proxy_pass $catalog_upstream;
         proxy_http_version 1.1;
