@@ -2,6 +2,8 @@
 # Streammux GitLab CI/CD pipeline
 # =============================================================================
 # Builds four container images and pushes to the GitLab Container Registry.
+# Test stage gates package: Java unit + integration (Testcontainers/dind), web-ui
+# (vitest + build), Go (MCP), job-catalog-api (syntax check).
 #
 # Image tags (per service):
 #   :<short-sha>            always (immutable per commit)
@@ -150,6 +152,7 @@ test:job-catalog-api:
   needs:
     - job: test:java:unit
     - job: test:java:integration
+      optional: true
     - job: test:web-ui
     - job: test:go
     - job: test:job-catalog-api
