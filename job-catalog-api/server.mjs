@@ -31,6 +31,60 @@ if (!TOPIC) {
 
 const JOB_API = JOB_API_RAW;
 
+const TOPIC_CLEANUP = {
+  COMPACT: "compact",
+  DELETE: "delete",
+};
+
+function expectedCleanupPolicy(topicKey) {
+  if (topicKey === "jobDefinitions" || topicKey === "jobCatalog") return TOPIC_CLEANUP.COMPACT;
+  return TOPIC_CLEANUP.DELETE;
+}
+
+function normalizeCleanupPolicy(cleanupPolicy) {
+  if (!cleanupPolicy || !String(cleanupPolicy).trim()) return TOPIC_CLEANUP.DELETE;
+  return String(cleanupPolicy).trim().toLowerCase();
+}
+
+function cleanupPolicyMatches(cleanupPolicy, expected) {
+  const actual = normalizeCleanupPolicy(cleanupPolicy);
+  if (expected === TOPIC_CLEANUP.COMPACT) return actual.includes(TOPIC_CLEANUP.COMPACT);
+  if (expected === TOPIC_CLEANUP.DELETE) return !actual.includes(TOPIC_CLEANUP.COMPACT);
+  return false;
+}
+
+function topicHealthEntry(topicKey, topicName, exists, cleanupPolicy) {
+  const expected = expectedCleanupPolicy(topicKey);
+  const ok = exists && cleanupPolicyMatches(cleanupPolicy, expected);
+  return { key: topicKey, name: topicName, exists, cleanupPolicy: cleanupPolicy ?? null, expected, ok };
+}
+
+async function probeCatalogTopicHealth() {
+  try {
+    const metadata = await admin.fetchTopicMetadata({ topics: [TOPIC] });
+    const exists = metadata.topics.some((t) => t.name === TOPIC && !t.errorCode);
+    let cleanupPolicy = null;
+    if (exists) {
+      const described = await admin.describeConfigs({
+        includeSynonyms: false,
+        resources: [{ type: 2, name: TOPIC }],
+      });
+      const entry = described.resources[0]?.configEntries?.find((c) => c.configName === "cleanup.policy");
+      cleanupPolicy = entry?.configValue ?? null;
+    }
+    const topic = topicHealthEntry("jobCatalog", TOPIC, exists, cleanupPolicy);
+    const status = exists && topic.ok ? "UP" : "DEGRADED";
+    return { status, topic };
+  } catch (e) {
+    const topic = topicHealthEntry("jobCatalog", TOPIC, false, null);
+    return {
+      status: "DOWN",
+      topic,
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 const kafka = new Kafka(buildKafkaClientConfig({ clientId: CLIENT_ID, brokers: BROKERS }));
 const producer = kafka.producer({
   allowAutoTopicCreation: false,
@@ -397,14 +451,17 @@ router.post("/entries/:id/push", async (req, res) => {
   }
 });
 
-router.get("/health", (_req, res) => {
+router.get("/health", async (_req, res) => {
+  const probe = await probeCatalogTopicHealth();
   res.json({
-    status: "UP",
+    status: probe.status,
     module: { name: "job-catalog-api", status: "UP" },
     kafka: {
-      status: "UP",
+      status: probe.status,
       bootstrapServers: BROKERS.join(","),
       topic: TOPIC,
+      topics: [probe.topic],
+      detail: probe.detail ?? null,
     },
     catalog: {
       entryCount: entries.size,

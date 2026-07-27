@@ -74,7 +74,14 @@ class JobMetaControllerTest {
                 "kafka1:9092",
                 "cluster-1",
                 3,
-                List.of(new TopicPresence("jobDefinitions", TopicNames.JOB_DEFINITIONS, true))
+                List.of(new TopicPresence(
+                    "jobDefinitions",
+                    TopicNames.JOB_DEFINITIONS,
+                    true,
+                    "compact",
+                    "compact",
+                    true
+                ))
             ),
             new ReadModelHealth(2, 1, 1, 1)
         ));

@@ -1,12 +1,15 @@
 package io.github.guillebot.streammux.api.service;
 
 import io.github.guillebot.streammux.api.config.KafkaTopicProperties;
+import io.github.guillebot.streammux.contracts.model.TopicCleanupPolicy;
 import io.github.guillebot.streammux.contracts.model.TopicNames;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PlatformHealthServiceTest {
     private JobStateStore stateStore;
@@ -38,5 +41,16 @@ class PlatformHealthServiceTest {
 
         assertEquals(5, health.kafka().topics().size());
         assertEquals(TopicNames.JOB_DEFINITIONS, health.kafka().topics().getFirst().name());
+    }
+
+    @Test
+    void snapshotTopicEntriesIncludeExpectedCleanupPolicyWhenKafkaDown() {
+        PlatformHealthService.PlatformHealth health = service.snapshot();
+        PlatformHealthService.TopicPresence jobDefinitions = health.kafka().topics().getFirst();
+
+        assertFalse(jobDefinitions.exists());
+        assertNull(jobDefinitions.cleanupPolicy());
+        assertEquals(TopicCleanupPolicy.COMPACT, jobDefinitions.expected());
+        assertFalse(jobDefinitions.ok());
     }
 }

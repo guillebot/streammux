@@ -1,11 +1,16 @@
 package io.github.guillebot.streammux.api.service;
 
 import io.github.guillebot.streammux.api.config.KafkaTopicProperties;
+import io.github.guillebot.streammux.contracts.model.TopicCleanupPolicy;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
+import org.apache.kafka.clients.admin.DescribeConfigsResult;
 import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +25,8 @@ import java.util.concurrent.ExecutionException;
 
 @Service
 public class PlatformHealthService {
+    private static final String CLEANUP_POLICY = "cleanup.policy";
+
     private final String bootstrapServers;
     private final KafkaTopicProperties topicProperties;
     private final JobStateStore stateStore;
@@ -57,9 +64,10 @@ public class PlatformHealthService {
             int brokerCount = cluster.nodes().get().size();
             ListTopicsOptions options = new ListTopicsOptions().listInternal(false);
             Set<String> brokerTopics = admin.listTopics(options).names().get();
-            List<TopicPresence> topics = buildTopicPresence(brokerTopics);
-            boolean allPresent = topics.stream().allMatch(TopicPresence::present);
-            String status = brokerCount > 0 && allPresent ? "UP" : "DEGRADED";
+            Map<String, String> cleanupPolicies = fetchCleanupPolicies(admin, brokerTopics);
+            List<TopicPresence> topics = buildTopicPresence(brokerTopics, cleanupPolicies);
+            boolean allOk = topics.stream().allMatch(TopicPresence::ok);
+            String status = brokerCount > 0 && allOk ? "UP" : "DEGRADED";
             if (brokerCount == 0) {
                 status = "DOWN";
             }
@@ -74,23 +82,51 @@ public class PlatformHealthService {
         }
     }
 
-    private List<TopicPresence> buildTopicPresence(Set<String> brokerTopics) {
+    private Map<String, String> fetchCleanupPolicies(AdminClient admin, Set<String> brokerTopics)
+        throws ExecutionException, InterruptedException {
+        List<ConfigResource> resources = brokerTopics.stream()
+            .map(name -> new ConfigResource(ConfigResource.Type.TOPIC, name))
+            .toList();
+        if (resources.isEmpty()) {
+            return Map.of();
+        }
+        DescribeConfigsResult result = admin.describeConfigs(resources);
+        Map<ConfigResource, Config> configs = result.all().get();
+        Map<String, String> policies = new LinkedHashMap<>();
+        for (Map.Entry<ConfigResource, Config> entry : configs.entrySet()) {
+            ConfigEntry cleanup = entry.getValue().get(CLEANUP_POLICY);
+            if (cleanup != null && cleanup.value() != null) {
+                policies.put(entry.getKey().name(), cleanup.value());
+            }
+        }
+        return policies;
+    }
+
+    private List<TopicPresence> buildTopicPresence(Set<String> brokerTopics, Map<String, String> cleanupPolicies) {
         List<TopicPresence> topics = new ArrayList<>();
-        topics.add(topicPresence("jobDefinitions", topicProperties.jobDefinitions(), brokerTopics));
-        topics.add(topicPresence("jobLeases", topicProperties.jobLeases(), brokerTopics));
-        topics.add(topicPresence("jobStatus", topicProperties.jobStatus(), brokerTopics));
-        topics.add(topicPresence("jobEvents", topicProperties.jobEvents(), brokerTopics));
-        topics.add(topicPresence("jobCommands", topicProperties.jobCommands(), brokerTopics));
+        topics.add(topicPresence("jobDefinitions", topicProperties.jobDefinitions(), brokerTopics, cleanupPolicies));
+        topics.add(topicPresence("jobLeases", topicProperties.jobLeases(), brokerTopics, cleanupPolicies));
+        topics.add(topicPresence("jobStatus", topicProperties.jobStatus(), brokerTopics, cleanupPolicies));
+        topics.add(topicPresence("jobEvents", topicProperties.jobEvents(), brokerTopics, cleanupPolicies));
+        topics.add(topicPresence("jobCommands", topicProperties.jobCommands(), brokerTopics, cleanupPolicies));
         return List.copyOf(topics);
     }
 
-    private static TopicPresence topicPresence(String key, String topicName, Set<String> brokerTopics) {
-        boolean present = topicName != null && !topicName.isBlank() && brokerTopics.contains(topicName);
-        return new TopicPresence(key, topicName, present);
+    private static TopicPresence topicPresence(
+        String key,
+        String topicName,
+        Set<String> brokerTopics,
+        Map<String, String> cleanupPolicies
+    ) {
+        boolean exists = topicName != null && !topicName.isBlank() && brokerTopics.contains(topicName);
+        String expected = TopicCleanupPolicy.expectedForTopicKey(key);
+        String cleanupPolicy = exists ? cleanupPolicies.get(topicName) : null;
+        boolean ok = TopicCleanupPolicy.ok(exists, cleanupPolicy, expected);
+        return new TopicPresence(key, topicName, exists, cleanupPolicy, expected, ok);
     }
 
     private KafkaHealth kafkaDown(String detail) {
-        List<TopicPresence> topics = buildTopicPresence(Set.of());
+        List<TopicPresence> topics = buildTopicPresence(Set.of(), Map.of());
         return new KafkaHealth("DOWN", bootstrapServers, null, 0, topics, detail);
     }
 
@@ -131,7 +167,14 @@ public class PlatformHealthService {
         }
     }
 
-    public record TopicPresence(String key, String name, boolean present) {}
+    public record TopicPresence(
+        String key,
+        String name,
+        boolean exists,
+        String cleanupPolicy,
+        String expected,
+        boolean ok
+    ) {}
 
     public record ReadModelHealth(int jobCount, int leaseCount, int statusCount, int eventJobCount) {}
 }

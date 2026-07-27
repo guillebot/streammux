@@ -8,7 +8,10 @@ export interface ModuleHealth {
 export interface TopicPresence {
   key: string;
   name: string;
-  present: boolean;
+  exists: boolean;
+  cleanupPolicy: string | null;
+  expected: string;
+  ok: boolean;
 }
 
 export interface KafkaHealth {
@@ -42,6 +45,8 @@ export interface CatalogHealth {
     status: HealthStatus;
     bootstrapServers: string;
     topic: string;
+    topics?: TopicPresence[];
+    detail?: string | null;
   };
   catalog: {
     entryCount: number;

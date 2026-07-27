@@ -1207,7 +1207,17 @@
                     "name": {
                         "type": "string"
                     },
-                    "present": {
+                    "exists": {
+                        "type": "boolean"
+                    },
+                    "cleanupPolicy": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "expected": {
+                        "type": "string"
+                    },
+                    "ok": {
                         "type": "boolean"
                     }
                 }

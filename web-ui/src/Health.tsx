@@ -163,7 +163,10 @@ export function Health() {
                   <tr>
                     <th>Topic key</th>
                     <th>Name</th>
-                    <th>Present</th>
+                    <th>Exists</th>
+                    <th>Cleanup policy</th>
+                    <th>Expected</th>
+                    <th>OK</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,17 +174,55 @@ export function Health() {
                     <tr key={topic.key}>
                       <td className="mono">{topic.key}</td>
                       <td className="mono">{topic.name}</td>
-                      <td>{topic.present ? "Yes" : "No"}</td>
+                      <td>{topic.exists ? "Yes" : "No"}</td>
+                      <td className="mono">{topic.cleanupPolicy ?? "—"}</td>
+                      <td className="mono">{topic.expected}</td>
+                      <td>{topic.ok ? "Yes" : "No"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {catalog && !catalogError ? (
-              <p className="muted" style={{ marginTop: "0.75rem" }}>
-                Catalog topic <span className="mono">{catalog.kafka.topic}</span> on the same brokers (
-                <StatusBadge status={catalog.kafka.status} />).
-              </p>
+              <>
+                <p className="muted" style={{ marginTop: "0.75rem" }}>
+                  Catalog topic <span className="mono">{catalog.kafka.topic}</span> on the same brokers (
+                  <StatusBadge status={catalog.kafka.status} />).
+                </p>
+                {catalog.kafka.topics?.length ? (
+                  <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Topic key</th>
+                          <th>Name</th>
+                          <th>Exists</th>
+                          <th>Cleanup policy</th>
+                          <th>Expected</th>
+                          <th>OK</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catalog.kafka.topics.map((topic) => (
+                          <tr key={topic.key}>
+                            <td className="mono">{topic.key}</td>
+                            <td className="mono">{topic.name}</td>
+                            <td>{topic.exists ? "Yes" : "No"}</td>
+                            <td className="mono">{topic.cleanupPolicy ?? "—"}</td>
+                            <td className="mono">{topic.expected}</td>
+                            <td>{topic.ok ? "Yes" : "No"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+                {catalog.kafka.detail ? (
+                  <p className="banner error" style={{ marginTop: "0.75rem" }}>
+                    {catalog.kafka.detail}
+                  </p>
+                ) : null}
+              </>
             ) : null}
           </>
         ) : loading ? (
