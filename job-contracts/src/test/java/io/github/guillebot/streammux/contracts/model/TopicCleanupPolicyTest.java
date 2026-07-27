@@ -11,9 +11,11 @@ class TopicCleanupPolicyTest {
     @Test
     void expectedForTopicKey() {
         assertEquals(TopicCleanupPolicy.COMPACT, TopicCleanupPolicy.expectedForTopicKey("jobDefinitions"));
+        assertEquals(TopicCleanupPolicy.COMPACT, TopicCleanupPolicy.expectedForTopicKey("jobLeases"));
+        assertEquals(TopicCleanupPolicy.COMPACT, TopicCleanupPolicy.expectedForTopicKey("jobStatus"));
         assertEquals(TopicCleanupPolicy.COMPACT, TopicCleanupPolicy.expectedForTopicKey("jobCatalog"));
-        assertEquals(TopicCleanupPolicy.DELETE, TopicCleanupPolicy.expectedForTopicKey("jobLeases"));
         assertEquals(TopicCleanupPolicy.DELETE, TopicCleanupPolicy.expectedForTopicKey("jobEvents"));
+        assertEquals(TopicCleanupPolicy.DELETE, TopicCleanupPolicy.expectedForTopicKey("jobCommands"));
     }
 
     @Test

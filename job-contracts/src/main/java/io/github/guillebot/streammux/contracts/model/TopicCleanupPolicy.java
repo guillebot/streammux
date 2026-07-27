@@ -7,7 +7,10 @@ public final class TopicCleanupPolicy {
     private TopicCleanupPolicy() {}
 
     public static String expectedForTopicKey(String topicKey) {
-        if ("jobDefinitions".equals(topicKey) || "jobCatalog".equals(topicKey)) {
+        if ("jobDefinitions".equals(topicKey)
+                || "jobLeases".equals(topicKey)
+                || "jobStatus".equals(topicKey)
+                || "jobCatalog".equals(topicKey)) {
             return COMPACT;
         }
         return DELETE;

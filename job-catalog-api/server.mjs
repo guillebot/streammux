@@ -37,7 +37,14 @@ const TOPIC_CLEANUP = {
 };
 
 function expectedCleanupPolicy(topicKey) {
-  if (topicKey === "jobDefinitions" || topicKey === "jobCatalog") return TOPIC_CLEANUP.COMPACT;
+  if (
+    topicKey === "jobDefinitions" ||
+    topicKey === "jobLeases" ||
+    topicKey === "jobStatus" ||
+    topicKey === "jobCatalog"
+  ) {
+    return TOPIC_CLEANUP.COMPACT;
+  }
   return TOPIC_CLEANUP.DELETE;
 }
 
