@@ -9,6 +9,11 @@ x-kafka-env: &kafka-env
   KAFKA_SSL_REJECT_UNAUTHORIZED: ${KAFKA_SSL_REJECT_UNAUTHORIZED:-false}
   KAFKA_SSL_CA_LOCATION: ${KAFKA_SSL_CA_LOCATION:-}
 
+x-health-defaults: &health-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 5
+
 services:
   job-management-api:
     image: ${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}/job-management-api:${TAG:-latest}
@@ -29,6 +34,10 @@ services:
     ports:
       - "${JOB_MANAGEMENT_API_PORT:-8080}:8080"
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 60s
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health -o /dev/null || exit 1"]
 
   job-catalog-api:
     image: ${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}/job-catalog-api:${TAG:-latest}
@@ -40,8 +49,13 @@ services:
       STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
       STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
     depends_on:
-      - job-management-api
+      job-management-api:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 60s
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
 
   web-ui:
     image: ${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}/web-ui:${TAG:-latest}
@@ -56,9 +70,15 @@ services:
       STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
       STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
     depends_on:
-      - job-management-api
-      - job-catalog-api
+      job-management-api:
+        condition: service_healthy
+      job-catalog-api:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      <<: *health-defaults
+      start_period: 30s
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
 
   site-orchestrator:
     image: ${IMAGE_REPO:-registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux}/site-orchestrator:${TAG:-latest}
@@ -74,7 +94,12 @@ services:
       STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-net.optimum.experimental.streamlens.streammux.jobcommands}
     restart: unless-stopped
     depends_on:
-      - job-management-api
+      job-management-api:
+        condition: service_healthy
+    healthcheck:
+      <<: *health-defaults
+      start_period: 30s
+      test: ["CMD-SHELL", "kill -0 1 || exit 1"]
 
 
   mcp:

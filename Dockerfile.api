@@ -39,13 +39,18 @@ FROM ${DOCKER_HUB_PROXY}eclipse-temurin:21-jre@sha256:273396ed5998598ed1091e8d72
 
 WORKDIR /app
 
-RUN groupadd -r streammux && useradd -r -g streammux streammux
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r streammux \
+    && useradd -r -g streammux streammux
 
 COPY --from=build --chown=streammux:streammux /app/job-management-api/target/job-management-api-0.1.0-SNAPSHOT-exec.jar app.jar
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["sh", "-c", "kill -0 1"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+  CMD ["curl", "-fsS", "http://127.0.0.1:8080/actuator/health", "-o", "/dev/null"]
 
 USER streammux
 

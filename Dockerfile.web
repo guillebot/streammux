@@ -31,7 +31,8 @@ ENV STREAMMUX_JOB_CATALOG_API=job-catalog-api:3000
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+  CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
 
 # Do not set USER nginx here: the official entrypoint must run as root to envsubst
 # templates into /etc/nginx/conf.d before nginx starts.
