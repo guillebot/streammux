@@ -15,7 +15,9 @@ FROM nginx:1.27-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY web-ui/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY web-ui/nginx/docker-entrypoint-streammux.sh /docker-entrypoint.d/40-streammux-verify-env.sh
-RUN chmod +x /docker-entrypoint.d/40-streammux-verify-env.sh
+RUN chmod +x /docker-entrypoint.d/40-streammux-verify-env.sh \
+    && mkdir -p /var/cache/nginx /var/run/nginx \
+    && chown -R nginx:nginx /var/cache/nginx /var/run/nginx /usr/share/nginx/html
 
 ENV STREAMMUX_JOB_MANAGEMENT_API=job-management-api:8080
 ENV STREAMMUX_JOB_CATALOG_API=job-catalog-api:3000
