@@ -47,12 +47,12 @@ class RandomSamplerRunnerIT extends KafkaIntegrationSupport {
         try {
             assertEquals(RuntimeState.RUNNING, runner.status(job.jobId()).state());
             assertEventuallyHealthy(runner, job.jobId(), Duration.ofSeconds(45));
+            KafkaConsumer<String, byte[]> out = createConsumer(outputTopic);
+            warmAssign(out);
             byte[] payload = "{\"n\":1}".getBytes(StandardCharsets.UTF_8);
             try (KafkaProducer<String, byte[]> producer = byteArrayProducer()) {
                 producer.send(new ProducerRecord<>(inputTopic, "k1", payload)).get();
             }
-            KafkaConsumer<String, byte[]> out = createConsumer(outputTopic);
-            warmAssign(out);
             assertEventuallyReceives(out, payload, Duration.ofSeconds(45));
         } finally {
             runner.stop(job.jobId());
