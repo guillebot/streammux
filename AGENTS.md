@@ -30,7 +30,7 @@ Canonical architecture and topic diagrams: [README.md](README.md). Shorter overv
 | `integration-tests` | Testcontainers; some scenarios still placeholder-level |
 | `web-ui/` | Vite + React 19 + TypeScript management UI |
 | `job-catalog-api/` | Small Node (Express + KafkaJS) service for catalog topic |
-| `docs/` | overview, usage, deployment, Confluence helpers |
+| `docs/` | overview, usage, deployment, Confluence helpers, [developer-guidelines.md](docs/developer-guidelines.md) |
 
 **Maven reactor** (Java 21): root [pom.xml](pom.xml) — does **not** include `web-ui` or `job-catalog-api`; those build via Docker or their own `npm` scripts.
 

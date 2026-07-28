@@ -9,6 +9,7 @@ This folder complements the [root README](../README.md) with structured guides f
 | [overview.md](overview.md) | Engineers, architects | What Streammux is, main components, how data flows through Kafka |
 | [architecture.md](architecture.md) | Engineers | Control plane, Kafka topics, lease model, component map |
 | [job-types.md](job-types.md) | Operators, integrators | `ROUTE_APP`, `RANDOM_SAMPLER`, `ALARMS_TO_ZTR` configuration |
+| [developer-guidelines.md](developer-guidelines.md) | Contributors | Build/test workflow, conventions, **adding new job types (runners)** |
 | [api.md](api.md) | Operators, integrators, automation | **100% API-managed** control plane, complete OpenAPI reference, curl examples |
 | [web-console.md](web-console.md) | Operators | Web UI pages: jobs, builder, catalog, health, settings |
 | [deployment.md](deployment.md) | DevOps, platform | Images, Compose files, environment variables, building and publishing |

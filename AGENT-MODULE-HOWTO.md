@@ -1,6 +1,8 @@
 # AGENT-MODULE-HOWTO — adding a job runner module to streammux
 
-This document is for an **external coding agent** (or human contributor) who needs to implement a new **job runner** so `site-orchestrator` can start, stop, and report status for a new **job type**. Read [docs/overview.md](docs/overview.md) and the [README.md](README.md) first for control-plane and Kafka-topic context.
+This document is for an **external coding agent** (or human contributor) who needs to implement a new **job runner** so `site-orchestrator` can start, stop, and report status for a new **job type**.
+
+Start with [docs/developer-guidelines.md](docs/developer-guidelines.md) for repo conventions and the runner architecture overview, then use this file as the detailed checklist. Also read [docs/overview.md](docs/overview.md) and [README.md](README.md) for control-plane and Kafka-topic context.
 
 ---
 
@@ -173,9 +175,10 @@ The UI is **not** part of the Maven reactor; ship UI changes separately if you u
 
 ## Reference implementations
 
-| Job type | Runner module |
-| -------- | ------------- |
-| `ROUTE_APP` | [`runners/job-runner-route-app`](runners/job-runner-route-app) |
-| `RANDOM_SAMPLER` | [`runners/job-runner-random-sampler`](runners/job-runner-random-sampler) |
+| Job type | Runner module | Notes |
+| -------- | ------------- | ----- |
+| `RANDOM_SAMPLER` | [`runners/job-runner-random-sampler`](runners/job-runner-random-sampler) | Smallest Streams example — start here |
+| `ROUTE_APP` | [`runners/job-runner-route-app`](runners/job-runner-route-app) | Multi-route filters, payload normalization |
+| `ALARMS_TO_ZTR` | [`runners/job-runner-alarms-to-ztr`](runners/job-runner-alarms-to-ztr) | Mapping templates + filter rules |
 
-Use these as canonical patterns for topology factories, `application.id` + `leaseEpoch`, in-memory `ConcurrentHashMap` of running jobs, and `JobRuntimeStatus` construction.
+Use these as canonical patterns for topology factories, `application.id` + `leaseEpoch`, `KafkaStreamsRunnerSupport` (per-module copy under `runner/support/`), and `JobRuntimeStatus` construction.

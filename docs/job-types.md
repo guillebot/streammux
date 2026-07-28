@@ -158,4 +158,9 @@ See also the sample payload in [create-alarms-to-ztr-job.sh](../create-alarms-to
 
 ## Adding a new job type
 
-Contributors extend the `JobRunner` SPI in `job-contracts`, add a runner module under `runners/`, register it in site-orchestrator, and update validation in job-management-api. Step-by-step instructions: [AGENT-MODULE-HOWTO.md](../AGENT-MODULE-HOWTO.md) (developer reference, not operator-facing).
+Contributors extend the `JobRunner` SPI in `job-contracts`, add a runner module under `runners/`, and wire it into `site-orchestrator`'s Maven dependencies (Spring discovers the `@Component` automatically). Validation lives in `JobDefinitionValidator` inside `job-contracts`.
+
+- Overview and conventions: [developer-guidelines.md](developer-guidelines.md)
+- Full step-by-step checklist: [AGENT-MODULE-HOWTO.md](../AGENT-MODULE-HOWTO.md)
+
+Both are developer references — not shown in the in-app Documentation page.
