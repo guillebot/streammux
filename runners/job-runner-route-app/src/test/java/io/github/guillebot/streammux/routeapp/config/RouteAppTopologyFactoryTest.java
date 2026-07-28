@@ -77,9 +77,24 @@ class RouteAppTopologyFactoryTest {
         assertEquals("job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
         assertEquals("kafka.example:9092", properties.getProperty(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG));
         assertEquals("earliest", properties.getProperty(StreamsConfig.consumerPrefix("auto.offset.reset")));
+        assertEquals(1, properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG));
+    }
+
+    @Test
+    void appliesJobParallelismAsStreamThreadCount() {
+        JobDefinition definition = jobDefinitionWithParallelism(4);
+        RouteAppTopologyFactory factory = new RouteAppTopologyFactory();
+
+        Properties properties = factory.properties(definition, 1);
+
+        assertEquals(4, properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG));
     }
 
     private static JobDefinition jobDefinition() {
+        return jobDefinitionWithParallelism(1);
+    }
+
+    private static JobDefinition jobDefinitionWithParallelism(int parallelism) {
         return new JobDefinition(
             "job-1",
             1,
@@ -88,7 +103,7 @@ class RouteAppTopologyFactoryTest {
             1,
             "site-a",
             LeasePolicy.defaults(),
-            1,
+            parallelism,
             new RouteAppConfig(
                 "input-topic",
                 PayloadFormat.JSON,

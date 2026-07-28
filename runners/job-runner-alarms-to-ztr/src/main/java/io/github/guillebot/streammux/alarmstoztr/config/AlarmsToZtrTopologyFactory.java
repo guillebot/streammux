@@ -65,6 +65,9 @@ public class AlarmsToZtrTopologyFactory {
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
         properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class);
         properties.putAll(streamProperties);
+        if (!properties.containsKey(StreamsConfig.NUM_STREAM_THREADS_CONFIG)) {
+            properties.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, Math.max(1, definition.parallelism()));
+        }
         return properties;
     }
 
