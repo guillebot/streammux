@@ -21,7 +21,6 @@ public final class KafkaStreamsRunnerSupport {
     private final Map<String, String> failureReasons = new ConcurrentHashMap<>();
 
     public void register(String jobId, KafkaStreams streams) {
-        stop(jobId);
         streams.setStateListener((newState, oldState) -> {
             streamStates.put(jobId, newState);
             if (newState == KafkaStreams.State.ERROR || newState == KafkaStreams.State.PENDING_ERROR) {
@@ -31,8 +30,11 @@ public final class KafkaStreamsRunnerSupport {
                 failureReasons.remove(jobId);
             }
         });
+        KafkaStreams previous = runningJobs.put(jobId, streams);
+        if (previous != null && previous != streams) {
+            previous.close();
+        }
         streamStates.put(jobId, streams.state());
-        runningJobs.put(jobId, streams);
     }
 
     public void stop(String jobId) {

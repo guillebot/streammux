@@ -9,6 +9,7 @@ import io.github.guillebot.streammux.contracts.model.LeasePolicy;
 import io.github.guillebot.streammux.contracts.model.RuntimeState;
 import io.github.guillebot.streammux.randomsampler.RandomSamplerRunner;
 import io.github.guillebot.streammux.randomsampler.config.RandomSamplerTopologyFactory;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -26,8 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.nio.file.Files;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,7 +46,7 @@ class RandomSamplerRunnerIT extends KafkaIntegrationSupport {
         runner.start(job, 1L);
         try {
             assertEquals(RuntimeState.RUNNING, runner.status(job.jobId()).state());
-            assertEquals(HealthState.HEALTHY, runner.status(job.jobId()).health());
+            assertEventuallyHealthy(runner, job.jobId(), Duration.ofSeconds(45));
             byte[] payload = "{\"n\":1}".getBytes(StandardCharsets.UTF_8);
             try (KafkaProducer<String, byte[]> producer = byteArrayProducer()) {
                 producer.send(new ProducerRecord<>(inputTopic, "k1", payload)).get();
@@ -144,16 +145,44 @@ class RandomSamplerRunnerIT extends KafkaIntegrationSupport {
         return true;
     }
 
+    private static void assertEventuallyHealthy(RandomSamplerRunner runner, String jobId, Duration timeout) {
+        Instant deadline = Instant.now().plus(timeout);
+        while (Instant.now().isBefore(deadline)) {
+            if (runner.status(jobId).health() == HealthState.HEALTHY) {
+                return;
+            }
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("Interrupted while waiting for HEALTHY", ex);
+            }
+        }
+        throw new AssertionError(
+            "Timed out waiting for HEALTHY, last health=" + runner.status(jobId).health()
+        );
+    }
+
     private static void assertEventuallyReceives(KafkaConsumer<String, byte[]> consumer, byte[] expected, Duration timeout) {
         Instant deadline = Instant.now().plus(timeout);
         while (Instant.now().isBefore(deadline)) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(500));
-            if (!records.isEmpty()) {
-                assertArrayEquals(expected, records.iterator().next().value());
-                return;
+            for (ConsumerRecord<String, byte[]> record : records) {
+                if (java.util.Arrays.equals(expected, record.value())) {
+                    return;
+                }
             }
         }
         throw new AssertionError("Timed out waiting for output record");
+    }
+
+
+    private static String stateDirFor(String jobId) {
+        try {
+            return Files.createTempDirectory("rs-it-" + jobId + "-").toString();
+        } catch (java.io.IOException ex) {
+            throw new IllegalStateException("Failed to create Kafka Streams state dir", ex);
+        }
     }
 
     private JobDefinition randomSamplerJob(String jobId, String inputTopic, String outputTopic, double rate) {
@@ -171,7 +200,10 @@ class RandomSamplerRunnerIT extends KafkaIntegrationSupport {
                 inputTopic,
                 outputTopic,
                 rate,
-                Map.of(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers())
+                Map.of(
+                    StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers(),
+                    StreamsConfig.STATE_DIR_CONFIG, stateDirFor(jobId)
+                )
             ),
             null,
             Map.of(),

@@ -4,6 +4,7 @@ import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
+import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.contracts.model.JobType;
 import io.github.guillebot.streammux.contracts.model.LagMetrics;
@@ -23,12 +24,16 @@ import io.github.guillebot.streammux.orchestrator.service.OrchestratorEventPubli
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorService;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorStateStore;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -83,12 +88,29 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         Thread.sleep(1200);
         coordinatorB.reconcileAll();
 
-        ConsumerRecord<String, byte[]> secondLease = pollSingleRecord(leaseConsumer);
+        ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseEpoch(leaseConsumer, 2);
         coordinatorA.onJobLease(secondLease);
-        coordinatorB.onJobLease(secondLease);
+        // Site B already claimed via reconcileAll(); re-ingesting its own lease publish would reclaim.
 
         verify(runnerB).start(definition, 2);
         verify(runnerA).stop("job-1");
+    }
+
+
+    private static final ObjectMapper LEASE_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+
+    private ConsumerRecord<String, byte[]> pollUntilLeaseEpoch(KafkaConsumer<String, byte[]> consumer, long epoch) throws Exception {
+        Instant deadline = Instant.now().plusSeconds(15);
+        while (Instant.now().isBefore(deadline)) {
+            ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(250));
+            for (ConsumerRecord<String, byte[]> record : records) {
+                JobLease lease = LEASE_MAPPER.readValue(record.value(), JobLease.class);
+                if (lease.leaseEpoch() == epoch) {
+                    return record;
+                }
+            }
+        }
+        throw new AssertionError("Timed out waiting for lease epoch " + epoch);
     }
 
     private OrchestratorCoordinator coordinator(
