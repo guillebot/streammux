@@ -139,6 +139,7 @@ a:hover {
 
 .page.page--wide {
   max-width: none;
+  min-width: 0;
 }
 
 .page-header {
@@ -337,8 +338,9 @@ tr:last-child td {
 }
 
 .job-table {
-  width: 100%;
-  min-width: max-content;
+  /* width:100% + min-width:max-content collapses columns in Chrome; grow to content and scroll instead */
+  width: max-content;
+  min-width: 100%;
 }
 
 .job-table th,
