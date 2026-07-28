@@ -60,7 +60,7 @@ export function Logs() {
   }, [load]);
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <h2 style={{ marginTop: 0 }}>Activity logs</h2>
       <p className="muted">
         Recent control-plane and runtime events. User column shows Authelia identity when proxied through OneLab.

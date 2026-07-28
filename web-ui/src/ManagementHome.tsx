@@ -3,7 +3,7 @@ import { JobsList } from "./JobsList";
 
 export function ManagementHome() {
   return (
-    <div className="page">
+    <div className="page page--wide">
       <header className="page-header page-header--left">
         <div className="btn-row" style={{ margin: 0 }}>
           <Link className="button-link primary" to="/job/builder">

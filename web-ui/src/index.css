@@ -137,6 +137,10 @@ a:hover {
   max-width: 960px;
 }
 
+.page.page--wide {
+  max-width: none;
+}
+
 .page-header {
   display: flex;
   flex-wrap: wrap;
@@ -329,6 +333,16 @@ tr:last-child td {
 }
 
 .table-actions {
+  white-space: nowrap;
+}
+
+.job-table {
+  width: 100%;
+  min-width: max-content;
+}
+
+.job-table th,
+.job-table td {
   white-space: nowrap;
 }
 
