@@ -82,6 +82,7 @@ services:
       STREAMMUX_TOPIC_JOB_STATUS: ${STREAMMUX_TOPIC_JOB_STATUS:-net.optimum.experimental.streamlens.streammux.jobstatus}
       STREAMMUX_TOPIC_JOB_EVENTS: ${STREAMMUX_TOPIC_JOB_EVENTS:-net.optimum.experimental.streamlens.streammux.jobevents}
       STREAMMUX_TOPIC_JOB_COMMANDS: ${STREAMMUX_TOPIC_JOB_COMMANDS:-net.optimum.experimental.streamlens.streammux.jobcommands}
+      STREAMMUX_RUNNER_RESTART_DELAY_MS: ${STREAMMUX_RUNNER_RESTART_DELAY_MS:-60000}
     restart: unless-stopped
     depends_on:
       job-management-api:

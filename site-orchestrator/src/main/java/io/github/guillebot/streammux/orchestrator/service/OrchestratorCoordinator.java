@@ -100,6 +100,10 @@ public class OrchestratorCoordinator {
             // Only the lease owner should publish job-status. Non-owners have no local runner and would
             // emit STOPPED on every reconcile, causing last-write-wins flapping in the API when multiple
             // orchestrators use different Kafka consumer groups (e.g. distinct STREAMMUX_INSTANCE_ID).
+            if (updatedLease != null && leaseManager.ownsLease(updatedLease)) {
+                orchestratorService.maybeRestartFailedRunner(definition, updatedLease);
+            }
+
             JobRuntimeStatus status = orchestratorService.status(definition.jobId(), definition);
             if (status != null && shouldPublishRuntimeStatus(updatedLease)) {
                 publisher.publishStatus(status);

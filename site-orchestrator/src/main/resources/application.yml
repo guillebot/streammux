@@ -29,6 +29,7 @@ streammux:
     instance-id: ${STREAMMUX_INSTANCE_ID}
   orchestrator:
     reconcile-interval-ms: ${STREAMMUX_RECONCILE_INTERVAL_MS:5000}
+    runner-restart-delay-ms: ${STREAMMUX_RUNNER_RESTART_DELAY_MS:60000}
   topics:
     job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
     job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}
