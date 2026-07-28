@@ -5,6 +5,8 @@ import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.contracts.model.LagMetrics;
 import io.github.guillebot.streammux.contracts.model.RuntimeState;
 import io.github.guillebot.streammux.contracts.model.WorkerMetadata;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.streams.KafkaStreams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,8 +81,35 @@ public final class KafkaStreamsRunnerSupport {
             Instant.now(),
             new WorkerMetadata(jobId, topologyName, kafkaState.name(), Map.of("kafkaStreamsState", kafkaState.name())),
             failureReason,
-            new LagMetrics(0, 0, 0)
+            extractLagMetrics(streams)
         );
+    }
+
+    static LagMetrics extractLagMetrics(KafkaStreams streams) {
+        return extractLagMetrics(streams.metrics());
+    }
+
+    static LagMetrics extractLagMetrics(Map<MetricName, ? extends Metric> metrics) {
+        long processedCount = 0;
+        double processRate = 0;
+        long maxLag = 0;
+
+        for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
+            MetricName metricName = entry.getKey();
+            Object value = entry.getValue().metricValue();
+            if (!(value instanceof Number number)) {
+                continue;
+            }
+
+            switch (metricName.name()) {
+                case "records-consumed-total" -> processedCount += number.longValue();
+                case "records-consumed-rate" -> processRate += number.doubleValue();
+                case "records-lag-max" -> maxLag = Math.max(maxLag, number.longValue());
+                default -> { }
+            }
+        }
+
+        return new LagMetrics(maxLag, Math.round(processRate), processedCount);
     }
 
     private static RuntimeState mapRuntimeState(KafkaStreams.State kafkaState) {

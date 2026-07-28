@@ -465,6 +465,13 @@ tr:last-child td {
   font-size: 1rem;
 }
 
+.panel-subhead {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .pre-block {
   margin: 0;
   white-space: pre-wrap;

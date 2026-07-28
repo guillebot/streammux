@@ -17,8 +17,22 @@ import {
 import { resolveActor } from "./actorCache";
 import { JobEventTimeline } from "./JobEventTimeline";
 import { InlineSpinner } from "./InlineSpinner";
+import {
+  JobHealthBadge,
+  formatCount,
+  formatRatePerSecond,
+  hasTrafficMetrics,
+  kafkaStreamsState,
+} from "./jobStatusDisplay";
 import { takeStashedJobDefinition } from "./jobBuilderStash";
 import { newJobTemplate } from "./templates";
+import {
+  JobHealthBadge,
+  formatCount,
+  formatRatePerSecond,
+  hasTrafficMetrics,
+  kafkaStreamsState,
+} from "./jobStatusDisplay";
 import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "./types";
 
 export function JobDetail() {
@@ -316,12 +330,35 @@ export function JobDetail() {
                       <dt>State</dt>
                       <dd>{status.state}</dd>
                       <dt>Health</dt>
-                      <dd>{status.health}</dd>
+                      <dd>
+                        <JobHealthBadge health={status.health} />
+                      </dd>
+                      <dt>Kafka Streams</dt>
+                      <dd className="mono">{kafkaStreamsState(status) ?? "—"}</dd>
                       <dt>Last heartbeat</dt>
                       <dd className="mono">{status.lastHeartbeatAt ?? "—"}</dd>
                       <dt>Worker</dt>
                       <dd className="mono">{status.workerMetadata?.topologyName ?? "—"}</dd>
                     </dl>
+                    {status.state === "RUNNING" ||
+                    status.state === "DEGRADED" ||
+                    hasTrafficMetrics(status.lagMetrics) ? (
+                      <>
+                        <h3 className="panel-subhead">Traffic</h3>
+                        <dl className="status-kv">
+                          <dt>Process rate</dt>
+                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
+                          <dt>Processed</dt>
+                          <dd className="mono">{formatCount(status.lagMetrics?.processedCount)}</dd>
+                          <dt>Input lag</dt>
+                          <dd className="mono">{formatCount(status.lagMetrics?.inputLag)}</dd>
+                        </dl>
+                      </>
+                    ) : (
+                      <p className="muted" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+                        No throughput metrics yet (job stopped or streams metrics unavailable).
+                      </p>
+                    )}
                   </>
                 )}
               </div>

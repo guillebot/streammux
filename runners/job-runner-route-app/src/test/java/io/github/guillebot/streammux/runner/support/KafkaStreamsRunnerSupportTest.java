@@ -2,13 +2,19 @@ package io.github.guillebot.streammux.runner.support;
 
 import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
+import io.github.guillebot.streammux.contracts.model.LagMetrics;
 import io.github.guillebot.streammux.contracts.model.RuntimeState;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
 import org.apache.kafka.streams.KafkaStreams;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -73,5 +79,42 @@ class KafkaStreamsRunnerSupportTest {
 
         verify(streams).close();
         assertEquals(RuntimeState.STOPPED, support.status("job-1", "route-app").state());
+    }
+
+    @Test
+    void extractLagMetricsAggregatesConsumerMetrics() {
+        Map<MetricName, Metric> metrics = new HashMap<>();
+        metrics.put(
+            new MetricName("records-consumed-total", "consumer-metrics", "", Map.of()),
+            metricValue(1234.0)
+        );
+        metrics.put(
+            new MetricName("records-consumed-rate", "consumer-metrics", "", Map.of()),
+            metricValue(42.6)
+        );
+        metrics.put(
+            new MetricName("records-lag-max", "consumer-fetch-manager-metrics", "", Map.of()),
+            metricValue(99.0)
+        );
+
+        LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(1234, lag.processedCount());
+        assertEquals(43, lag.outputRatePerSecond());
+        assertEquals(99, lag.inputLag());
+    }
+
+    private static Metric metricValue(Object value) {
+        return new Metric() {
+            @Override
+            public MetricName metricName() {
+                return null;
+            }
+
+            @Override
+            public Object metricValue() {
+                return value;
+            }
+        };
     }
 }

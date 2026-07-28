@@ -4,6 +4,11 @@ import { deleteJob, getLease, getStatus, listJobs, updateJob } from "./api/clien
 import { resolveActor } from "./actorCache";
 import { IconPause, IconPlay, IconTrash } from "./jobActionIcons";
 import { InlineSpinner } from "./InlineSpinner";
+import {
+  JobHealthBadge,
+  formatLagMetricsSummary,
+  kafkaStreamsState,
+} from "./jobStatusDisplay";
 import type { JobDefinition, JobLease, JobRuntimeStatus } from "./types";
 
 const REFRESH_STORAGE_KEY = "streammux.jobList.refreshIntervalMs";
@@ -213,6 +218,9 @@ export function JobsList() {
                 <th>Version</th>
                 <th>Desired state</th>
                 <th>Actual state</th>
+                <th>Health</th>
+                <th>Kafka Streams</th>
+                <th>Traffic</th>
                 <th>Last seen</th>
                 <th>Orchestrator</th>
                 <th>Site affinity</th>
@@ -228,6 +236,7 @@ export function JobsList() {
                 const lease = leases[j.jobId];
                 const status = statuses[j.jobId];
                 const lastSeen = formatLastSeen(status?.lastHeartbeatAt);
+                const streamsState = kafkaStreamsState(status);
                 return (
                   <tr key={j.jobId}>
                     <td className="table-actions col-actions">
@@ -270,6 +279,13 @@ export function JobsList() {
                     <td className="mono">{j.jobVersion}</td>
                     <td>{j.desiredState}</td>
                     <td>{status?.state ?? "Not reported"}</td>
+                    <td>{status ? <JobHealthBadge health={status.health} /> : "—"}</td>
+                    <td className="mono" title={streamsState ?? undefined}>
+                      {streamsState ?? "—"}
+                    </td>
+                    <td className="mono" title={formatLagMetricsSummary(status?.lagMetrics ?? undefined)}>
+                      {formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
+                    </td>
                     <td className="mono" title={lastSeen.full}>
                       {lastSeen.label}
                     </td>
