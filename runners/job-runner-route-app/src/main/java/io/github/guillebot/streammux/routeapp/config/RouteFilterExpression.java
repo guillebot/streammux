@@ -7,12 +7,17 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Evaluates {@code ROUTE_APP} filter expressions against a JSON payload.
  *
  * <p>Supports boolean composition ({@code &&}, {@code ||}, {@code !}, parentheses),
- * field comparisons ({@code ==}, {@code !=}), and membership ({@code in}, {@code not in}).
+ * field comparisons ({@code ==}, {@code !=}), membership ({@code in}, {@code not in}),
+ * and regular-expression matching ({@code =~}, {@code !~}). Regex operators use
+ * {@link java.util.regex.Matcher#find()} semantics (unanchored), matching the
+ * {@code regex} operator behaviour of the {@code ALARMS_TO_ZTR} filter engine.
  * Returns {@link ParseResult#parsed()} when the expression is valid filter syntax;
  * callers may fall back to legacy substring matching when {@link ParseResult#parsed()} is false.
  */
@@ -98,6 +103,18 @@ final class RouteFilterExpression {
         }
     }
 
+    private record RegexNode(String path, Pattern pattern, boolean negated) implements Node {
+        @Override
+        public boolean evaluate(JsonNode payload) {
+            JsonNode actualValue = JsonPayloadPath.resolve(payload, path);
+            if (actualValue.isMissingNode() || !actualValue.isValueNode()) {
+                return false;
+            }
+            boolean found = pattern.matcher(actualValue.asText()).find();
+            return negated ? !found : found;
+        }
+    }
+
     private enum CompareOperator {
         EQUALS,
         NOT_EQUALS
@@ -162,6 +179,12 @@ final class RouteFilterExpression {
             if (consume("in")) {
                 return new InNode(path, readJsonArrayValues(), false);
             }
+            if (consume("=~")) {
+                return new RegexNode(path, readPattern(), false);
+            }
+            if (consume("!~")) {
+                return new RegexNode(path, readPattern(), true);
+            }
             if (consume("==")) {
                 return new CompareNode(path, CompareOperator.EQUALS, readValue());
             }
@@ -169,6 +192,16 @@ final class RouteFilterExpression {
                 return new CompareNode(path, CompareOperator.NOT_EQUALS, readValue());
             }
             throw parseError("expected comparison operator after path '" + path + "'");
+        }
+
+        private Pattern readPattern() {
+            JsonNode value = readValue();
+            String regex = value.asText();
+            try {
+                return Pattern.compile(regex);
+            } catch (PatternSyntaxException ex) {
+                throw parseError("invalid regex '" + regex + "'");
+            }
         }
 
         private String readPath() {
