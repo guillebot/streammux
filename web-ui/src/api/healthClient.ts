@@ -53,6 +53,13 @@ export interface CatalogHealth {
   };
 }
 
+export interface McpHealth {
+  status: HealthStatus;
+  checkedAt: string;
+  module: ModuleHealth;
+  body: string;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   if (!text.trim()) {
@@ -82,6 +89,19 @@ export async function getCatalogHealth(): Promise<CatalogHealth> {
   const res = await fetch("/catalog/health");
   if (!res.ok) await handleError(res);
   return readJson<CatalogHealth>(res);
+}
+
+export async function getMcpHealth(): Promise<McpHealth> {
+  const res = await fetch("/health/mcp");
+  if (!res.ok) await handleError(res);
+  const body = (await res.text()).trim();
+  const status: HealthStatus = body === "ok" ? "UP" : "DEGRADED";
+  return {
+    status,
+    checkedAt: new Date().toISOString(),
+    module: { name: "streammux-mcp", status },
+    body: body || "—",
+  };
 }
 
 export function worstStatus(...statuses: HealthStatus[]): HealthStatus {

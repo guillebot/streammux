@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getCatalogHealth,
+  getMcpHealth,
   getPlatformHealth,
   worstStatus,
   type CatalogHealth,
   type HealthStatus,
+  type McpHealth,
   type PlatformHealth,
 } from "./api/healthClient";
 import { CommaWrapped } from "./CommaWrapped";
@@ -32,18 +34,22 @@ function formatCheckedAt(iso: string | undefined): string {
 export function Health() {
   const [platform, setPlatform] = useState<PlatformHealth | null>(null);
   const [catalog, setCatalog] = useState<CatalogHealth | null>(null);
+  const [mcp, setMcp] = useState<McpHealth | null>(null);
   const [platformError, setPlatformError] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [mcpError, setMcpError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     setPlatformError(null);
     setCatalogError(null);
+    setMcpError(null);
 
-    const [platformResult, catalogResult] = await Promise.allSettled([
+    const [platformResult, catalogResult, mcpResult] = await Promise.allSettled([
       getPlatformHealth(),
       getCatalogHealth(),
+      getMcpHealth(),
     ]);
 
     if (platformResult.status === "fulfilled") {
@@ -64,6 +70,13 @@ export function Health() {
       );
     }
 
+    if (mcpResult.status === "fulfilled") {
+      setMcp(mcpResult.value);
+    } else {
+      setMcp(null);
+      setMcpError(mcpResult.reason instanceof Error ? mcpResult.reason.message : String(mcpResult.reason));
+    }
+
     setLoading(false);
   }, []);
 
@@ -74,6 +87,7 @@ export function Health() {
   const overall = worstStatus(
     platform?.status ?? (platformError ? "DOWN" : "UP"),
     catalog?.status ?? (catalogError ? "DOWN" : "UP"),
+    mcp?.status ?? (mcpError ? "DOWN" : "UP"),
   );
 
   return (
@@ -82,7 +96,7 @@ export function Health() {
         <div>
           <h1 className="page-title">Health</h1>
           <p className="page-subtitle muted">
-            Kafka connectivity and Streammux module status. Last check:{" "}
+            Kafka connectivity and Streammux module status (API, catalog, MCP). Last check:{" "}
             {platform ? formatCheckedAt(platform.checkedAt) : loading ? "…" : "—"}
           </p>
         </div>
@@ -97,6 +111,7 @@ export function Health() {
 
       {platformError ? <div className="banner error">job-management-api: {platformError}</div> : null}
       {catalogError ? <div className="banner error">job-catalog-api: {catalogError}</div> : null}
+      {mcpError ? <div className="banner error">streammux-mcp: {mcpError}</div> : null}
 
       <section className="panel">
         <h2>Modules</h2>
@@ -124,6 +139,17 @@ export function Health() {
                 </td>
                 <td className="muted">
                   {catalog ? `${catalog.catalog.entryCount} catalog entries` : "Job definition catalog"}
+                </td>
+              </tr>
+              <tr>
+                <td>{mcp?.module.name ?? "streammux-mcp"}</td>
+                <td>
+                  <StatusBadge status={mcp?.module.status ?? (mcpError ? "DOWN" : "UP")} />
+                </td>
+                <td className="muted">
+                  {mcp
+                    ? `kstreams1 /healthz → ${mcp.body} · checked ${formatCheckedAt(mcp.checkedAt)}`
+                    : "MCP server (kstreams1, SQLite tokens)"}
                 </td>
               </tr>
             </tbody>
