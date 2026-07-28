@@ -140,10 +140,23 @@ The orchestrator resolves a `JobRunner` implementation for the job type. Today t
 
 Each configured route applies its own `filterExpression` to the incoming payload. A single input record can match multiple routes and be forwarded to multiple output topics.
 
-`filterExpression` now supports two matching modes:
+`filterExpression` supports three matching modes:
 
-- field comparison expressions using `==` or `!=`
-- raw substring matching when the expression does not parse as a field comparison
+- **Compound boolean expressions** using `&&`, `||`, `!`, and parentheses
+- **Field comparison expressions** using `==`, `!=`, `in`, and `not in`
+- **Raw substring matching** when the expression does not parse as a filter expression
+
+### Compound boolean syntax
+
+Combine field comparisons with boolean operators:
+
+```text
+eventType == "NEW" && subsystem != "FTTH-AGORA-SNMP"
+eventType == "NEW" && !(subsystem == "FTTH-AGORA-SNMP" && specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"])
+severity == "MAJOR" || severity == "CRITICAL"
+```
+
+Operator precedence: `!` binds tighter than `&&`, which binds tighter than `||`. Use parentheses when in doubt.
 
 ### Field comparison syntax
 
@@ -156,6 +169,15 @@ Supported operators:
 
 - `==`
 - `!=`
+- `in`
+- `not in`
+
+Membership examples:
+
+```text
+specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"]
+subsystem not in ["FTTH-AGORA-SNMP", "HFC-CM-SNMP"]
+```
 
 The value on the right side is parsed as JSON when possible. That means these are all valid:
 
@@ -188,7 +210,7 @@ Important behavior:
 
 - if the path does not exist, the expression does not match
 - blank or null `filterExpression` values do not match anything
-- when the expression is not a recognized field comparison, matching falls back to substring search against the normalized payload text
+- when the expression does not parse as a filter expression, matching falls back to substring search against the normalized payload text
 
 Examples of substring fallback:
 

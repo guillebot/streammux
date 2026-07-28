@@ -48,8 +48,9 @@ For diagrams and topic-level flows, see the [root README](../README.md) (Mermaid
 
 Each route has a `filterExpression`:
 
-- **Field comparisons** use `==` or `!=` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`). Right-hand values are parsed as JSON when possible.
-- If the expression is not a recognized comparison, matching falls back to **substring** search on the normalized payload text (JSON as-is; Protobuf converted to JSON first).
+- **Compound boolean expressions** combine comparisons with `&&`, `||`, `!`, and parentheses.
+- **Field comparisons** use `==`, `!=`, `in`, or `not in` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`). Right-hand values are parsed as JSON when possible.
+- If the expression does not parse as filter syntax, matching falls back to **substring** search on the normalized payload text (JSON as-is; Protobuf converted to JSON first).
 
 Full detail and examples are in the [root README](../README.md#route-app-filter-expressions).
 

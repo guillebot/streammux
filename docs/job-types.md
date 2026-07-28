@@ -28,18 +28,25 @@ A Kafka Streams application that reads from configured input topics, applies **p
 
 Each route applies its own `filterExpression` to the incoming payload.
 
-**Field comparison mode** — use `==` or `!=` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`, `items[0].id`). The right-hand value is parsed as JSON when possible:
+**Compound boolean syntax** — combine comparisons with `&&`, `||`, `!`, and parentheses:
+
+```text
+eventType == "NEW" && !(subsystem == "FTTH-AGORA-SNMP" && specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"])
+```
+
+**Field comparison mode** — use `==`, `!=`, `in`, or `not in` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`, `items[0].id`). The right-hand value is parsed as JSON when possible:
 
 ```text
 message.type == "ALARM"
 severity == 3
 active == true
 /items/0/id != "abc"
+specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"]
 ```
 
 If the right-hand value is not valid JSON, it is treated as a string. Single-quoted and double-quoted strings are accepted.
 
-**Substring fallback** — when the expression is not a recognized field comparison, matching uses substring search on the normalized payload text:
+**Substring fallback** — when the expression does not parse as a filter expression, matching uses substring search on the normalized payload text:
 
 ```text
 Message
