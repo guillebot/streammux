@@ -16,6 +16,7 @@ import io.github.guillebot.streammux.contracts.model.WorkerMetadata;
 import io.github.guillebot.streammux.contracts.spi.JobRunner;
 import io.github.guillebot.streammux.orchestrator.config.KafkaTopicProperties;
 import io.github.guillebot.streammux.orchestrator.config.OrchestratorProperties;
+import io.github.guillebot.streammux.orchestrator.config.SiteIdentityProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import io.github.guillebot.streammux.orchestrator.service.KafkaOrchestratorPublisher;
