@@ -348,7 +348,7 @@ export function JobDetail() {
                         <dl className="status-kv">
                           <dt>Process rate</dt>
                           <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
-                          <dt>Processed</dt>
+                          <dt>Consumed since start</dt>
                           <dd className="mono">{formatCount(status.lagMetrics?.processedCount)}</dd>
                           <dt>Input lag</dt>
                           <dd className="mono">{formatCount(status.lagMetrics?.inputLag)}</dd>

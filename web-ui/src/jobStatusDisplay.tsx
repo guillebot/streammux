@@ -47,7 +47,7 @@ export function formatLagMetricsSummary(lag: LagMetrics | null | undefined): str
   if (!lag) return "—";
   const parts: string[] = [];
   if (lag.outputRatePerSecond > 0) parts.push(formatRatePerSecond(lag.outputRatePerSecond));
-  if (lag.processedCount > 0) parts.push(`${formatCount(lag.processedCount)} total`);
+  if (lag.processedCount > 0) parts.push(`${formatCount(lag.processedCount)} since start`);
   if (lag.inputLag > 0) parts.push(`lag ${formatCount(lag.inputLag)}`);
   return parts.length > 0 ? parts.join(" · ") : "—";
 }

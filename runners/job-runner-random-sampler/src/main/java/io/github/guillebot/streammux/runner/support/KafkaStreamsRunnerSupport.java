@@ -12,11 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class KafkaStreamsRunnerSupport {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStreamsRunnerSupport.class);
+    private static final String CONSUMER_FETCH_MANAGER_METRICS = "consumer-fetch-manager-metrics";
 
     private final Map<String, KafkaStreams> runningJobs = new ConcurrentHashMap<>();
     private final Map<String, KafkaStreams.State> streamStates = new ConcurrentHashMap<>();
@@ -92,8 +94,8 @@ public final class KafkaStreamsRunnerSupport {
     }
 
     static LagMetrics extractLagMetrics(Map<MetricName, ? extends Metric> metrics) {
-        long processedCount = 0;
-        double processRate = 0;
+        Map<String, Long> consumedTotalByClient = new HashMap<>();
+        Map<String, Double> consumedRateByClient = new HashMap<>();
         long maxLag = 0;
 
         for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
@@ -103,14 +105,32 @@ public final class KafkaStreamsRunnerSupport {
                 continue;
             }
 
+            if ("records-lag-max".equals(metricName.name())) {
+                maxLag = Math.max(maxLag, number.longValue());
+                continue;
+            }
+
+            if (!CONSUMER_FETCH_MANAGER_METRICS.equals(metricName.group())) {
+                continue;
+            }
+
+            Map<String, String> tags = metricName.tags();
+            if (tags.containsKey("topic") || tags.containsKey("partition")) {
+                continue;
+            }
+
+            String clientId = tags.getOrDefault("client-id", "");
             switch (metricName.name()) {
-                case "records-consumed-total" -> processedCount += number.longValue();
-                case "records-consumed-rate" -> processRate += number.doubleValue();
-                case "records-lag-max" -> maxLag = Math.max(maxLag, number.longValue());
+                case "records-consumed-total" ->
+                    consumedTotalByClient.merge(clientId, number.longValue(), Math::max);
+                case "records-consumed-rate" ->
+                    consumedRateByClient.merge(clientId, number.doubleValue(), Math::max);
                 default -> { }
             }
         }
 
+        long processedCount = consumedTotalByClient.values().stream().mapToLong(Long::longValue).sum();
+        double processRate = consumedRateByClient.values().stream().mapToDouble(Double::doubleValue).sum();
         return new LagMetrics(maxLag, Math.round(processRate), processedCount);
     }
 

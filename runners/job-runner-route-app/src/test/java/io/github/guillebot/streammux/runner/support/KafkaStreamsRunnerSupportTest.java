@@ -82,15 +82,23 @@ class KafkaStreamsRunnerSupportTest {
     }
 
     @Test
-    void extractLagMetricsAggregatesConsumerMetrics() {
+    void extractLagMetricsAggregatesPerStreamThreadConsumerMetrics() {
         Map<MetricName, Metric> metrics = new HashMap<>();
         metrics.put(
-            new MetricName("records-consumed-total", "consumer-metrics", "", Map.of()),
-            metricValue(1234.0)
+            fetchManagerMetric("records-consumed-total", Map.of("client-id", "job-1-StreamThread-1-consumer")),
+            metricValue(700.0)
         );
         metrics.put(
-            new MetricName("records-consumed-rate", "consumer-metrics", "", Map.of()),
-            metricValue(42.6)
+            fetchManagerMetric("records-consumed-total", Map.of("client-id", "job-1-StreamThread-2-consumer")),
+            metricValue(534.0)
+        );
+        metrics.put(
+            fetchManagerMetric("records-consumed-rate", Map.of("client-id", "job-1-StreamThread-1-consumer")),
+            metricValue(21.4)
+        );
+        metrics.put(
+            fetchManagerMetric("records-consumed-rate", Map.of("client-id", "job-1-StreamThread-2-consumer")),
+            metricValue(21.2)
         );
         metrics.put(
             new MetricName("records-lag-max", "consumer-fetch-manager-metrics", "", Map.of()),
@@ -102,6 +110,59 @@ class KafkaStreamsRunnerSupportTest {
         assertEquals(1234, lag.processedCount());
         assertEquals(43, lag.outputRatePerSecond());
         assertEquals(99, lag.inputLag());
+    }
+
+    @Test
+    void extractLagMetricsIgnoresDuplicateTopicAndProcessorSensors() {
+        Map<MetricName, Metric> metrics = new HashMap<>();
+        String clientId = "job-1-StreamThread-1-consumer";
+        metrics.put(
+            fetchManagerMetric("records-consumed-total", Map.of("client-id", clientId)),
+            metricValue(5476.0)
+        );
+        metrics.put(
+            fetchManagerMetric(
+                "records-consumed-total",
+                Map.of("client-id", clientId, "topic", "com.optimum.monitoring.alarmmanager.alarms")
+            ),
+            metricValue(5476.0)
+        );
+        metrics.put(
+            fetchManagerMetric(
+                "records-consumed-total",
+                Map.of("client-id", clientId, "topic", "com.optimum.monitoring.alarmmanager.alarms", "partition", "0")
+            ),
+            metricValue(5476.0)
+        );
+        metrics.put(
+            new MetricName(
+                "records-consumed-total",
+                "stream-topic-metrics",
+                "",
+                Map.of("thread-id", "1", "task-id", "0_0", "processor-node-id", "source", "topic", "input-topic")
+            ),
+            metricValue(5476.0)
+        );
+        metrics.put(
+            fetchManagerMetric("records-consumed-rate", Map.of("client-id", clientId)),
+            metricValue(6.4)
+        );
+        metrics.put(
+            fetchManagerMetric(
+                "records-consumed-rate",
+                Map.of("client-id", clientId, "topic", "com.optimum.monitoring.alarmmanager.alarms")
+            ),
+            metricValue(6.4)
+        );
+
+        LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(5476, lag.processedCount());
+        assertEquals(6, lag.outputRatePerSecond());
+    }
+
+    private static MetricName fetchManagerMetric(String name, Map<String, String> tags) {
+        return new MetricName(name, "consumer-fetch-manager-metrics", "", tags);
     }
 
     private static Metric metricValue(Object value) {
