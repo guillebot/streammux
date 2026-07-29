@@ -51,13 +51,13 @@ public class OrchestratorCoordinator {
         JobDefinition definition = read(record.value(), JobDefinition.class);
         if (definition.desiredState() == DesiredJobState.DELETED) {
             stateStore.upsertDefinition(definition);
-            reconcile(definition.jobId());
+            reconcile(definition.jobId(), false);
             stateStore.removeDefinition(definition.jobId());
             stateStore.removeLease(definition.jobId());
             return;
         }
         stateStore.upsertDefinition(definition);
-        reconcile(definition.jobId());
+        reconcile(definition.jobId(), false);
     }
 
     @KafkaListener(topics = "${streammux.topics.job-leases}")
@@ -66,56 +66,79 @@ public class OrchestratorCoordinator {
         if (record.value() == null) {
             if (jobId != null) {
                 stateStore.removeLease(jobId);
-                reconcile(jobId);
+                reconcile(jobId, false);
             }
             return;
         }
 
         JobLease lease = read(record.value(), JobLease.class);
+        orchestratorService.observeLease(lease);
         stateStore.upsertLease(lease);
-        reconcile(lease.jobId());
+        reconcile(lease.jobId(), true);
     }
 
     @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
     public void reconcileAll() {
         for (JobDefinition definition : stateStore.listDefinitions()) {
-            reconcile(definition.jobId());
+            reconcile(definition.jobId(), false);
         }
     }
 
-    private void reconcile(String jobId) {
+    private void reconcile(String jobId, boolean allowRunnerStart) {
         stateStore.getDefinition(jobId).ifPresent(definition -> {
             JobLease currentLease = stateStore.getLease(jobId).orElse(null);
             JobLease updatedLease = orchestratorService.reconcile(definition, currentLease);
 
             if (updatedLease == null) {
                 stateStore.removeLease(jobId);
-            } else {
+            } else if (shouldUpsertLease(currentLease, updatedLease)) {
                 stateStore.upsertLease(updatedLease);
-                if (!Objects.equals(updatedLease, currentLease)) {
+                if (!Objects.equals(updatedLease, currentLease) && orchestratorService.shouldPublishLease(updatedLease)) {
                     publisher.publishLease(updatedLease);
+                } else if (!Objects.equals(updatedLease, currentLease) && !orchestratorService.shouldPublishLease(updatedLease)) {
+                    LOGGER.warn(
+                        "Skipped publishing regressive lease for {} at epoch {}",
+                        jobId,
+                        updatedLease.leaseEpoch()
+                    );
                 }
+            }
+
+            if (allowRunnerStart) {
+                JobLease authoritativeLease = stateStore.getLease(jobId).orElse(null);
+                orchestratorService.maybeStartConfirmedRunner(definition, authoritativeLease);
             }
 
             // Only the lease owner should publish job-status. Non-owners have no local runner and would
             // emit STOPPED on every reconcile, causing last-write-wins flapping in the API when multiple
             // orchestrators use different Kafka consumer groups (e.g. distinct STREAMMUX_INSTANCE_ID).
-            if (updatedLease != null && leaseManager.ownsLease(updatedLease)) {
-                orchestratorService.maybeRestartFailedRunner(definition, updatedLease);
+            JobLease leaseForStatus = stateStore.getLease(jobId).orElse(null);
+            if (leaseForStatus != null && leaseManager.ownsLease(leaseForStatus)) {
+                orchestratorService.maybeRestartFailedRunner(definition, leaseForStatus);
             }
 
             JobRuntimeStatus status = orchestratorService.status(definition.jobId(), definition);
-            if (status != null && shouldPublishRuntimeStatus(updatedLease)) {
+            if (status != null && shouldPublishRuntimeStatus(leaseForStatus)) {
                 publisher.publishStatus(status);
             }
         });
     }
 
+    private static boolean shouldUpsertLease(JobLease currentLease, JobLease updatedLease) {
+        if (updatedLease == null) {
+            return false;
+        }
+        if (currentLease == null) {
+            return true;
+        }
+        return updatedLease.leaseEpoch() >= currentLease.leaseEpoch();
+    }
+
     /**
-     * Publish after release ({@code updatedLease == null}) or while this site/instance holds the lease.
+     * Publish after release ({@code leaseForStatus == null}) or while this site/instance holds the lease.
      */
-    private boolean shouldPublishRuntimeStatus(JobLease updatedLease) {
-        return updatedLease == null || leaseManager.ownsLease(updatedLease);
+    private boolean shouldPublishRuntimeStatus(JobLease leaseForStatus) {
+        return leaseForStatus == null || leaseManager.ownsLease(leaseForStatus);
     }
 
     private <T> T read(byte[] payload, Class<T> type) {

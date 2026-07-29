@@ -52,7 +52,11 @@ public class KafkaJobStateProjector {
 
     @KafkaListener(topics = "${streammux.topics.job-status}")
     public void onJobStatus(ConsumerRecord<String, byte[]> record) {
+        String jobId = record.key();
         if (record.value() == null) {
+            if (jobId != null) {
+                stateStore.removeStatus(jobId);
+            }
             return;
         }
         stateStore.upsertStatus(read(record.value(), JobRuntimeStatus.class));

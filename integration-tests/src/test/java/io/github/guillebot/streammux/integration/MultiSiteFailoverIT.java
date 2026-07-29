@@ -91,7 +91,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
 
         ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseEpoch(leaseConsumer, 2);
         coordinatorA.onJobLease(secondLease);
-        // Site B already claimed via reconcileAll(); re-ingesting its own lease publish would reclaim.
+        coordinatorB.onJobLease(secondLease);
 
         verify(runnerB).start(definition, 2);
         verify(runnerA).stop("job-1");
@@ -127,6 +127,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         OrchestratorEventPublisher eventPublisher = new OrchestratorEventPublisher(publisher, new SiteIdentityProperties(siteId, instanceId));
         OrchestratorService orchestratorService = new OrchestratorService(
             leaseManager,
+            new SiteIdentityProperties(siteId, instanceId),
             new JobRunnerRegistry(List.of(runner)),
             eventPublisher,
             new OrchestratorProperties(5000, 0)

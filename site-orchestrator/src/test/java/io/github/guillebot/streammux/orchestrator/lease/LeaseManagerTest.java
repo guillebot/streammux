@@ -65,11 +65,20 @@ class LeaseManagerTest {
     }
 
     @Test
+    void claimUsesMaxObservedEpochWhenCurrentLeaseIsNull() {
+        Instant now = Instant.parse("2024-01-01T00:01:00Z");
+
+        JobLease claimed = leaseManager.claim(jobDefinition(DesiredJobState.ACTIVE, 5, 20), null, 7L, now);
+
+        assertEquals(8, claimed.leaseEpoch());
+    }
+
+    @Test
     void claimCreatesClaimedLeaseWithIncrementedEpoch() {
         JobLease currentLease = new JobLease("job-1", 1, "site-b", "instance-b", 4, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:00:30Z"), Instant.parse("2024-01-01T00:00:00Z"));
         Instant now = Instant.parse("2024-01-01T00:01:00Z");
 
-        JobLease claimed = leaseManager.claim(jobDefinition(DesiredJobState.ACTIVE, 5, 20), currentLease, now);
+        JobLease claimed = leaseManager.claim(jobDefinition(DesiredJobState.ACTIVE, 5, 20), currentLease, 4L, now);
 
         assertEquals("site-a", claimed.leaseOwnerSite());
         assertEquals("instance-a", claimed.leaseOwnerInstance());

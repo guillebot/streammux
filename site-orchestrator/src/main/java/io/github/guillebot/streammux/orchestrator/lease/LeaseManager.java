@@ -23,8 +23,9 @@ public class LeaseManager {
         return LeaseDecision.IGNORE;
     }
 
-    public JobLease claim(JobDefinition definition, JobLease currentLease, Instant now) {
-        long nextEpoch = currentLease == null ? 1 : currentLease.leaseEpoch() + 1;
+    public JobLease claim(JobDefinition definition, JobLease currentLease, long maxObservedEpoch, Instant now) {
+        long baseEpoch = Math.max(currentLease == null ? 0L : currentLease.leaseEpoch(), maxObservedEpoch);
+        long nextEpoch = baseEpoch + 1;
         return new JobLease(definition.jobId(), definition.jobVersion(), siteIdentity.siteId(), siteIdentity.instanceId(), nextEpoch, LeaseStatus.CLAIMED, now.plus(definition.leasePolicy().leaseDurationSeconds(), ChronoUnit.SECONDS), now);
     }
 
