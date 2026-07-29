@@ -178,6 +178,49 @@ class RoutePayloadTransformerTest {
     }
 
     @Test
+    void supportsRegexMatchOperator() {
+        RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
+
+        byte[] agora = """
+            {"subsystem":"FTTH-AGORA-SNMP"}
+            """.getBytes(StandardCharsets.UTF_8);
+        byte[] other = """
+            {"subsystem":"HFC-CM-SNMP"}
+            """.getBytes(StandardCharsets.UTF_8);
+
+        assertTrue(transformer.matches(agora, "subsystem =~ \"^FTTH-\""));
+        assertFalse(transformer.matches(other, "subsystem =~ \"^FTTH-\""));
+    }
+
+    @Test
+    void supportsNegatedRegexOperatorAndComposition() {
+        RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
+
+        byte[] onu = """
+            {"subsystem":"FTTH-AGORA-SNMP","specificProblem":"Loss of signal for ONUi"}
+            """.getBytes(StandardCharsets.UTF_8);
+        byte[] olt = """
+            {"subsystem":"FTTH-AGORA-SNMP","specificProblem":"OLT unreachable"}
+            """.getBytes(StandardCharsets.UTF_8);
+
+        String filter = "!(subsystem == \"FTTH-AGORA-SNMP\" && specificProblem =~ \"ONUi$\")";
+
+        assertFalse(transformer.matches(onu, filter));
+        assertTrue(transformer.matches(olt, filter));
+    }
+
+    @Test
+    void invalidRegexFallsBackToSubstringAndDoesNotMatchStructuredIntent() {
+        RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
+
+        byte[] payload = """
+            {"subsystem":"FTTH-AGORA-SNMP"}
+            """.getBytes(StandardCharsets.UTF_8);
+
+        assertFalse(transformer.matches(payload, "subsystem =~ \"[unclosed\""));
+    }
+
+    @Test
     void supportsNegatedCompoundExpressionForAgoraOnuNoise() {
         RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
 

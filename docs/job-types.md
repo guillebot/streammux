@@ -46,6 +46,14 @@ specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"]
 
 If the right-hand value is not valid JSON, it is treated as a string. Single-quoted and double-quoted strings are accepted.
 
+**Regex mode** — `=~` (matches) / `!~` (does not match) against a regex string. Matching is unanchored (`Matcher.find()`, consistent with the `ALARMS_TO_ZTR` `regex` op), so anchor with `^`/`$` for a full-value match. The path must resolve to a scalar value; missing or non-scalar paths do not match. An invalid regex makes the whole expression unparseable and falls back to substring matching.
+
+```text
+subsystem =~ "^FTTH-"
+specificProblem !~ "ONUi$"
+node =~ "^olt-(chi|nyc)-[0-9]+$"
+```
+
 **Substring fallback** — when the expression does not parse as a filter expression, matching uses substring search on the normalized payload text:
 
 ```text
