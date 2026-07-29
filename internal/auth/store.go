@@ -167,7 +167,7 @@ FROM tokens ORDER BY id`)
 		return nil, err
 	}
 	defer rows.Close()
-	var out []TokenRecord
+	var out = make([]TokenRecord, 0)
 	for rows.Next() {
 		var r TokenRecord
 		var scopesCSV, created, lastUsed, revoked sql.NullString
