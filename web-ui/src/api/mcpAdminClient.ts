@@ -19,7 +19,8 @@ export async function listMcpTokens(): Promise<McpTokenRecord[]> {
   if (!res.ok) {
     throw new Error(await readError(res));
   }
-  return res.json() as Promise<McpTokenRecord[]>;
+  const data = (await res.json()) as McpTokenRecord[] | null;
+  return data ?? [];
 }
 
 export async function createMcpToken(name: string, scopes: string[]): Promise<McpTokenCreateResult> {
