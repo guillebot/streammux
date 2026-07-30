@@ -571,6 +571,11 @@ select.form-select {
   min-width: 0;
 }
 
+.form-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
 .health-badge {
   display: inline-block;
   padding: 0.15rem 0.55rem;
