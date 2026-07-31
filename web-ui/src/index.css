@@ -329,6 +329,32 @@ th {
   color: var(--muted);
 }
 
+th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+th.th-sortable:hover {
+  color: var(--text);
+}
+
+.th-sortable-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.th-sort-indicator {
+  font-size: 0.65rem;
+  opacity: 0.45;
+}
+
+.th-sort-indicator.active {
+  opacity: 1;
+  color: var(--text);
+}
+
 tr:last-child td {
   border-bottom: none;
 }
