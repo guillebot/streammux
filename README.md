@@ -7,6 +7,15 @@
 - a site-local orchestrator that competes for leases and runs workers
 - pluggable job runners, currently a Kafka Streams-based `route-app` runner
 
+## Ownership
+
+```
+(c) Optimum 2026
+Guillermo Schimmel
+```
+
+Proprietary — Optimum (Altice USA). All rights reserved.
+
 ## Architecture
 
 At runtime, `job-management-api` and one or more `site-orchestrator` instances communicate through Kafka. The API does not call orchestrators directly over HTTP. Instead, it publishes job definitions, commands, and events to Kafka, and both services build their current view from those topics.

@@ -2,6 +2,16 @@
 
 Persistent context for AI assistants and humans resuming work on this repository. **Read this at the start of a session** before making changes.
 
+
+## Ownership
+
+```
+(c) Optimum 2026
+Guillermo Schimmel
+```
+
+Proprietary — Optimum (Altice USA). All rights reserved.
+
 ---
 
 ## What this project is
