@@ -10,10 +10,14 @@ import {
 } from "./jobBuilderOptions";
 import { stashJobDefinitionForNew } from "./jobBuilderStash";
 import { newJobTemplate } from "./templates";
+import { TopicCombobox } from "./TopicCombobox";
 
-function withSelectedTopic(topics: string[], selected: string): string[] {
-  if (!selected || topics.includes(selected)) return topics;
-  return [selected, ...topics];
+type TopicValidation = { missing: boolean; invalid: boolean };
+
+function validateTopic(topic: string, options: string[], loading: boolean): TopicValidation {
+  if (loading) return { missing: false, invalid: false };
+  if (topic === "") return { missing: true, invalid: false };
+  return { missing: false, invalid: !options.includes(topic) };
 }
 
 export function JobBuilder() {
@@ -27,12 +31,8 @@ export function JobBuilder() {
   const [outputTopics, setOutputTopics] = useState(JOB_BUILDER_FALLBACK_OUTPUT_TOPICS);
   const [topicsLoading, setTopicsLoading] = useState(true);
   const [topicsError, setTopicsError] = useState<string | null>(null);
-  const [inputTopic, setInputTopic] = useState(
-    JOB_BUILDER_FALLBACK_INPUT_TOPICS[0] ?? defaults.routeAppConfig?.inputTopic ?? "",
-  );
-  const [outputTopic, setOutputTopic] = useState(
-    JOB_BUILDER_FALLBACK_OUTPUT_TOPICS[0] ?? defaults.routeAppConfig?.routes[0]?.outputTopic ?? "alerts",
-  );
+  const [inputTopic, setInputTopic] = useState("");
+  const [outputTopic, setOutputTopic] = useState("");
   /** Percent (0–100): API `randomSamplerConfig.rate` = this value ÷ 100 (e.g. 1 → 0.01 ≈ 1 in 100). */
   const [samplePercent, setSamplePercent] = useState(25);
 
@@ -49,8 +49,6 @@ export function JobBuilder() {
           catalog.outputTopics.length > 0 ? catalog.outputTopics : JOB_BUILDER_FALLBACK_OUTPUT_TOPICS;
         setInputTopics(nextInput);
         setOutputTopics(nextOutput);
-        setInputTopic((current) => (nextInput.includes(current) ? current : nextInput[0] ?? current));
-        setOutputTopic((current) => (nextOutput.includes(current) ? current : nextOutput[0] ?? current));
       } catch (e) {
         if (cancelled) return;
         setTopicsError(e instanceof Error ? e.message : String(e));
@@ -84,8 +82,10 @@ export function JobBuilder() {
     navigate("/job/new");
   };
 
-  const inputOptions = withSelectedTopic(inputTopics, inputTopic);
-  const outputOptions = withSelectedTopic(outputTopics, outputTopic);
+  const inputV = validateTopic(inputTopic, inputTopics, topicsLoading);
+  const outputV = validateTopic(outputTopic, outputTopics, topicsLoading);
+  const canContinue =
+    !topicsLoading && !inputV.missing && !inputV.invalid && !outputV.missing && !outputV.invalid;
 
   return (
     <div className="page">
@@ -143,45 +143,51 @@ export function JobBuilder() {
             </select>
           </label>
 
-          <label className="form-field">
+          <div className="form-field">
             <span className="form-label">
               Input topic
               {topicsLoading ? <span className="muted"> (loading…)</span> : null}
-              {!topicsLoading ? <span className="muted"> ({inputOptions.length})</span> : null}
+              {!topicsLoading ? <span className="muted"> ({inputTopics.length})</span> : null}
             </span>
-            <select
-              className="select-inline form-select"
+            <TopicCombobox
+              id="job-builder-input-topic"
+              ariaLabel="Input topic"
               value={inputTopic}
+              onChange={setInputTopic}
+              options={inputTopics}
               disabled={topicsLoading}
-              onChange={(e) => setInputTopic(e.target.value)}
-            >
-              {inputOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
+              placeholder="Type to filter topics…"
+              invalid={inputV.invalid}
+            />
+            {inputV.invalid ? (
+              <span className="form-error" role="alert">
+                Select an input topic from the list.
+              </span>
+            ) : null}
+          </div>
 
-          <label className="form-field">
+          <div className="form-field">
             <span className="form-label">
               Output topic
               {topicsLoading ? <span className="muted"> (loading…)</span> : null}
-              {!topicsLoading ? <span className="muted"> ({outputOptions.length})</span> : null}
+              {!topicsLoading ? <span className="muted"> ({outputTopics.length})</span> : null}
             </span>
-            <select
-              className="select-inline form-select"
+            <TopicCombobox
+              id="job-builder-output-topic"
+              ariaLabel="Output topic"
               value={outputTopic}
+              onChange={setOutputTopic}
+              options={outputTopics}
               disabled={topicsLoading}
-              onChange={(e) => setOutputTopic(e.target.value)}
-            >
-              {outputOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
+              placeholder="Type to filter topics…"
+              invalid={outputV.invalid}
+            />
+            {outputV.invalid ? (
+              <span className="form-error" role="alert">
+                Select an output topic from the list.
+              </span>
+            ) : null}
+          </div>
 
           {topicsError ? (
             <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
@@ -220,7 +226,13 @@ export function JobBuilder() {
         </div>
 
         <div className="btn-row" style={{ marginTop: "1rem" }}>
-          <button type="button" className="primary" onClick={onContinue}>
+          <button
+            type="button"
+            className="primary"
+            onClick={onContinue}
+            disabled={!canContinue}
+            title={canContinue ? undefined : "Pick both topics from the list to continue"}
+          >
             Continue to JSON editor
           </button>
         </div>
