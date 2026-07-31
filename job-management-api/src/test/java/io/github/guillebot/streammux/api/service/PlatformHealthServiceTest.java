@@ -53,4 +53,15 @@ class PlatformHealthServiceTest {
         assertEquals(TopicCleanupPolicy.COMPACT, jobDefinitions.expected());
         assertFalse(jobDefinitions.ok());
     }
+
+    @Test
+    void worstStatusPreservesDegradedInsteadOfCollapsingToDown() {
+        // Reachable Kafka with a topic that has the wrong cleanup policy should
+        // surface at the platform level as DEGRADED, not DOWN — the fleet is
+        // running, but an operator needs to fix a config drift.
+        assertEquals("DEGRADED", PlatformHealthService.worstStatus("UP", "DEGRADED"));
+        assertEquals("DOWN", PlatformHealthService.worstStatus("UP", "DOWN"));
+        assertEquals("DOWN", PlatformHealthService.worstStatus("DEGRADED", "DOWN"));
+        assertEquals("UP", PlatformHealthService.worstStatus("UP", "UP"));
+    }
 }
