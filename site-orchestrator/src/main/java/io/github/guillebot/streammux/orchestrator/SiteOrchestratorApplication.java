@@ -1,3 +1,8 @@
+/*
+ * (c) Optimum 2026
+ * Guillermo Schimmel
+ */
+
 package io.github.guillebot.streammux.orchestrator;
 
 import org.springframework.boot.SpringApplication;
