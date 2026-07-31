@@ -1,4 +1,5 @@
 import type { JobEvent } from "../types";
+import { apiFetch } from "./http";
 
 const ACTIVITY = "/activity";
 
@@ -14,14 +15,14 @@ async function handleError(response: Response): Promise<never> {
 }
 
 export async function getCurrentActor(): Promise<string> {
-  const res = await fetch(`${ACTIVITY}/me`);
+  const res = await apiFetch(`${ACTIVITY}/me`);
   if (!res.ok) await handleError(res);
   const body = (await res.json()) as { actor?: string };
   return body.actor ?? "unknown";
 }
 
 export async function recordSession(): Promise<void> {
-  const res = await fetch(`${ACTIVITY}/session`, { method: "POST" });
+  const res = await apiFetch(`${ACTIVITY}/session`, { method: "POST" });
   if (!res.ok) await handleError(res);
 }
 
@@ -39,7 +40,7 @@ export async function listActivity(params: ListActivityParams = {}): Promise<Job
   if (params.eventType) q.set("eventType", params.eventType);
   if (params.actor) q.set("actor", params.actor);
   const suffix = q.toString() ? `?${q.toString()}` : "";
-  const res = await fetch(`${ACTIVITY}${suffix}`);
+  const res = await apiFetch(`${ACTIVITY}${suffix}`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as JobEvent[];
 }
