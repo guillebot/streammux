@@ -31,11 +31,8 @@ if (!TOPIC) {
 }
 
 const JOB_API = JOB_API_RAW;
-const JOB_API_BASE = new URL(JOB_API.includes("://") ? `${JOB_API}/` : `http://${JOB_API}/`);
 const API_USERNAME = (process.env.STREAMMUX_API_USERNAME ?? "streammux").trim();
 const API_PASSWORD = (process.env.STREAMMUX_API_PASSWORD ?? "").trim();
-/** Job ids used in outbound catalog→API URLs (reject path/URL injection). */
-const JOB_ID_SAFE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 function jobApiHeaders(extra = {}) {
   const headers = { ...extra };
@@ -43,16 +40,6 @@ function jobApiHeaders(extra = {}) {
     headers.Authorization = `Basic ${Buffer.from(`${API_USERNAME}:${API_PASSWORD}`).toString("base64")}`;
   }
   return headers;
-}
-
-/** Build a job-management-api URL confined to JOB_API_BASE (no open redirects / SSRF). */
-function jobApiUrl(pathname) {
-  const path = pathname.startsWith("/") ? pathname.slice(1) : pathname;
-  const url = new URL(path, JOB_API_BASE);
-  if (url.origin !== JOB_API_BASE.origin || !url.pathname.startsWith(JOB_API_BASE.pathname.replace(/\/$/, "") || "/")) {
-    throw new Error("refusing outbound URL outside JOB_MANAGEMENT_API_URL");
-  }
-  return url;
 }
 
 async function probeCatalogTopicHealth() {
@@ -411,31 +398,19 @@ router.post("/entries/:id/push", async (req, res) => {
   if (typeof job?.jobId !== "string" || !job.jobId) {
     return res.status(400).json({ error: "payload.jobId must be a non-empty string" });
   }
-  const jobId = job.jobId.trim();
-  if (!JOB_ID_SAFE.test(jobId)) {
-    return res.status(400).json({
-      error: "payload.jobId must be alphanumeric (plus . _ : -), max 128 chars",
-    });
-  }
-  let jobUrl;
-  let jobsCollectionUrl;
+  const jobId = job.jobId;
+  const url = `${JOB_API}/jobs/${encodeURIComponent(jobId)}`;
   try {
-    jobUrl = jobApiUrl(`jobs/${encodeURIComponent(jobId)}`);
-    jobsCollectionUrl = jobApiUrl("jobs");
-  } catch (e) {
-    return res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-  try {
-    let probe = await fetch(jobUrl, { method: "GET", headers: jobApiHeaders() });
+    let probe = await fetch(url, { method: "GET", headers: jobApiHeaders() });
     let apiRes;
     if (probe.status === 404) {
-      apiRes = await fetch(jobsCollectionUrl, {
+      apiRes = await fetch(`${JOB_API}/jobs`, {
         method: "POST",
         headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
       });
     } else if (probe.ok) {
-      apiRes = await fetch(jobUrl, {
+      apiRes = await fetch(url, {
         method: "PUT",
         headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
