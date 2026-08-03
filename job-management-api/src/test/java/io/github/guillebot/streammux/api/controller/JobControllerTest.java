@@ -24,14 +24,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -104,6 +107,54 @@ class JobControllerTest {
         verify(jobService).issueCommand("job-1", CommandType.PAUSE);
         verify(jobService).issueCommand("job-1", CommandType.RESUME);
         verify(jobService).issueCommand("job-1", CommandType.RESTART);
+    }
+
+    @Test
+    void renameReturnsRenamedDefinition() throws Exception {
+        JobDefinition renamed = jobDefinition("job-new", 1, DesiredJobState.ACTIVE);
+        when(jobService.renameJob("job-old", "job-new")).thenReturn(renamed);
+
+        mockMvc.perform(post("/jobs/job-old/rename")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newJobId\":\"job-new\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.jobId").value("job-new"))
+            .andExpect(jsonPath("$.jobVersion").value(1));
+
+        verify(jobService).renameJob("job-old", "job-new");
+    }
+
+    @Test
+    void renameBadRequestSurfacesAsFourHundred() throws Exception {
+        when(jobService.renameJob(anyString(), anyString()))
+            .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "newJobId is required"));
+
+        mockMvc.perform(post("/jobs/job-old/rename")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newJobId\":\"\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void renameNotFoundSurfacesAsFourOhFour() throws Exception {
+        when(jobService.renameJob(anyString(), anyString()))
+            .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: job-missing"));
+
+        mockMvc.perform(post("/jobs/job-missing/rename")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newJobId\":\"job-new\"}"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void renameConflictSurfacesAsFourOhNine() throws Exception {
+        when(jobService.renameJob(anyString(), anyString()))
+            .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Job already exists: job-taken"));
+
+        mockMvc.perform(post("/jobs/job-old/rename")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newJobId\":\"job-taken\"}"))
+            .andExpect(status().isConflict());
     }
 
     @Test
