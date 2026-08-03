@@ -51,7 +51,7 @@ public class PlatformHealthService {
             stateStore.snapshotEventJobCount()
         );
         ModuleHealth module = new ModuleHealth("job-management-api", "UP");
-        String status = "UP".equals(kafka.status()) ? "UP" : "DOWN";
+        String status = worstStatus(module.status(), kafka.status());
         return new PlatformHealth(status, checkedAt, module, kafka, readModel);
     }
 
@@ -123,6 +123,22 @@ public class PlatformHealthService {
         String cleanupPolicy = exists ? cleanupPolicies.get(topicName) : null;
         boolean ok = TopicCleanupPolicy.ok(exists, cleanupPolicy, expected);
         return new TopicPresence(key, topicName, exists, cleanupPolicy, expected, ok);
+    }
+
+    // Aggregate sub-component statuses using the standard three-level ordering
+    // (DOWN worst, then DEGRADED, then UP). Anything unrecognised is treated as
+    // DEGRADED so we surface it without pretending the platform is healthy.
+    static String worstStatus(String... statuses) {
+        boolean sawDegraded = false;
+        for (String s : statuses) {
+            if ("DOWN".equals(s)) {
+                return "DOWN";
+            }
+            if (!"UP".equals(s)) {
+                sawDegraded = true;
+            }
+        }
+        return sawDegraded ? "DEGRADED" : "UP";
     }
 
     private KafkaHealth kafkaDown(String detail) {
