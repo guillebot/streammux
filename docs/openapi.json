@@ -12,10 +12,14 @@
     "servers": [
         {
             "url": "http://localhost:8080",
-            "description": "Local Compose (JOB_MANAGEMENT_API_PORT)"
+            "description": "Generated server url"
         }
     ],
     "tags": [
+        {
+            "name": "Activity",
+            "description": "Global audit feed and session identity"
+        },
         {
             "name": "Job metadata",
             "description": "Broker-backed metadata for job authoring"
@@ -274,6 +278,79 @@
                 }
             }
         },
+        "/jobs/{jobId}/rename": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Rename job",
+                "description": "Copies the current definition under the new jobId key, tombstones the old key with desiredState=DELETED, and emits paired CREATED/DELETED events with rename attributes. All other fields (jobType, desiredState, config, labels, tags, etc.) are copied from the existing definition; use PUT /jobs/{jobId} first if you need to change them at the same time. Runtime state (status, lease) and version history do not carry over; any running runner restarts under the new id.",
+                "operationId": "rename",
+                "parameters": [
+                    {
+                        "name": "jobId",
+                        "in": "path",
+                        "description": "Current job identifier",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RenameJobRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Job renamed; returns the new definition",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid or missing newJobId (blank, or equal to path jobId)",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "newJobId already exists",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDefinition"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/jobs/{jobId}/pause": {
             "post": {
                 "tags": [
@@ -298,6 +375,28 @@
                     },
                     "404": {
                         "description": "Job not found"
+                    }
+                }
+            }
+        },
+        "/activity/session": {
+            "post": {
+                "tags": [
+                    "Activity"
+                ],
+                "summary": "Record console session",
+                "description": "Records a platform SESSION event when the web UI loads.",
+                "operationId": "recordSession",
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobEvent"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -580,6 +679,110 @@
                     }
                 }
             }
+        },
+        "/activity": {
+            "get": {
+                "tags": [
+                    "Activity"
+                ],
+                "summary": "List recent activity",
+                "description": "Returns recent audit events across all jobs, newest first.",
+                "operationId": "listActivity",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum events to return (default 100, max 1000)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 100
+                        }
+                    },
+                    {
+                        "name": "jobId",
+                        "in": "query",
+                        "description": "Filter by job id",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "eventType",
+                        "in": "query",
+                        "description": "Filter by event type",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "SESSION",
+                                "CREATED",
+                                "UPDATED",
+                                "CLAIMED",
+                                "STARTED",
+                                "HEARTBEAT",
+                                "PAUSED",
+                                "RESUMED",
+                                "FAILED",
+                                "RELEASED",
+                                "STOPPED",
+                                "DELETED"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "actor",
+                        "in": "query",
+                        "description": "Filter by actor (Authelia user or API principal)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/JobEvent"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/activity/me": {
+            "get": {
+                "tags": [
+                    "Activity"
+                ],
+                "summary": "Current actor",
+                "description": "Returns the resolved actor for the current request (Authelia user when proxied).",
+                "operationId": "currentActor",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -823,6 +1026,69 @@
                     }
                 }
             },
+            "RenameJobRequest": {
+                "type": "object",
+                "description": "Request body for POST /jobs/{jobId}/rename",
+                "properties": {
+                    "newJobId": {
+                        "type": "string",
+                        "description": "New job id under which the definition should be published",
+                        "example": "route-poc-1-renamed"
+                    }
+                }
+            },
+            "JobEvent": {
+                "type": "object",
+                "properties": {
+                    "eventId": {
+                        "type": "string"
+                    },
+                    "jobId": {
+                        "type": "string"
+                    },
+                    "jobVersion": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "eventType": {
+                        "type": "string",
+                        "enum": [
+                            "SESSION",
+                            "CREATED",
+                            "UPDATED",
+                            "CLAIMED",
+                            "STARTED",
+                            "HEARTBEAT",
+                            "PAUSED",
+                            "RESUMED",
+                            "FAILED",
+                            "RELEASED",
+                            "STOPPED",
+                            "DELETED"
+                        ]
+                    },
+                    "eventTime": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "siteId": {
+                        "type": "string"
+                    },
+                    "instanceId": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "attributes": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "actor": {
+                        "type": "string"
+                    }
+                }
+            },
             "JobRuntimeStatus": {
                 "type": "object",
                 "properties": {
@@ -941,54 +1207,6 @@
                     "lastHeartbeatAt": {
                         "type": "string",
                         "format": "date-time"
-                    }
-                }
-            },
-            "JobEvent": {
-                "type": "object",
-                "properties": {
-                    "eventId": {
-                        "type": "string"
-                    },
-                    "jobId": {
-                        "type": "string"
-                    },
-                    "jobVersion": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "eventType": {
-                        "type": "string",
-                        "enum": [
-                            "CREATED",
-                            "UPDATED",
-                            "CLAIMED",
-                            "STARTED",
-                            "HEARTBEAT",
-                            "PAUSED",
-                            "RESUMED",
-                            "FAILED",
-                            "RELEASED",
-                            "STOPPED",
-                            "DELETED"
-                        ]
-                    },
-                    "eventTime": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "siteId": {
-                        "type": "string"
-                    },
-                    "instanceId": {
-                        "type": "string"
-                    },
-                    "message": {
-                        "type": "string"
-                    },
-                    "attributes": {
-                        "type": "object",
-                        "additionalProperties": {}
                     }
                 }
             },
@@ -1211,8 +1429,7 @@
                         "type": "boolean"
                     },
                     "cleanupPolicy": {
-                        "type": "string",
-                        "nullable": true
+                        "type": "string"
                     },
                     "expected": {
                         "type": "string"
