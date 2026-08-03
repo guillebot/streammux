@@ -140,6 +140,8 @@ test:job-catalog-api:
     - npm ci
     - node --check server.mjs
     - node --check kafka-config.mjs
+    - node --check catalog-health.mjs
+    - npm test
   rules:
     - !reference [.test-rules, rules]
 
