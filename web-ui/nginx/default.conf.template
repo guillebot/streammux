@@ -80,7 +80,8 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Streammux-Mcp-Admin 1;
+        # Overwrites any client-supplied value. Injected at container start from MCP_ADMIN_TOKEN.
+        #__STREAMMUX_MCP_ADMIN_TOKEN__
     }
 
     location = /health/mcp {

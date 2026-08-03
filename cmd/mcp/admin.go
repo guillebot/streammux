@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -8,19 +9,30 @@ import (
 	"strings"
 )
 
-const adminHeader = "X-Streammux-Mcp-Admin"
+// adminTokenHeader is injected by the web-ui nginx (and local Vite proxy) from
+// MCP_ADMIN_TOKEN. The literal value "1" is never accepted — callers must present
+// the shared secret. Direct access to :8090 with a spoofed header must fail.
+const adminTokenHeader = "X-Streammux-Mcp-Admin-Token"
 
 func (s *mcpServer) registerAdmin(mux *http.ServeMux) {
 	mux.HandleFunc("/admin/tokens", s.adminTokensHandler)
 	mux.HandleFunc("/admin/tokens/", s.adminTokenRevokeHandler)
 }
 
-func adminRequestOK(r *http.Request) bool {
-	return strings.TrimSpace(r.Header.Get(adminHeader)) == "1"
+func (s *mcpServer) adminRequestOK(r *http.Request) bool {
+	want := strings.TrimSpace(s.adminToken)
+	if want == "" {
+		return false
+	}
+	got := strings.TrimSpace(r.Header.Get(adminTokenHeader))
+	if got == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }
 
 func (s *mcpServer) adminTokensHandler(w http.ResponseWriter, r *http.Request) {
-	if !adminRequestOK(r) {
+	if !s.adminRequestOK(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -75,7 +87,7 @@ func (s *mcpServer) adminTokensHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *mcpServer) adminTokenRevokeHandler(w http.ResponseWriter, r *http.Request) {
-	if !adminRequestOK(r) {
+	if !s.adminRequestOK(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

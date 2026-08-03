@@ -14,6 +14,17 @@ External MCP traffic is routed by Traefik to **kstreams1** only (see [Token stor
 
 Authentication is **Bearer `stm_` tokens** only on `/mcp`. There is no Authelia on the MCP path — the token is the credential.
 
+### Token admin (`/admin`) trust boundary
+
+Creating/listing/revoking `stm_` tokens via HTTP is gated by a **shared secret**, not a boolean header:
+
+| Setting | Role |
+| ------- | ---- |
+| `MCP_ADMIN_TOKEN` | Required on both `mcp` and `web-ui`. Generate with `openssl rand -hex 32`. |
+| Header `X-Streammux-Mcp-Admin-Token` | Injected by web-ui nginx (and local Vite) from `MCP_ADMIN_TOKEN`. MCP compares it in constant time. |
+
+The previous `X-Streammux-Mcp-Admin: 1` header is **not** accepted. Anyone who can reach MCP `:8090` without the secret cannot mint tokens. Local `docker-compose.dev.yml` defaults to `streammux-dev-mcp-admin-token`; production Compose requires an explicit value (`:?`).
+
 ## Quick start (Cursor)
 
 1. Open the web UI **MCP** page and create a token (or run `stmctl` on the MCP container — see below).
@@ -41,6 +52,7 @@ MCP tokens are **not** stored in Kafka or the job-management-api. They live in a
 | Setting | Default |
 | ------- | ------- |
 | `MCP_TOKEN_DB_PATH` | `/data/tokens.db` |
+| `MCP_ADMIN_TOKEN` | *(required)* shared secret with web-ui for `/admin` |
 | Compose volume | `mcp_tokens:/data` |
 
 Only a **SHA-256 hash** of each token is persisted. The plaintext `stm_…` value is shown once at creation.

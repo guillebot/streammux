@@ -56,6 +56,9 @@ services:
       STREAMMUX_JOB_MANAGEMENT_API: job-management-api:8080
       STREAMMUX_JOB_CATALOG_API: job-catalog-api:3000
       STREAMMUX_MCP_API: mcp:8090
+      STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
+      STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
+      MCP_ADMIN_TOKEN: ${MCP_ADMIN_TOKEN:-streammux-dev-mcp-admin-token}
     depends_on:
       job-management-api:
         condition: service_healthy
@@ -105,6 +108,7 @@ services:
       STREAMMUX_API_USERNAME: ${STREAMMUX_API_USERNAME:-streammux}
       STREAMMUX_API_PASSWORD: ${STREAMMUX_API_PASSWORD:-change-me-now}
       MCP_TOKEN_DB_PATH: /data/tokens.db
+      MCP_ADMIN_TOKEN: ${MCP_ADMIN_TOKEN:-streammux-dev-mcp-admin-token}
     volumes:
       - mcp_tokens:/data
     ports:
