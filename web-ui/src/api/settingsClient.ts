@@ -1,3 +1,5 @@
+import { apiFetch } from "./http";
+
 export interface PlatformSettings {
   loadedAt: string;
   module: {
@@ -63,13 +65,13 @@ async function handleError(response: Response): Promise<never> {
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings> {
-  const res = await fetch("/jobs/meta/settings");
+  const res = await apiFetch("/jobs/meta/settings");
   if (!res.ok) await handleError(res);
   return readJson<PlatformSettings>(res);
 }
 
 export async function getCatalogSettings(): Promise<CatalogSettings> {
-  const res = await fetch("/catalog/settings");
+  const res = await apiFetch("/catalog/settings");
   if (!res.ok) await handleError(res);
   return readJson<CatalogSettings>(res);
 }

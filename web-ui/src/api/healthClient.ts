@@ -1,3 +1,5 @@
+import { apiFetch } from "./http";
+
 export type HealthStatus = "UP" | "DEGRADED" | "DOWN" | string;
 
 export interface ModuleHealth {
@@ -80,19 +82,19 @@ async function handleError(response: Response): Promise<never> {
 }
 
 export async function getPlatformHealth(): Promise<PlatformHealth> {
-  const res = await fetch("/jobs/meta/health");
+  const res = await apiFetch("/jobs/meta/health");
   if (!res.ok) await handleError(res);
   return readJson<PlatformHealth>(res);
 }
 
 export async function getCatalogHealth(): Promise<CatalogHealth> {
-  const res = await fetch("/catalog/health");
+  const res = await apiFetch("/catalog/health");
   if (!res.ok) await handleError(res);
   return readJson<CatalogHealth>(res);
 }
 
 export async function getMcpHealth(): Promise<McpHealth> {
-  const res = await fetch("/health/mcp");
+  const res = await apiFetch("/health/mcp");
   if (!res.ok) await handleError(res);
   const body = (await res.text()).trim();
   const status: HealthStatus = body === "ok" ? "UP" : "DEGRADED";

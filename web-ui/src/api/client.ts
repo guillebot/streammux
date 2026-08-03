@@ -1,4 +1,5 @@
 import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "../types";
+import { apiFetch } from "./http";
 
 const JOBS = "/jobs";
 
@@ -35,25 +36,25 @@ async function handleError(response: Response): Promise<never> {
 }
 
 export async function getKafkaTopicCatalog(): Promise<KafkaTopicCatalog> {
-  const res = await fetch(`${JOBS}/meta/kafka-topics`);
+  const res = await apiFetch(`${JOBS}/meta/kafka-topics`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as KafkaTopicCatalog;
 }
 
 export async function listJobs(): Promise<JobDefinition[]> {
-  const res = await fetch(JOBS);
+  const res = await apiFetch(JOBS);
   if (!res.ok) await handleError(res);
   return (await res.json()) as JobDefinition[];
 }
 
 export async function getJob(jobId: string): Promise<JobDefinition> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}`);
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as JobDefinition;
 }
 
 export async function createJob(definition: JobDefinition): Promise<JobDefinition> {
-  const res = await fetch(JOBS, {
+  const res = await apiFetch(JOBS, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(definition),
@@ -63,7 +64,7 @@ export async function createJob(definition: JobDefinition): Promise<JobDefinitio
 }
 
 export async function updateJob(jobId: string, definition: JobDefinition): Promise<JobDefinition> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}`, {
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(definition),
@@ -73,39 +74,39 @@ export async function updateJob(jobId: string, definition: JobDefinition): Promi
 }
 
 export async function pauseJob(jobId: string): Promise<void> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/pause`, { method: "POST" });
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/pause`, { method: "POST" });
   if (!res.ok) await handleError(res);
 }
 
 export async function resumeJob(jobId: string): Promise<void> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/resume`, { method: "POST" });
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/resume`, { method: "POST" });
   if (!res.ok) await handleError(res);
 }
 
 export async function restartJob(jobId: string): Promise<void> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/restart`, { method: "POST" });
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/restart`, { method: "POST" });
   if (!res.ok) await handleError(res);
 }
 
 export async function deleteJob(jobId: string): Promise<void> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}`, { method: "DELETE" });
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}`, { method: "DELETE" });
   if (!res.ok) await handleError(res);
 }
 
 export async function getStatus(jobId: string): Promise<JobRuntimeStatus | null> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/status`);
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/status`);
   if (!res.ok) await handleError(res);
   return readJson<JobRuntimeStatus>(res);
 }
 
 export async function getLease(jobId: string): Promise<JobLease | null> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/lease`);
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/lease`);
   if (!res.ok) await handleError(res);
   return readJson<JobLease>(res);
 }
 
 export async function getEvents(jobId: string): Promise<JobEvent[]> {
-  const res = await fetch(`${JOBS}/${encodeURIComponent(jobId)}/events`);
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/events`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as JobEvent[];
 }

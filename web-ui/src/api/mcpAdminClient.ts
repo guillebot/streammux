@@ -1,3 +1,5 @@
+import { apiFetch } from "./http";
+
 export type McpTokenRecord = {
   id: number;
   name: string;
@@ -15,7 +17,7 @@ export type McpTokenCreateResult = McpTokenRecord & {
 };
 
 export async function listMcpTokens(): Promise<McpTokenRecord[]> {
-  const res = await fetch("/mcp-admin/tokens");
+  const res = await apiFetch("/mcp-admin/tokens");
   if (!res.ok) {
     throw new Error(await readError(res));
   }
@@ -24,7 +26,7 @@ export async function listMcpTokens(): Promise<McpTokenRecord[]> {
 }
 
 export async function createMcpToken(name: string, scopes: string[]): Promise<McpTokenCreateResult> {
-  const res = await fetch("/mcp-admin/tokens", {
+  const res = await apiFetch("/mcp-admin/tokens", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, scopes, role: "ADMIN" }),
@@ -36,7 +38,7 @@ export async function createMcpToken(name: string, scopes: string[]): Promise<Mc
 }
 
 export async function revokeMcpToken(id: number): Promise<void> {
-  const res = await fetch(`/mcp-admin/tokens/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`/mcp-admin/tokens/${id}`, { method: "DELETE" });
   if (!res.ok) {
     throw new Error(await readError(res));
   }

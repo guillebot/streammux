@@ -1,4 +1,5 @@
 import type { JobDefinition } from "../types";
+import { apiFetch } from "./http";
 
 const BASE = "/catalog";
 
@@ -34,19 +35,19 @@ async function handleError(response: Response): Promise<never> {
 }
 
 export async function listCatalogEntries(): Promise<CatalogListItem[]> {
-  const res = await fetch(`${BASE}/entries`);
+  const res = await apiFetch(`${BASE}/entries`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as CatalogListItem[];
 }
 
 export async function getCatalogEntry(id: number): Promise<CatalogEntry> {
-  const res = await fetch(`${BASE}/entries/${id}`);
+  const res = await apiFetch(`${BASE}/entries/${id}`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as CatalogEntry;
 }
 
 export async function createCatalogEntry(title: string, payload: JobDefinition): Promise<CatalogEntry> {
-  const res = await fetch(`${BASE}/entries`, {
+  const res = await apiFetch(`${BASE}/entries`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, payload }),
@@ -60,7 +61,7 @@ export async function updateCatalogEntry(
   title: string,
   payload: JobDefinition,
 ): Promise<CatalogEntry> {
-  const res = await fetch(`${BASE}/entries/${id}`, {
+  const res = await apiFetch(`${BASE}/entries/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, payload }),
@@ -70,18 +71,18 @@ export async function updateCatalogEntry(
 }
 
 export async function deleteCatalogEntry(id: number): Promise<void> {
-  const res = await fetch(`${BASE}/entries/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`${BASE}/entries/${id}`, { method: "DELETE" });
   if (!res.ok) await handleError(res);
 }
 
 export async function duplicateCatalogEntry(id: number): Promise<CatalogEntry> {
-  const res = await fetch(`${BASE}/entries/${id}/duplicate`, { method: "POST" });
+  const res = await apiFetch(`${BASE}/entries/${id}/duplicate`, { method: "POST" });
   if (!res.ok) await handleError(res);
   return (await res.json()) as CatalogEntry;
 }
 
 export async function pushCatalogEntry(id: number): Promise<{ job: unknown }> {
-  const res = await fetch(`${BASE}/entries/${id}/push`, { method: "POST" });
+  const res = await apiFetch(`${BASE}/entries/${id}/push`, { method: "POST" });
   if (!res.ok) await handleError(res);
   return (await res.json()) as { job: unknown };
 }
