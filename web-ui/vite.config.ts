@@ -51,8 +51,16 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/mcp-admin/, "/admin"),
         configure: (proxy) => {
+          const adminToken = process.env.MCP_ADMIN_TOKEN?.trim();
+          if (!adminToken) {
+            console.warn(
+              "[vite] MCP_ADMIN_TOKEN is unset; /mcp-admin proxy will not authorize against MCP",
+            );
+          }
           proxy.on("proxyReq", (proxyReq) => {
-            proxyReq.setHeader("X-Streammux-Mcp-Admin", "1");
+            if (adminToken) {
+              proxyReq.setHeader("X-Streammux-Mcp-Admin-Token", adminToken);
+            }
           });
         },
       },

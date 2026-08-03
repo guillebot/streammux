@@ -49,6 +49,7 @@ type mcpServer struct {
 	jobsBase    string
 	catalogBase string
 	basicAuth   string
+	adminToken  string
 	client      *http.Client
 	knowledge   *knowledgeStore
 	authStore   *auth.Store
@@ -69,11 +70,19 @@ func main() {
 	user := env("STREAMMUX_API_USERNAME", "streammux")
 	pass := env("STREAMMUX_API_PASSWORD", "change-me-now")
 	basic := "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
+	adminToken := strings.TrimSpace(os.Getenv("MCP_ADMIN_TOKEN"))
+	if adminToken == "" {
+		log.Fatal("MCP_ADMIN_TOKEN is required (shared secret for web-ui → /admin token management)")
+	}
+	if len(adminToken) < 24 {
+		log.Fatal("MCP_ADMIN_TOKEN must be at least 24 characters (openssl rand -hex 32)")
+	}
 
 	s := &mcpServer{
 		jobsBase:    strings.TrimRight(env("JOB_MANAGEMENT_API_URL", "http://job-management-api:8080"), "/"),
 		catalogBase: strings.TrimRight(env("JOB_CATALOG_API_URL", "http://job-catalog-api:3000"), "/"),
 		basicAuth:   basic,
+		adminToken:  adminToken,
 		client:      &http.Client{Timeout: 30 * time.Second},
 		knowledge:   loadKnowledge(),
 		authStore:   authStore,
@@ -86,7 +95,7 @@ func main() {
 	})
 	mux.Handle("/mcp", s.streamableMCPHandler())
 	s.registerAdmin(mux)
-	log.Printf("streammux-mcp listening on %s (streamable HTTP, stateless)", addr)
+	log.Printf("streammux-mcp listening on %s (streamable HTTP, stateless; /admin gated by MCP_ADMIN_TOKEN)", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)
 	}
