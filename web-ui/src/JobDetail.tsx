@@ -12,6 +12,7 @@ import {
   getJob,
   getLease,
   getStatus,
+  renameJob,
   updateJob,
 } from "./api/client";
 import { resolveActor } from "./actorCache";
@@ -135,6 +136,78 @@ export function JobDetail() {
         return;
       }
       if (!jobId) return;
+
+      // Detect a jobId change in the edited JSON and route through the rename flow. The
+      // update-in-place path below silently drops body.jobId, so without this branch the
+      // rename would appear to succeed but the id wouldn't actually change.
+      const parsedId = typeof def.jobId === "string" ? def.jobId.trim() : "";
+      if (!parsedId) {
+        setError("jobId cannot be blank");
+        return;
+      }
+      if (parsedId !== jobId) {
+        if (
+          !window.confirm(
+            `Rename job "${jobId}" to "${parsedId}"?\n\n` +
+              "Runtime state (status, lease, events) and version history will not carry over, and any running instance will restart."
+          )
+        ) {
+          return;
+        }
+
+        let current: JobDefinition;
+        try {
+          current = await getJob(jobId);
+        } catch (e) {
+          setError(`Rename aborted: could not load current definition for "${jobId}": ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
+
+        // Persist any co-edits (fields other than jobId) under the old key first, so
+        // the rename picks them up when it copies current-under-new-key. PUT ignores
+        // body.jobId, so we set it back to the old id defensively for the compare.
+        const bodyForCompare = { ...def, jobId: current.jobId, jobVersion: current.jobVersion, updatedAt: current.updatedAt, updatedBy: current.updatedBy };
+        const hasOtherEdits = JSON.stringify(bodyForCompare) !== JSON.stringify(current);
+        let coEditsPersisted = false;
+        if (hasOtherEdits) {
+          try {
+            const updated = await updateJob(jobId, { ...def, jobId: current.jobId, updatedBy: actor });
+            setJsonText(JSON.stringify(updated, null, 2));
+            coEditsPersisted = true;
+          } catch (e) {
+            setError(`Rename aborted: saving field edits under "${jobId}" failed: ${e instanceof Error ? e.message : String(e)}. Nothing was renamed.`);
+            return;
+          }
+        }
+
+        let renamed: JobDefinition;
+        try {
+          renamed = await renameJob(jobId, parsedId);
+        } catch (e) {
+          if (coEditsPersisted) {
+            setError(
+              `Field edits saved under "${jobId}", but renaming to "${parsedId}" failed: ${e instanceof Error ? e.message : String(e)}. ` +
+                `The job is still "${jobId}". Pick a different new id and try again.`
+            );
+          } else {
+            setError(`Rename to "${parsedId}" failed: ${e instanceof Error ? e.message : String(e)}. No changes were made.`);
+          }
+          return;
+        }
+
+        setJsonText(JSON.stringify(renamed, null, 2));
+        try {
+          const rows = await listCatalogEntries();
+          const row = rows.find((r) => r.jobId === jobId);
+          if (row) await updateCatalogEntry(row.id, row.title || parsedId, renamed);
+        } catch (catErr) {
+          setError(`Rename succeeded, but re-linking the catalog entry failed: ${catErr instanceof Error ? catErr.message : String(catErr)}. You may need to fix it manually.`);
+        }
+        setNotice(`Renamed ${jobId} → ${renamed.jobId}.`);
+        navigate(`/job/${encodeURIComponent(renamed.jobId)}`, { replace: true });
+        return;
+      }
+
       const updated = await updateJob(jobId, withActor);
       setJsonText(JSON.stringify(updated, null, 2));
       try {

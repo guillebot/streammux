@@ -73,6 +73,16 @@ export async function updateJob(jobId: string, definition: JobDefinition): Promi
   return (await res.json()) as JobDefinition;
 }
 
+export async function renameJob(oldJobId: string, newJobId: string): Promise<JobDefinition> {
+  const res = await apiFetch(`${JOBS}/${encodeURIComponent(oldJobId)}/rename`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newJobId }),
+  });
+  if (!res.ok) await handleError(res);
+  return (await res.json()) as JobDefinition;
+}
+
 export async function pauseJob(jobId: string): Promise<void> {
   const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}/pause`, { method: "POST" });
   if (!res.ok) await handleError(res);

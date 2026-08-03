@@ -66,6 +66,7 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `POST` | `/jobs/{jobId}/restart` | Restart command | `202` / `404` |
 | `GET` | `/jobs/{jobId}/status` | Runtime status from Kafka read model | `200` (body empty if none yet) |
 | `GET` | `/jobs/{jobId}/lease` | Current lease | `200` (body empty if none yet) |
+| `POST` | `/jobs/{jobId}/rename` | Rename job (publishes new key + `DELETED` sentinel on old key; body `{"newJobId":"…"}`) | `200` / `400` / `404` / `409` |
 | `GET` | `/jobs/{jobId}/events` | Audit events | `200` |
 | `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId`, `eventType`, `actor`) | `200` |
 | `GET` | `/activity/me` | Resolved actor for current request (Authelia user when proxied) | `200` |
@@ -219,6 +220,16 @@ curl -u "$AUTH" -X PUT "$API/jobs/route-poc-1" \
 ```
 
 Setting `"desiredState": "PAUSED"` on the definition is the primary operational lever today.
+
+### Rename a job
+
+Rename the job's `jobId`. The server copies the current definition under `newJobId`, publishes a `DELETED` sentinel on the old key (so orchestrators stop the old runner and start a new one), and emits paired `CREATED` / `DELETED` events with `renamedFrom` / `renamedTo` attributes. Runtime state (status, lease) and version history do not carry over. Use `PUT /jobs/{jobId}` first if you also need to change other fields — this endpoint copies every non-`jobId` field from the existing definition unchanged.
+
+```bash
+curl -u "$AUTH" -X POST "$API/jobs/route-poc-1/rename" \
+  -H 'Content-Type: application/json' \
+  -d '{"newJobId": "route-poc-1-renamed"}'
+```
 
 ### Delete a job
 

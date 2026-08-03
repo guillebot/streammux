@@ -127,6 +127,7 @@ Docs are also available as MCP resources under the `streammux://` URI scheme.
 | `list_kafka_topics` | Allowlisted broker topics |
 | `create_job` | Create definition (`apply=true`) |
 | `update_job` | Update definition (`apply=true`) |
+| `rename_job` | Rename job id; requires `new_job_id` (`apply=true`) |
 | `delete_job` | Mark deleted (`apply=true`) |
 | `pause_job` / `resume_job` / `restart_job` | Lifecycle commands (`apply=true`) |
 

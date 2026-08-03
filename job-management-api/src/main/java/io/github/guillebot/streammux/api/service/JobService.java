@@ -117,6 +117,72 @@ public class JobService {
         return updated;
     }
 
+    public JobDefinition renameJob(String oldJobId, String newJobId) {
+        String actor = actorResolver.currentActor();
+        if (newJobId == null || newJobId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "newJobId is required");
+        }
+        String trimmedNewJobId = newJobId.trim();
+        if (trimmedNewJobId.equals(oldJobId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "newJobId must differ from the current jobId; use PUT /jobs/{jobId} to update other fields");
+        }
+        JobDefinition current = getJob(oldJobId);
+        if (stateStore.getJob(trimmedNewJobId).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Job already exists: " + trimmedNewJobId);
+        }
+        JobDefinition renamed = new JobDefinition(
+            trimmedNewJobId,
+            1,
+            current.jobType(),
+            current.desiredState(),
+            current.priority(),
+            current.siteAffinity(),
+            current.leasePolicy(),
+            current.parallelism(),
+            current.routeAppConfig(),
+            current.randomSamplerConfig(),
+            current.alarmsToZtrConfig(),
+            current.labels(),
+            current.tags(),
+            Instant.now(),
+            actor
+        );
+        // Defensive re-validation: the current record already validated when it was saved, but the
+        // configured allowlists may have tightened since then, and the new jobId itself is user input.
+        JobDefinitionValidator.validate(renamed, topicValidationProperties.toPolicy());
+        JobDefinition deletedOld = new JobDefinition(
+            oldJobId,
+            current.jobVersion() + 1,
+            current.jobType(),
+            DesiredJobState.DELETED,
+            current.priority(),
+            current.siteAffinity(),
+            current.leasePolicy(),
+            current.parallelism(),
+            current.routeAppConfig(),
+            current.randomSamplerConfig(),
+            current.alarmsToZtrConfig(),
+            current.labels(),
+            current.tags(),
+            Instant.now(),
+            actor
+        );
+        commandPublisher.publishDefinition(renamed);
+        commandPublisher.publishDefinition(deletedOld);
+        Map<String, Object> renamedFromAttrs = new HashMap<>();
+        renamedFromAttrs.put("action", "rename");
+        renamedFromAttrs.put("renamedFrom", oldJobId);
+        renamedFromAttrs.put("previousVersion", current.jobVersion());
+        JobEvent createdEvent = newEvent(trimmedNewJobId, renamed.jobVersion(), EventType.CREATED, actor, "Job renamed from " + oldJobId, renamedFromAttrs);
+        JobEvent deletedEvent = newEvent(oldJobId, deletedOld.jobVersion(), EventType.DELETED, actor, "Job renamed to " + trimmedNewJobId, Map.of("action", "rename", "renamedTo", trimmedNewJobId));
+        appendAndPublish(createdEvent);
+        appendAndPublish(deletedEvent);
+        stateStore.removeJob(oldJobId);
+        stateStore.upsertDefinition(renamed);
+        auditLog("job.rename", trimmedNewJobId, actor, Map.of("previousJobId", oldJobId, "previousVersion", current.jobVersion()));
+        return renamed;
+    }
+
     public void deleteJob(String jobId) {
         String actor = actorResolver.currentActor();
         JobDefinition current = getJob(jobId);

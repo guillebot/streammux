@@ -41,6 +41,7 @@ func toolList() []map[string]any {
 
 		tool("create_job", "Create a job definition. Requires full job object and apply=true.", map[string]any{"job": freeObj, "apply": boolg}, []string{"job", "apply"}),
 		tool("update_job", "Update a job definition. Requires job_id, job object, and apply=true.", map[string]any{"job_id": str, "job": freeObj, "apply": boolg}, []string{"job_id", "job", "apply"}),
+		tool("rename_job", "Rename a job's id. Publishes the definition under new_job_id and a DELETED sentinel on job_id; runtime state (status, lease) and version history do not carry over. Requires job_id (current id), new_job_id, and apply=true.", map[string]any{"job_id": str, "new_job_id": str, "apply": boolg}, []string{"job_id", "new_job_id", "apply"}),
 		tool("delete_job", "Mark a job deleted (desiredState=DELETED). Requires job_id and apply=true.", map[string]any{"job_id": str, "apply": boolg}, []string{"job_id", "apply"}),
 		tool("pause_job", "Publish PAUSE command for a job. Requires job_id and apply=true.", map[string]any{"job_id": str, "apply": boolg}, []string{"job_id", "apply"}),
 		tool("resume_job", "Publish RESUME command for a job. Requires job_id and apply=true.", map[string]any{"job_id": str, "apply": boolg}, []string{"job_id", "apply"}),
@@ -227,6 +228,27 @@ func (s *mcpServer) handleToolCall(ctx context.Context, p toolsCallParams, authz
 			return "", err
 		}
 		return prettyJSON(out), nil
+	case "rename_job":
+		if err := requireApply(p.Arguments); err != nil {
+			return "", err
+		}
+		jobID := argString(p.Arguments, "job_id")
+		if jobID == "" {
+			return "", errors.New("job_id is required")
+		}
+		newJobID := argString(p.Arguments, "new_job_id")
+		if newJobID == "" {
+			return "", errors.New("new_job_id is required")
+		}
+		body, err := mustJSON(map[string]any{"newJobId": newJobID})
+		if err != nil {
+			return "", err
+		}
+		out, err := s.jobsPost(ctx, "/jobs/"+url.PathEscape(jobID)+"/rename", body, mcpWriteHeaders(p.Name))
+		if err != nil {
+			return "", err
+		}
+		return prettyJSON(out), nil
 	case "delete_job":
 		if err := requireApply(p.Arguments); err != nil {
 			return "", err
@@ -350,7 +372,7 @@ func (s *mcpServer) handleToolCall(ctx context.Context, p toolsCallParams, authz
 
 func isWriteTool(name string) bool {
 	switch name {
-	case "create_job", "update_job", "delete_job", "pause_job", "resume_job", "restart_job",
+	case "create_job", "update_job", "rename_job", "delete_job", "pause_job", "resume_job", "restart_job",
 		"create_catalog_entry", "update_catalog_entry", "delete_catalog_entry",
 		"duplicate_catalog_entry", "push_catalog_entry", "token_create", "token_revoke":
 		return true

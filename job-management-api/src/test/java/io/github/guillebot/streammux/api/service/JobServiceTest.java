@@ -135,6 +135,132 @@ class JobServiceTest {
     }
 
     @Test
+    void renameJobPublishesNewKeyDeletedSentinelAndPairedEvents() {
+        JobService service = newService();
+        JobDefinition current = jobDefinition("job-old", 5, DesiredJobState.ACTIVE, "alice");
+        when(stateStore.getJob("job-old")).thenReturn(Optional.of(current));
+        when(stateStore.getJob("job-new")).thenReturn(Optional.empty());
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        JobDefinition renamed = service.renameJob("job-old", "job-new");
+
+        assertEquals("job-new", renamed.jobId());
+        assertEquals(1, renamed.jobVersion());
+        assertEquals(DesiredJobState.ACTIVE, renamed.desiredState());
+        assertEquals("operator", renamed.updatedBy());
+        // Preserved fields from current
+        assertEquals(current.jobType(), renamed.jobType());
+        assertEquals(current.priority(), renamed.priority());
+        assertEquals(current.siteAffinity(), renamed.siteAffinity());
+        assertEquals(current.routeAppConfig(), renamed.routeAppConfig());
+        assertEquals(current.labels(), renamed.labels());
+        assertEquals(current.tags(), renamed.tags());
+
+        ArgumentCaptor<JobDefinition> definitionCaptor = ArgumentCaptor.forClass(JobDefinition.class);
+        verify(commandPublisher, org.mockito.Mockito.times(2)).publishDefinition(definitionCaptor.capture());
+        List<JobDefinition> published = definitionCaptor.getAllValues();
+        JobDefinition publishedNew = published.get(0);
+        JobDefinition publishedDeleted = published.get(1);
+        assertEquals("job-new", publishedNew.jobId());
+        assertEquals(1, publishedNew.jobVersion());
+        assertEquals(DesiredJobState.ACTIVE, publishedNew.desiredState());
+        assertEquals("job-old", publishedDeleted.jobId());
+        assertEquals(6, publishedDeleted.jobVersion());
+        assertEquals(DesiredJobState.DELETED, publishedDeleted.desiredState());
+
+        ArgumentCaptor<JobEvent> eventCaptor = ArgumentCaptor.forClass(JobEvent.class);
+        verify(commandPublisher, org.mockito.Mockito.times(2)).publishEvent(eventCaptor.capture());
+        List<JobEvent> events = eventCaptor.getAllValues();
+        JobEvent createdEvent = events.get(0);
+        JobEvent deletedEvent = events.get(1);
+        assertEquals(EventType.CREATED, createdEvent.eventType());
+        assertEquals("job-new", createdEvent.jobId());
+        assertEquals("job-old", createdEvent.attributes().get("renamedFrom"));
+        assertEquals("rename", createdEvent.attributes().get("action"));
+        assertEquals(EventType.DELETED, deletedEvent.eventType());
+        assertEquals("job-old", deletedEvent.jobId());
+        assertEquals("job-new", deletedEvent.attributes().get("renamedTo"));
+        assertEquals("rename", deletedEvent.attributes().get("action"));
+
+        verify(stateStore).removeJob("job-old");
+        verify(stateStore).upsertDefinition(renamed);
+    }
+
+    @Test
+    void renameJobRejectsMissingOldJob() {
+        JobService service = newService();
+        when(stateStore.getJob("job-missing")).thenReturn(Optional.empty());
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.renameJob("job-missing", "job-new")
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
+    void renameJobRejectsExistingNewJobId() {
+        JobService service = newService();
+        JobDefinition current = jobDefinition("job-old", 1, DesiredJobState.ACTIVE, "alice");
+        when(stateStore.getJob("job-old")).thenReturn(Optional.of(current));
+        when(stateStore.getJob("job-taken")).thenReturn(Optional.of(jobDefinition("job-taken", 1, DesiredJobState.ACTIVE, "bob")));
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.renameJob("job-old", "job-taken")
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
+    void renameJobRejectsBlankNewJobId() {
+        JobService service = newService();
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.renameJob("job-old", "  ")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
+    void renameJobRejectsNullNewJobId() {
+        JobService service = newService();
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.renameJob("job-old", null)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
+    void renameJobRejectsEqualNewJobId() {
+        JobService service = newService();
+        when(actorResolver.currentActor()).thenReturn("operator");
+
+        ResponseStatusException exception = assertThrows(
+            ResponseStatusException.class,
+            () -> service.renameJob("job-old", "job-old")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
     void issueCommandPublishesMappedEventAndCommand() {
         JobService service = newService();
         JobDefinition current = jobDefinition("job-1", 6, DesiredJobState.ACTIVE, "alice");

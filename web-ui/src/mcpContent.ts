@@ -30,6 +30,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: "list_kafka_topics", desc: "Allowlisted broker topics" },
       { name: "create_job", desc: "Create job (apply=true)" },
       { name: "update_job", desc: "Update job (apply=true)" },
+      { name: "rename_job", desc: "Rename job id (apply=true)" },
       { name: "delete_job", desc: "Delete job (apply=true)" },
       { name: "pause_job", desc: "Pause (apply=true)" },
       { name: "resume_job", desc: "Resume (apply=true)" },

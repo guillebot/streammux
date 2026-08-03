@@ -93,6 +93,22 @@ public class JobController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void restart(@Parameter(description = "Job identifier") @PathVariable("jobId") String jobId) { jobService.issueCommand(jobId, CommandType.RESTART); }
 
+    @Operation(
+        summary = "Rename job",
+        description = "Copies the current definition under the new jobId key, tombstones the old key with desiredState=DELETED, and emits paired CREATED/DELETED events with rename attributes. All other fields (jobType, desiredState, config, labels, tags, etc.) are copied from the existing definition; use PUT /jobs/{jobId} first if you need to change them at the same time. Runtime state (status, lease) and version history do not carry over; any running runner restarts under the new id."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Job renamed; returns the new definition"),
+        @ApiResponse(responseCode = "400", description = "Invalid or missing newJobId (blank, or equal to path jobId)"),
+        @ApiResponse(responseCode = "404", description = "Job not found"),
+        @ApiResponse(responseCode = "409", description = "newJobId already exists")
+    })
+    @PostMapping("/{jobId}/rename")
+    public JobDefinition rename(
+        @Parameter(description = "Current job identifier") @PathVariable("jobId") String jobId,
+        @RequestBody RenameJobRequest request
+    ) { return jobService.renameJob(jobId, request.newJobId()); }
+
     @Operation(summary = "Delete job", description = "Marks the job deleted, publishes commands/events, and removes it from the local read model.")
     @ApiResponses({
         @ApiResponse(responseCode = "202", description = "Delete accepted"),

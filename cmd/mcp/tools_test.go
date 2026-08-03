@@ -49,3 +49,19 @@ func TestToolListIncludesListActivity(t *testing.T) {
 		t.Fatal("toolList() missing list_activity")
 	}
 }
+
+func TestIsWriteToolIncludesRenameJob(t *testing.T) {
+	if !isWriteTool("rename_job") {
+		t.Fatal("rename_job should be a write tool")
+	}
+}
+
+func TestToolListIncludesRenameJob(t *testing.T) {
+	tools := toolList()
+	for _, tool := range tools {
+		if tool["name"] == "rename_job" {
+			return
+		}
+	}
+	t.Fatal("toolList() missing rename_job")
+}
