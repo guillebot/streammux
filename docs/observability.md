@@ -39,14 +39,32 @@ Runners attach Kafka Streams state listeners and populate `failureReason` on `jo
 
 ---
 
-## Phase 2 (next): structured application logs
+## Phase 2 (current): platform metrics and container logs
+
+Streammux on **kstreams** hosts ships operational telemetry via otelcol-contrib:
+
+```
+job-management-api / site-orchestrator /actuator/prometheus
+  -> otelcol-contrib (service_namespace=streammux)
+  -> Kafka net.optimum.metrics.apps.otlp.json
+  -> Mimir -> Grafana (Alarm Management / Streammux)
+
+Docker container stdout
+  -> otelcol receiver_creator
+  -> Kafka net.optimum.logs.apps.otlp.json
+  -> Loki
+```
+
+Ansible: `roles/kstreams/streammux/templates/otelcol-config.yaml.j2` (deploy with `playbooks/kstreams/streammux/deploy.yml`).
+
+### Phase 2 follow-up: structured JSON logs
 
 - Emit **JSON SLF4J** from API, orchestrator, and runners with stable fields: `jobId`, `siteId`, `instanceId`, `actor`, `action`.
-- Ship logs through existing **OTLP collectors** on kstreams hosts into the company log stack (Loki/Grafana).
+- Container logs already reach Loki via otelcol; structured fields improve queryability.
 
 ---
 
-## Phase 3 (target): OTLP logs via Kafka
+## Phase 3 (target): OTLP logs via Kafka with job correlation
 
 Align with the org direction for **OTLP-over-Kafka** so logs are:
 
