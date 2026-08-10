@@ -46,6 +46,21 @@ class JobStateStoreTest {
     }
 
     @Test
+    void appendEventIgnoresDuplicateEventIds() {
+        // The API's local appendEvent path and the KafkaJobStateProjector both
+        // land in appendEvent for the same event (once locally, once via the
+        // Kafka round-trip). Deduping by eventId keeps /activity and the
+        // per-job event stream single-copy.
+        JobStateStore store = new JobStateStore();
+        JobEvent original = jobEvent("job-1", EventType.CREATED);
+        store.appendEvent(original);
+        store.appendEvent(original);
+
+        assertEquals(1, store.getEvents("job-1").size());
+        assertEquals(1, store.listRecentEvents(10, null, null, null).size());
+    }
+
+    @Test
     void removeJobClearsDefinitionLeaseStatusAndEvents() {
         JobStateStore store = new JobStateStore();
         store.upsertDefinition(jobDefinition("job-1"));

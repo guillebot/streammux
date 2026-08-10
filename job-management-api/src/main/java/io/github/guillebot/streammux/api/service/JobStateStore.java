@@ -12,9 +12,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -26,6 +28,13 @@ public class JobStateStore {
     private final Map<String, JobRuntimeStatus> statuses = new ConcurrentHashMap<>();
     private final Map<String, List<JobEvent>> events = new ConcurrentHashMap<>();
     private final Deque<JobEvent> recentEvents = new ArrayDeque<>();
+    // Both the API's local appendEvent path and the Kafka projector's
+    // onJobEvent listener call into appendEvent for the same JobEvent (once
+    // when the API writes it locally + publishes to Kafka, then again when
+    // the projector consumes the round-trip). Track eventIds already in the
+    // recent-events window so the deque - which backs /activity - keeps a
+    // single copy per eventId.
+    private final Set<String> recentEventIds = new HashSet<>();
 
     public Collection<JobDefinition> listJobs() { return definitions.values().stream().sorted(Comparator.comparing(JobDefinition::jobId)).toList(); }
     public Optional<JobDefinition> getJob(String jobId) { return Optional.ofNullable(definitions.get(jobId)); }
@@ -40,13 +49,17 @@ public class JobStateStore {
     public void removeStatus(String jobId) { statuses.remove(jobId); }
 
     public void appendEvent(JobEvent event) {
-        events.computeIfAbsent(event.jobId(), ignored -> new ArrayList<>()).add(event);
         synchronized (recentEvents) {
+            if (!recentEventIds.add(event.eventId())) {
+                return;
+            }
             recentEvents.addLast(event);
             while (recentEvents.size() > GLOBAL_EVENT_LIMIT) {
-                recentEvents.removeFirst();
+                JobEvent evicted = recentEvents.removeFirst();
+                recentEventIds.remove(evicted.eventId());
             }
         }
+        events.computeIfAbsent(event.jobId(), ignored -> new ArrayList<>()).add(event);
     }
 
     public List<JobEvent> listRecentEvents(int limit, String jobId, Collection<EventType> eventTypes, String actor) {
