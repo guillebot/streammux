@@ -47,7 +47,16 @@ export function Logs() {
   const debouncedActor = useDebouncedValue(actorFilter, FILTER_DEBOUNCE_MS);
   const debouncedMessage = useDebouncedValue(messageFilter, FILTER_DEBOUNCE_MS);
 
+  // Tag each load with a monotonically increasing sequence so responses that
+  // arrive out of order do not overwrite fresher state. The 10s poll can fire
+  // a request under an older filter that is still in flight when the user
+  // narrows the multi-select; if the older (larger, all-events) response
+  // returns after the newer filtered one, setEvents would repopulate SESSION
+  // rows even though the multi-select shows only the newly selected type.
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setError(null);
     try {
       const rows = await listActivity({
@@ -56,6 +65,7 @@ export function Logs() {
         eventTypes: eventTypeFilter.length > 0 ? eventTypeFilter : undefined,
         actor: debouncedActor.trim() || undefined,
       });
+      if (loadSeq.current !== seq) return;
       const messageNeedle = debouncedMessage.trim().toLowerCase();
       const filtered = messageNeedle
         ? rows.filter(
@@ -66,9 +76,10 @@ export function Logs() {
         : rows;
       setEvents(filtered);
     } catch (e) {
+      if (loadSeq.current !== seq) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (loadSeq.current === seq) setLoading(false);
     }
   }, [debouncedJobId, eventTypeFilter, debouncedActor, debouncedMessage]);
 
