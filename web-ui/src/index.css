@@ -381,6 +381,46 @@ tr:last-child td {
   vertical-align: middle;
 }
 
+/*
+ * Activity table (Logs page).
+ *
+ * The base .job-table uses width: max-content + min-width: 100%, which makes
+ * the browser stretch the table to fill the container when the natural
+ * content is narrower and redistribute that slack across every column,
+ * including the identifier ones. That is what caused Time, User, Job, and
+ * Action to shift when the filter changed the row set: a filter that
+ * removed the widest Detail/Site messages left more slack to redistribute.
+ *
+ * Overriding min-width to max-content keeps the table strictly at its
+ * natural content width - no stretching, no redistribution. The identifier
+ * columns then hold whatever min-width we set below, and Detail plus Site
+ * grow naturally with their content; when Detail is long .table-wrap scrolls
+ * horizontally.
+ */
+.activity-table {
+  min-width: max-content;
+}
+
+.activity-table th:nth-child(1),
+.activity-table td:nth-child(1) {
+  min-width: 14rem;
+}
+
+.activity-table th:nth-child(2),
+.activity-table td:nth-child(2) {
+  min-width: 15rem;
+}
+
+.activity-table th:nth-child(3),
+.activity-table td:nth-child(3) {
+  min-width: 15rem;
+}
+
+.activity-table th:nth-child(4),
+.activity-table td:nth-child(4) {
+  min-width: 9rem;
+}
+
 .filter-row {
   display: flex;
   flex-wrap: wrap;
