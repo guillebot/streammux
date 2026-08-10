@@ -98,7 +98,13 @@ export function Logs() {
       <div className="filter-row">
         <label>
           Job ID
-          <input type="text" value={jobIdFilter} onChange={(e) => setJobIdFilter(e.target.value)} placeholder="Filter job" />
+          <input
+            className="text-input"
+            type="text"
+            value={jobIdFilter}
+            onChange={(e) => setJobIdFilter(e.target.value)}
+            placeholder="Filter job"
+          />
         </label>
         <label>
           Event type
@@ -111,11 +117,18 @@ export function Logs() {
         </label>
         <label>
           User
-          <input type="text" value={actorFilter} onChange={(e) => setActorFilter(e.target.value)} placeholder="Authelia user" />
+          <input
+            className="text-input"
+            type="text"
+            value={actorFilter}
+            onChange={(e) => setActorFilter(e.target.value)}
+            placeholder="Authelia user"
+          />
         </label>
         <label>
           Search
           <input
+            className="text-input"
             type="text"
             value={messageFilter}
             onChange={(e) => setMessageFilter(e.target.value)}
