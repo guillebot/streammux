@@ -31,9 +31,9 @@ public class ActivityController {
     @GetMapping
     public List<JobEvent> listActivity(
         @Parameter(description = "Maximum events to return (default 100, max 1000)") @RequestParam(name = "limit", defaultValue = "100") int limit,
-        @Parameter(description = "Filter by job id") @RequestParam(name = "jobId", required = false) String jobId,
+        @Parameter(description = "Filter by job id (case-insensitive substring match)") @RequestParam(name = "jobId", required = false) String jobId,
         @Parameter(description = "Filter by event type") @RequestParam(name = "eventType", required = false) EventType eventType,
-        @Parameter(description = "Filter by actor (Authelia user or API principal)") @RequestParam(name = "actor", required = false) String actor
+        @Parameter(description = "Filter by actor (Authelia user or API principal; case-insensitive substring match)") @RequestParam(name = "actor", required = false) String actor
     ) {
         return activityService.listActivity(limit, jobId, eventType, actor);
     }

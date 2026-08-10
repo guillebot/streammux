@@ -53,13 +53,23 @@ public class JobStateStore {
         int effectiveLimit = Math.max(1, Math.min(limit, GLOBAL_EVENT_LIMIT));
         synchronized (recentEvents) {
             return recentEvents.stream()
-                .filter(event -> jobId == null || jobId.isBlank() || jobId.equals(event.jobId()))
+                .filter(event -> containsIgnoreCase(event.jobId(), jobId))
                 .filter(event -> eventType == null || eventType == event.eventType())
-                .filter(event -> actor == null || actor.isBlank() || actor.equalsIgnoreCase(event.actor()))
+                .filter(event -> containsIgnoreCase(event.actor(), actor))
                 .sorted(Comparator.comparing(JobEvent::eventTime).reversed())
                 .limit(effectiveLimit)
                 .toList();
         }
+    }
+
+    private static boolean containsIgnoreCase(String haystack, String needle) {
+        if (needle == null || needle.isBlank()) {
+            return true;
+        }
+        if (haystack == null) {
+            return false;
+        }
+        return haystack.toLowerCase().contains(needle.trim().toLowerCase());
     }
 
     public void removeEvents(String jobId) { events.remove(jobId); }

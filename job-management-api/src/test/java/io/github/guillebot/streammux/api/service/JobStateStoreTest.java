@@ -109,7 +109,37 @@ class JobStateStoreTest {
         assertEquals(1, store.listRecentEvents(10, null, EventType.STARTED, null).size());
     }
 
+    @Test
+    void listRecentEventsMatchesJobIdSubstringCaseInsensitively() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("route-app-alpha", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z"), "operator"));
+        store.appendEvent(jobEvent("route-app-beta", EventType.STARTED, Instant.parse("2024-01-01T00:00:01Z"), "operator"));
+        store.appendEvent(jobEvent("sampler-1", EventType.UPDATED, Instant.parse("2024-01-01T00:00:02Z"), "operator"));
+
+        assertEquals(2, store.listRecentEvents(10, "ROUTE", null, null).size());
+        assertEquals(2, store.listRecentEvents(10, "  route-app  ", null, null).size());
+        assertEquals(1, store.listRecentEvents(10, "beta", null, null).size());
+        assertEquals(0, store.listRecentEvents(10, "missing", null, null).size());
+    }
+
+    @Test
+    void listRecentEventsMatchesActorSubstringCaseInsensitively() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("job-a", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z"), "jsolarin@optimum.com"));
+        store.appendEvent(jobEvent("job-a", EventType.UPDATED, Instant.parse("2024-01-01T00:00:01Z"), "gschimmel@optimum.com"));
+        store.appendEvent(jobEvent("job-a", EventType.PAUSED, Instant.parse("2024-01-01T00:00:02Z"), null));
+
+        assertEquals(1, store.listRecentEvents(10, null, null, "jsolarin").size());
+        assertEquals(1, store.listRecentEvents(10, null, null, "JSOLARIN").size());
+        assertEquals(2, store.listRecentEvents(10, null, null, "@optimum.com").size());
+        assertEquals(0, store.listRecentEvents(10, null, null, "unknown").size());
+    }
+
     private static JobEvent jobEvent(String jobId, EventType eventType, Instant eventTime) {
+        return jobEvent(jobId, eventType, eventTime, "tester");
+    }
+
+    private static JobEvent jobEvent(String jobId, EventType eventType, Instant eventTime, String actor) {
         return new JobEvent(
             "event-" + jobId + "-" + eventType,
             jobId,
@@ -120,7 +150,7 @@ class JobStateStoreTest {
             "api",
             eventType.name(),
             Map.of(),
-            "tester"
+            actor
         );
     }
 

@@ -703,7 +703,7 @@
                     {
                         "name": "jobId",
                         "in": "query",
-                        "description": "Filter by job id",
+                        "description": "Filter by job id (case-insensitive substring match)",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -735,7 +735,7 @@
                     {
                         "name": "actor",
                         "in": "query",
-                        "description": "Filter by actor (Authelia user or API principal)",
+                        "description": "Filter by actor (Authelia user or API principal; case-insensitive substring match)",
                         "required": false,
                         "schema": {
                             "type": "string"
