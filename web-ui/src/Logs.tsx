@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { listActivity } from "./api/activityClient";
 import { ActivityJobLink } from "./JobEventTimeline";
+import { EventTypeMultiSelect } from "./EventTypeMultiSelect";
 import { InlineSpinner } from "./InlineSpinner";
-import type { JobEvent } from "./types";
+import { EVENT_TYPES, type JobEvent } from "./types";
 
 const REFRESH_MS = 10_000;
 
@@ -25,7 +26,7 @@ export function Logs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobIdFilter, setJobIdFilter] = useState("");
-  const [eventTypeFilter, setEventTypeFilter] = useState("");
+  const [eventTypeFilter, setEventTypeFilter] = useState<string[]>([]);
   const [actorFilter, setActorFilter] = useState("");
   const [messageFilter, setMessageFilter] = useState("");
 
@@ -35,7 +36,7 @@ export function Logs() {
       const rows = await listActivity({
         limit: 200,
         jobId: jobIdFilter.trim() || undefined,
-        eventType: eventTypeFilter.trim() || undefined,
+        eventTypes: eventTypeFilter.length > 0 ? eventTypeFilter : undefined,
         actor: actorFilter.trim() || undefined,
       });
       const filtered = messageFilter.trim()
@@ -73,11 +74,11 @@ export function Logs() {
         </label>
         <label>
           Event type
-          <input
-            type="text"
-            value={eventTypeFilter}
-            onChange={(e) => setEventTypeFilter(e.target.value)}
-            placeholder="e.g. PAUSED"
+          <EventTypeMultiSelect
+            options={EVENT_TYPES}
+            selected={eventTypeFilter}
+            onChange={setEventTypeFilter}
+            ariaLabel="Filter by event type"
           />
         </label>
         <label>

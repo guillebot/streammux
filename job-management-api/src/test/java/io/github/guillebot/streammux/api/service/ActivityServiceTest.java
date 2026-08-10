@@ -60,10 +60,10 @@ class ActivityServiceTest {
             Map.of(),
             "operator"
         );
-        when(stateStore.listRecentEvents(50, "job-a", EventType.UPDATED, "operator")).thenReturn(List.of(event));
+        when(stateStore.listRecentEvents(50, "job-a", List.of(EventType.UPDATED), "operator")).thenReturn(List.of(event));
         ActivityService service = new ActivityService(stateStore, commandPublisher, actorResolver);
 
-        List<JobEvent> result = service.listActivity(50, "job-a", EventType.UPDATED, "operator");
+        List<JobEvent> result = service.listActivity(50, "job-a", List.of(EventType.UPDATED), "operator");
 
         assertEquals(1, result.size());
         assertEquals("job-a", result.getFirst().jobId());

@@ -10,6 +10,23 @@ export type HealthState = string;
 
 export type LeaseStatus = string;
 
+export const EVENT_TYPES = [
+  "SESSION",
+  "CREATED",
+  "UPDATED",
+  "CLAIMED",
+  "STARTED",
+  "HEARTBEAT",
+  "PAUSED",
+  "RESUMED",
+  "FAILED",
+  "RELEASED",
+  "STOPPED",
+  "DELETED",
+] as const;
+
+export type KnownEventType = (typeof EVENT_TYPES)[number];
+
 export type EventType = string;
 
 export interface RouteDefinition {

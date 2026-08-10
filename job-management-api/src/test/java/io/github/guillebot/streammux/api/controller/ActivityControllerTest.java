@@ -56,7 +56,7 @@ class ActivityControllerTest {
 
     @Test
     void listActivityPassesQueryFilters() throws Exception {
-        when(activityService.listActivity(25, "job-1", EventType.STARTED, "operator")).thenReturn(List.of());
+        when(activityService.listActivity(25, "job-1", List.of(EventType.STARTED), "operator")).thenReturn(List.of());
 
         mockMvc.perform(get("/activity")
                 .param("limit", "25")
@@ -65,7 +65,19 @@ class ActivityControllerTest {
                 .param("actor", "operator"))
             .andExpect(status().isOk());
 
-        verify(activityService).listActivity(25, "job-1", EventType.STARTED, "operator");
+        verify(activityService).listActivity(25, "job-1", List.of(EventType.STARTED), "operator");
+    }
+
+    @Test
+    void listActivityAcceptsMultipleEventTypes() throws Exception {
+        when(activityService.listActivity(100, null, List.of(EventType.PAUSED, EventType.STARTED), null)).thenReturn(List.of());
+
+        mockMvc.perform(get("/activity")
+                .param("eventType", "PAUSED")
+                .param("eventType", "STARTED"))
+            .andExpect(status().isOk());
+
+        verify(activityService).listActivity(100, null, List.of(EventType.PAUSED, EventType.STARTED), null);
     }
 
     @Test

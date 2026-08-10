@@ -25,8 +25,8 @@ public class ActivityService {
         return actorResolver.currentActor();
     }
 
-    public List<JobEvent> listActivity(int limit, String jobId, EventType eventType, String actor) {
-        return stateStore.listRecentEvents(limit, jobId, eventType, actor);
+    public List<JobEvent> listActivity(int limit, String jobId, List<EventType> eventTypes, String actor) {
+        return stateStore.listRecentEvents(limit, jobId, eventTypes, actor);
     }
 
     public JobEvent recordSession() {

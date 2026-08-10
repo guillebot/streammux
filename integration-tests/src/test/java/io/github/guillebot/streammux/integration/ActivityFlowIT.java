@@ -58,7 +58,7 @@ class ActivityFlowIT extends KafkaIntegrationSupport {
         assertEquals(EventType.SESSION, session.eventType());
         assertEquals("jsolarin", session.actor());
         assertEquals(JobEvent.PLATFORM_JOB_ID, session.jobId());
-        assertEquals(1, projectedStateStore.listRecentEvents(10, null, EventType.SESSION, null).size());
+        assertEquals(1, projectedStateStore.listRecentEvents(10, null, List.of(EventType.SESSION), null).size());
         assertTrue(apiStateStore.listRecentEvents(10, null, null, "jsolarin").stream().anyMatch(e -> e.eventType() == EventType.SESSION));
     }
 

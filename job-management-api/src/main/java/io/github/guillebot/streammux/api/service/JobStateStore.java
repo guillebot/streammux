@@ -49,12 +49,12 @@ public class JobStateStore {
         }
     }
 
-    public List<JobEvent> listRecentEvents(int limit, String jobId, EventType eventType, String actor) {
+    public List<JobEvent> listRecentEvents(int limit, String jobId, Collection<EventType> eventTypes, String actor) {
         int effectiveLimit = Math.max(1, Math.min(limit, GLOBAL_EVENT_LIMIT));
         synchronized (recentEvents) {
             return recentEvents.stream()
                 .filter(event -> containsIgnoreCase(event.jobId(), jobId))
-                .filter(event -> eventType == null || eventType == event.eventType())
+                .filter(event -> eventTypes == null || eventTypes.isEmpty() || eventTypes.contains(event.eventType()))
                 .filter(event -> containsIgnoreCase(event.actor(), actor))
                 .sorted(Comparator.comparing(JobEvent::eventTime).reversed())
                 .limit(effectiveLimit)

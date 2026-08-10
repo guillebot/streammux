@@ -106,7 +106,20 @@ class JobStateStoreTest {
 
         assertEquals(2, store.listRecentEvents(10, "job-a", null, null).size());
         assertEquals(EventType.UPDATED, store.listRecentEvents(1, "job-a", null, null).getFirst().eventType());
-        assertEquals(1, store.listRecentEvents(10, null, EventType.STARTED, null).size());
+        assertEquals(1, store.listRecentEvents(10, null, List.of(EventType.STARTED), null).size());
+    }
+
+    @Test
+    void listRecentEventsMatchesAnyOfMultipleEventTypes() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("job-a", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z")));
+        store.appendEvent(jobEvent("job-a", EventType.PAUSED, Instant.parse("2024-01-01T00:00:01Z")));
+        store.appendEvent(jobEvent("job-a", EventType.STARTED, Instant.parse("2024-01-01T00:00:02Z")));
+        store.appendEvent(jobEvent("job-a", EventType.UPDATED, Instant.parse("2024-01-01T00:00:03Z")));
+
+        assertEquals(2, store.listRecentEvents(10, null, List.of(EventType.PAUSED, EventType.STARTED), null).size());
+        assertEquals(4, store.listRecentEvents(10, null, List.of(), null).size());
+        assertEquals(4, store.listRecentEvents(10, null, null, null).size());
     }
 
     @Test
