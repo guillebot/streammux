@@ -17,12 +17,12 @@ The web console, catalog, and helper shell scripts in this repository are thin c
 
 ## Authentication
 
-**job-management-api** protects all routes except unauthenticated actuator probes:
+**job-management-api** and **site-orchestrator** protect business routes with HTTP Basic; actuator probes are unauthenticated for otelcol and load balancers:
 
-| Path | Auth |
-| ---- | ---- |
-| `/actuator/health`, `/actuator/info` | None |
-| All other `/jobs`, `/jobs/meta`, `/activity`, `/actuator/*` (including `/actuator/prometheus` when exposed) | HTTP Basic |
+| Path | Service | Auth |
+| ---- | ------- | ---- |
+| `/actuator/health`, `/actuator/info`, `/actuator/prometheus` | job-management-api, site-orchestrator | None |
+| `/jobs`, `/jobs/meta`, `/activity`, and other API routes | job-management-api only | HTTP Basic |
 
 Credentials come from `STREAMMUX_API_USERNAME` and `STREAMMUX_API_PASSWORD` (defaults in `.env.example`: `streammux` / `change-me-now`). Example:
 
@@ -76,6 +76,7 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `GET` | `/jobs/meta/settings` | Non-secret platform settings | `200` |
 | `GET` | `/actuator/health` | Spring Boot health | `200` |
 | `GET` | `/actuator/info` | Build info | `200` |
+| `GET` | `/actuator/prometheus` | Micrometer Prometheus scrape (unauthenticated) | `200` |
 
 Request and response bodies use the **job-contracts** JSON models. Primary schemas in OpenAPI: `JobDefinition`, `JobRuntimeStatus`, `JobLease`, `JobEvent`, `RouteAppConfig`, `RandomSamplerConfig`, `AlarmsToZtrConfig`, `PlatformHealth`, `PlatformSettings`, `KafkaTopicCatalog`.
 
@@ -289,10 +290,11 @@ Duplicate create returns **`409 Conflict`**. Missing jobs return **`404 Not Foun
 2. **Orchestrators** — consume definitions and leases; compete for lease ownership; start/stop the appropriate runner locally.
 3. **GET /jobs/***, **status**, **lease**, **events** — served from the API’s Kafka-backed in-memory read model (rebuilt on restart from topic replay).
 
-No step requires shell access to orchestrator machines. Monitoring uses the same API plus `/actuator/health` and `/actuator/prometheus` when exposed.
+No step requires shell access to orchestrator machines. Monitoring uses the management API read model plus unauthenticated `/actuator/health` and `/actuator/prometheus` on **job-management-api** and **site-orchestrator** (scraped by otelcol on kstreams hosts). See [observability.md](observability.md).
 
 ## Related documentation
 
 - [usage.md](usage.md) — quick index, helper scripts, health endpoints
+- [observability.md](observability.md) — metrics, otelcol, Grafana, verification
 - [deployment.md](deployment.md) — ports, environment variables, Compose layout
 - [openapi.json](openapi.json) — full OpenAPI 3 snapshot for job-management-api

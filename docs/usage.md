@@ -40,13 +40,31 @@ Ensure topics used in the sample job satisfy your `STREAMMUX_ALLOWED_*` rules, o
 
 ## Health, metrics, and info
 
-Spring Boot **Actuator** exposes (via `application.yml`):
+Both **job-management-api** and **site-orchestrator** expose Spring Boot Actuator on **port 8080 inside the container**:
 
-- `/actuator/health`
-- `/actuator/info`
-- `/actuator/prometheus`
+| Endpoint | Auth | Use |
+| -------- | ---- | --- |
+| `/actuator/health` | None | Compose healthchecks, load balancers |
+| `/actuator/info` | None | Build metadata |
+| `/actuator/prometheus` | None | Prometheus / otelcol scrape (custom `streammux_*` metrics) |
 
-Use these for load balancers, Kubernetes probes, and monitoring.
+All other HTTP routes on these services require HTTP Basic auth.
+
+**Local Compose** — probe the API from the host:
+
+```bash
+curl -fsS "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/actuator/health"
+curl -fsS "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/actuator/prometheus" | grep '^streammux_' | head
+```
+
+**Orchestrator** — no host port by default; exec into the container or rely on otelcol on kstreams hosts:
+
+```bash
+docker compose exec site-orchestrator \
+  curl -fsS http://127.0.0.1:8080/actuator/prometheus | grep streammux_orchestrator
+```
+
+Production dashboards, otelcol, structured JSON logs, and verification steps: **[observability.md](observability.md)**.
 
 ## Operational tips
 
