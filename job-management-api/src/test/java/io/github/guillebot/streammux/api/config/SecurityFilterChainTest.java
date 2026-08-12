@@ -65,6 +65,17 @@ class SecurityFilterChainTest {
     }
 
     @Test
+    void actuatorPrometheusIsPermitAll() throws Exception {
+        mockMvc.perform(get("/actuator/prometheus"))
+            .andExpect(result -> {
+                int code = result.getResponse().getStatus();
+                if (code == 401 || code == 403) {
+                    throw new AssertionError("actuator/prometheus should be permitAll, got HTTP " + code);
+                }
+            });
+    }
+
+    @Test
     void jobsRequiresAuthentication() throws Exception {
         mockMvc.perform(get("/jobs").accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isUnauthorized());

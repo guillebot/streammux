@@ -11,6 +11,7 @@ import io.github.guillebot.streammux.orchestrator.config.OrchestratorProperties;
 import io.github.guillebot.streammux.orchestrator.config.SiteIdentityProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseDecision;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
+import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -29,6 +31,7 @@ public class OrchestratorService {
     private final JobRunnerRegistry jobRunnerRegistry;
     private final OrchestratorEventPublisher eventPublisher;
     private final OrchestratorProperties orchestratorProperties;
+    private final StreammuxOrchestratorMetrics orchestratorMetrics;
     private final Map<String, Long> maxObservedEpochs = new ConcurrentHashMap<>();
     private final Map<String, Long> activeLeaseEpochs = new ConcurrentHashMap<>();
     private final Map<String, Long> pendingRunnerEpochs = new ConcurrentHashMap<>();
@@ -43,13 +46,19 @@ public class OrchestratorService {
         SiteIdentityProperties siteIdentity,
         JobRunnerRegistry jobRunnerRegistry,
         OrchestratorEventPublisher eventPublisher,
-        OrchestratorProperties orchestratorProperties
+        OrchestratorProperties orchestratorProperties,
+        StreammuxOrchestratorMetrics orchestratorMetrics
     ) {
         this.leaseManager = leaseManager;
         this.siteIdentity = siteIdentity;
         this.jobRunnerRegistry = jobRunnerRegistry;
         this.eventPublisher = eventPublisher;
         this.orchestratorProperties = orchestratorProperties;
+        this.orchestratorMetrics = orchestratorMetrics;
+    }
+
+    public Set<String> activeJobIds() {
+        return Set.copyOf(activeLeaseEpochs.keySet());
     }
 
     public void observeLease(JobLease lease) {
@@ -208,6 +217,7 @@ public class OrchestratorService {
                 Map.of("leaseEpoch", leaseEpoch, "error", ex.getClass().getSimpleName())
             );
             LOGGER.error("Failed to start job {} at epoch {}", definition.jobId(), leaseEpoch, ex);
+            orchestratorMetrics.recordRunnerStartFailure(definition.jobId(), definition.jobType());
             throw ex;
         }
     }
@@ -238,6 +248,7 @@ public class OrchestratorService {
                 Map.of("leaseEpoch", lease.leaseEpoch(), "error", ex.getClass().getSimpleName(), "restart", true)
             );
             LOGGER.error("Failed to restart job {} at epoch {}", jobId, lease.leaseEpoch(), ex);
+            orchestratorMetrics.recordRunnerStartFailure(jobId, definition.jobType());
         }
     }
 

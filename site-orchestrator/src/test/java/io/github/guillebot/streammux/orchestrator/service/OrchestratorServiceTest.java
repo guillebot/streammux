@@ -17,6 +17,7 @@ import io.github.guillebot.streammux.orchestrator.config.OrchestratorProperties;
 import io.github.guillebot.streammux.orchestrator.config.SiteIdentityProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseDecision;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
+import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -58,6 +59,9 @@ class OrchestratorServiceTest {
 
     @Mock
     private OrchestratorEventPublisher eventPublisher;
+
+    @Mock
+    private StreammuxOrchestratorMetrics orchestratorMetrics;
 
     @Test
     void claimPublishesClaimEventButDefersRunnerStart() {
@@ -216,7 +220,7 @@ class OrchestratorServiceTest {
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
         when(jobRunner.status("job-1")).thenReturn(failedStatus);
 
-        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 1));
+        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 1), orchestratorMetrics);
 
         service.reconcile(definition, null);
         service.maybeStartConfirmedRunner(definition, runningLease);
@@ -255,7 +259,7 @@ class OrchestratorServiceTest {
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
         when(jobRunner.status("job-1")).thenReturn(failedStatus);
 
-        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 60_000));
+        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 60_000), orchestratorMetrics);
 
         service.reconcile(definition, null);
         service.maybeStartConfirmedRunner(definition, runningLease);
@@ -266,7 +270,7 @@ class OrchestratorServiceTest {
     }
 
     private OrchestratorService newService() {
-        return new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, disabledRestart());
+        return new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, disabledRestart(), orchestratorMetrics);
     }
 
     private static OrchestratorProperties disabledRestart() {

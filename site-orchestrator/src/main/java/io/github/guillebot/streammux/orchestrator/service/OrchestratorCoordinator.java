@@ -7,6 +7,7 @@ import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
+import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,17 +26,20 @@ public class OrchestratorCoordinator {
     private final OrchestratorService orchestratorService;
     private final LeaseManager leaseManager;
     private final KafkaOrchestratorPublisher publisher;
+    private final StreammuxOrchestratorMetrics orchestratorMetrics;
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
         OrchestratorService orchestratorService,
         LeaseManager leaseManager,
-        KafkaOrchestratorPublisher publisher
+        KafkaOrchestratorPublisher publisher,
+        StreammuxOrchestratorMetrics orchestratorMetrics
     ) {
         this.stateStore = stateStore;
         this.orchestratorService = orchestratorService;
         this.leaseManager = leaseManager;
         this.publisher = publisher;
+        this.orchestratorMetrics = orchestratorMetrics;
     }
 
     @KafkaListener(topics = "${streammux.topics.job-definitions}")
@@ -79,6 +83,7 @@ public class OrchestratorCoordinator {
 
     @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
     public void reconcileAll() {
+        orchestratorMetrics.recordReconcile();
         for (JobDefinition definition : stateStore.listDefinitions()) {
             reconcile(definition.jobId(), false);
         }
