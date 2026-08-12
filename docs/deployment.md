@@ -50,7 +50,7 @@ File: [docker-compose.yml](../docker-compose.yml)
 
 - Uses `image:` references with `pull_policy: always`.
 - Exposes **only** `job-management-api` on the host (`JOB_MANAGEMENT_API_PORT`, default `8080`).
-- `site-orchestrator` has **no** published ports; it talks to Kafka and runs workers in-process.
+- **`site-orchestrator`** runs an embedded HTTP server on **port 8080 inside the container** (actuator health/metrics). It is **not** published on the host in production-style compose; otelcol scrapes it on the Docker network.
 
 Typical variables:
 
@@ -119,6 +119,15 @@ Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-
 
 - `STREAMMUX_API_CONSUMER_GROUP` — Kafka consumer group for the API read model (default includes a random suffix per process).
 
+### Observability (production kstreams)
+
+| Variable | Used by | Meaning |
+| -------- | ------- | ------- |
+| `SPRING_PROFILES_ACTIVE` | job-management-api, site-orchestrator | Set to `prod` on kstreams for JSON logging (must be in compose `environment:`, not only `.env`) |
+| `STREAMMUX_OTEL_KAFKA_USER` / `STREAMMUX_OTEL_KAFKA_PASSWORD` | otelcol sidecar | SCRAM credentials for platform metrics/logs Kafka (Ansible vault) |
+
+Production telemetry is deployed by Ansible (`playbooks/kstreams/streammux/deploy.yml`): otelcol scrapes both Java services, ships metrics to Mimir and container stdout to Loki. Pin `streammux_image_tag` to the **8-character** GitLab CI SHA. Details: [observability.md](observability.md).
+
 ## Building and publishing images
 
 ### GitLab CI (primary)
@@ -134,9 +143,9 @@ On every push to a branch, tag, or same-project merge request, CI runs `mvn test
 | Web UI | `.../web-ui` |
 | Job catalog API | `.../job-catalog-api` |
 
-Tags per commit: `<short-sha>`, `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main` and git tags, `:latest` is also pushed.
+Tags per commit: `<short-sha>` (GitLab uses **8 characters**, e.g. `ca1de651`), `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main` and git tags, `:latest` is also pushed.
 
-Deploy hosts pull via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to a commit SHA to pin a release.
+Deploy hosts pull via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to a CI SHA to pin a release. Open merge-request pipelines build feature branches; a bare branch push may skip CI when other MRs are open (see `.gitlab-ci.yml` workflow rules).
 
 ### Manual semver releases
 

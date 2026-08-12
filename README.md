@@ -330,8 +330,12 @@ These details are important for understanding the current state of the project:
 
 ## Health And Observability
 
-Both applications expose actuator endpoints including:
+**job-management-api** and **site-orchestrator** each expose unauthenticated actuator endpoints on container port **8080**:
 
-- `health`
-- `info`
-- `prometheus`
+- `/actuator/health` — liveness/readiness (Compose uses `curl` healthchecks)
+- `/actuator/info` — build info
+- `/actuator/prometheus` — Micrometer export including custom `streammux_*` job and platform metrics
+
+On kstreams production hosts, **otelcol-contrib** scrapes both services and forwards metrics to Mimir and container logs to Loki. Set `SPRING_PROFILES_ACTIVE=prod` for JSON logging with `siteId`, `instanceId`, `jobId`, and `action` fields.
+
+Full pipeline, metric catalog, Grafana dashboards, and verification commands: **[docs/observability.md](docs/observability.md)**.

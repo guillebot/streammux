@@ -118,7 +118,8 @@ Summarized from [README.md](README.md) and [docs/overview.md](docs/overview.md):
 | --- | --- |
 | [README.md](README.md) | Architecture, route-app filter syntax, local dev |
 | [docs/overview.md](docs/overview.md) | Component table, limitations |
-| [docs/usage.md](docs/usage.md) | API / observability |
+| [docs/usage.md](docs/usage.md) | API shortcuts, health probes |
+| [docs/observability.md](docs/observability.md) | Metrics, logs, otelcol, Grafana |
 | [docs/deployment.md](docs/deployment.md) | Images, compose, env vars (note: may lag slightly vs compose if new services were added) |
 
 ---
