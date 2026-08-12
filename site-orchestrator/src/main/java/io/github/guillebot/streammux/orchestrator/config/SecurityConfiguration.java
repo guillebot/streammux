@@ -1,4 +1,4 @@
-package io.github.guillebot.streammux.api.config;
+package io.github.guillebot.streammux.orchestrator.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,11 +12,11 @@ public class SecurityConfiguration {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
-                        .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults())
-                .build();
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(authorize -> authorize
+                .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                .anyRequest().authenticated())
+            .httpBasic(Customizer.withDefaults())
+            .build();
     }
 }

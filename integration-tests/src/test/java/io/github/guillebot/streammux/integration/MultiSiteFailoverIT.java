@@ -20,6 +20,7 @@ import io.github.guillebot.streammux.orchestrator.config.SiteIdentityProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import io.github.guillebot.streammux.orchestrator.service.KafkaOrchestratorPublisher;
+import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorCoordinator;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorEventPublisher;
 import io.github.guillebot.streammux.orchestrator.service.OrchestratorService;
@@ -125,18 +126,21 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         LeaseManager leaseManager = new LeaseManager(new SiteIdentityProperties(siteId, instanceId));
         KafkaOrchestratorPublisher publisher = new KafkaOrchestratorPublisher(kafkaTemplate, topics);
         OrchestratorEventPublisher eventPublisher = new OrchestratorEventPublisher(publisher, new SiteIdentityProperties(siteId, instanceId));
+        StreammuxOrchestratorMetrics orchestratorMetrics = org.mockito.Mockito.mock(StreammuxOrchestratorMetrics.class);
         OrchestratorService orchestratorService = new OrchestratorService(
             leaseManager,
             new SiteIdentityProperties(siteId, instanceId),
             new JobRunnerRegistry(List.of(runner)),
             eventPublisher,
-            new OrchestratorProperties(5000, 0)
+            new OrchestratorProperties(5000, 0),
+            orchestratorMetrics
         );
         return new OrchestratorCoordinator(
             new OrchestratorStateStore(),
             orchestratorService,
             leaseManager,
-            publisher
+            publisher,
+            orchestratorMetrics
         );
     }
 
