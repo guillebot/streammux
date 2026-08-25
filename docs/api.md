@@ -68,7 +68,7 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `GET` | `/jobs/{jobId}/lease` | Current lease | `200` (body empty if none yet) |
 | `POST` | `/jobs/{jobId}/rename` | Rename job (publishes new key + `DELETED` sentinel on old key; body `{"newJobId":"…"}`) | `200` / `400` / `404` / `409` |
 | `GET` | `/jobs/{jobId}/events` | Audit events | `200` |
-| `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId`, `eventType`, `actor`) | `200` |
+| `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId` (case-insensitive substring), `eventType` (may repeat to match any of several types), `actor` (case-insensitive substring)) | `200` |
 | `GET` | `/activity/me` | Resolved actor for current request (Authelia user when proxied) | `200` |
 | `POST` | `/activity/session` | Record console session (`SESSION` event) | `202` |
 | `GET` | `/jobs/meta/kafka-topics` | Broker topics filtered by allowlists | `200` |

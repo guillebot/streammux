@@ -41,7 +41,33 @@ describe("activityClient", () => {
       }),
     );
 
-    await listActivity({ limit: 25, jobId: "job-1", eventType: "PAUSED", actor: "operator" });
+    await listActivity({ limit: 25, jobId: "job-1", eventTypes: ["PAUSED"], actor: "operator" });
     expect(fetch).toHaveBeenCalledWith("/activity?limit=25&jobId=job-1&eventType=PAUSED&actor=operator");
+  });
+
+  it("listActivity repeats eventType for each selected value", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      }),
+    );
+
+    await listActivity({ eventTypes: ["PAUSED", "STARTED"] });
+    expect(fetch).toHaveBeenCalledWith("/activity?eventType=PAUSED&eventType=STARTED");
+  });
+
+  it("listActivity omits eventType when list is empty", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [],
+      }),
+    );
+
+    await listActivity({ eventTypes: [] });
+    expect(fetch).toHaveBeenCalledWith("/activity");
   });
 });

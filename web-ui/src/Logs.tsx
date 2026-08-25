@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { listActivity } from "./api/activityClient";
 import { ActivityJobLink } from "./JobEventTimeline";
+import { EventTypeMultiSelect } from "./EventTypeMultiSelect";
 import { InlineSpinner } from "./InlineSpinner";
-import type { JobEvent } from "./types";
+import { EVENT_TYPES, type JobEvent } from "./types";
 
 const REFRESH_MS = 10_000;
+const FILTER_DEBOUNCE_MS = 300;
 
 function formatTime(iso: string): string {
   try {
@@ -20,44 +22,82 @@ function attributesSummary(attributes: Record<string, unknown>): string {
   return entries.map(([k, v]) => `${k}=${String(v)}`).join(", ");
 }
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export function Logs() {
   const [events, setEvents] = useState<JobEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobIdFilter, setJobIdFilter] = useState("");
-  const [eventTypeFilter, setEventTypeFilter] = useState("");
+  const [eventTypeFilter, setEventTypeFilter] = useState<string[]>([]);
   const [actorFilter, setActorFilter] = useState("");
   const [messageFilter, setMessageFilter] = useState("");
 
+  // Text filters go through debouncing so we do not hit the API on every
+  // keystroke. The multi-select changes commit immediately because the user
+  // toggles discrete options rather than typing.
+  const debouncedJobId = useDebouncedValue(jobIdFilter, FILTER_DEBOUNCE_MS);
+  const debouncedActor = useDebouncedValue(actorFilter, FILTER_DEBOUNCE_MS);
+  const debouncedMessage = useDebouncedValue(messageFilter, FILTER_DEBOUNCE_MS);
+
+  // Tag each load with a monotonically increasing sequence so responses that
+  // arrive out of order do not overwrite fresher state. The 10s poll can fire
+  // a request under an older filter that is still in flight when the user
+  // narrows the multi-select; if the older (larger, all-events) response
+  // returns after the newer filtered one, setEvents would repopulate SESSION
+  // rows even though the multi-select shows only the newly selected type.
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++loadSeq.current;
     setError(null);
     try {
       const rows = await listActivity({
         limit: 200,
-        jobId: jobIdFilter.trim() || undefined,
-        eventType: eventTypeFilter.trim() || undefined,
-        actor: actorFilter.trim() || undefined,
+        jobId: debouncedJobId.trim() || undefined,
+        eventTypes: eventTypeFilter.length > 0 ? eventTypeFilter : undefined,
+        actor: debouncedActor.trim() || undefined,
       });
-      const filtered = messageFilter.trim()
+      if (loadSeq.current !== seq) return;
+      const messageNeedle = debouncedMessage.trim().toLowerCase();
+      const filtered = messageNeedle
         ? rows.filter(
             (e) =>
-              e.message.toLowerCase().includes(messageFilter.trim().toLowerCase()) ||
-              (e.actor ?? "").toLowerCase().includes(messageFilter.trim().toLowerCase()),
+              e.message.toLowerCase().includes(messageNeedle) ||
+              (e.actor ?? "").toLowerCase().includes(messageNeedle),
           )
         : rows;
       setEvents(filtered);
     } catch (e) {
+      if (loadSeq.current !== seq) return;
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (loadSeq.current === seq) setLoading(false);
     }
-  }, [jobIdFilter, eventTypeFilter, actorFilter, messageFilter]);
+  }, [debouncedJobId, eventTypeFilter, debouncedActor, debouncedMessage]);
 
+  // Refresh whenever the debounced filters change.
   useEffect(() => {
     void load();
-    const id = window.setInterval(() => void load(), REFRESH_MS);
-    return () => window.clearInterval(id);
   }, [load]);
+
+  // Independent 10s poll that reads the current `load` via a ref so it does
+  // not restart every time a filter changes.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+  useEffect(() => {
+    const id = window.setInterval(() => void loadRef.current(), REFRESH_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="page page--wide">
@@ -69,31 +109,44 @@ export function Logs() {
       <div className="filter-row">
         <label>
           Job ID
-          <input type="text" value={jobIdFilter} onChange={(e) => setJobIdFilter(e.target.value)} placeholder="Filter job" />
+          <input
+            className="text-input"
+            type="text"
+            value={jobIdFilter}
+            onChange={(e) => setJobIdFilter(e.target.value)}
+            placeholder="Filter job"
+          />
         </label>
         <label>
           Event type
-          <input
-            type="text"
-            value={eventTypeFilter}
-            onChange={(e) => setEventTypeFilter(e.target.value)}
-            placeholder="e.g. PAUSED"
+          <EventTypeMultiSelect
+            options={EVENT_TYPES}
+            selected={eventTypeFilter}
+            onChange={setEventTypeFilter}
+            ariaLabel="Filter by event type"
           />
         </label>
         <label>
           User
-          <input type="text" value={actorFilter} onChange={(e) => setActorFilter(e.target.value)} placeholder="Authelia user" />
+          <input
+            className="text-input"
+            type="text"
+            value={actorFilter}
+            onChange={(e) => setActorFilter(e.target.value)}
+            placeholder="Authelia user"
+          />
         </label>
         <label>
           Search
           <input
+            className="text-input"
             type="text"
             value={messageFilter}
             onChange={(e) => setMessageFilter(e.target.value)}
             placeholder="Message or user"
           />
         </label>
-        <button type="button" onClick={() => void load()}>
+        <button type="button" onClick={() => void loadRef.current()}>
           Refresh
         </button>
       </div>

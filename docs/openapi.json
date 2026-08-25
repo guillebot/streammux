@@ -703,7 +703,7 @@
                     {
                         "name": "jobId",
                         "in": "query",
-                        "description": "Filter by job id",
+                        "description": "Filter by job id (case-insensitive substring match)",
                         "required": false,
                         "schema": {
                             "type": "string"
@@ -712,30 +712,34 @@
                     {
                         "name": "eventType",
                         "in": "query",
-                        "description": "Filter by event type",
+                        "description": "Filter by event type (may be repeated to select multiple; results include events matching any listed type)",
                         "required": false,
+                        "explode": true,
                         "schema": {
-                            "type": "string",
-                            "enum": [
-                                "SESSION",
-                                "CREATED",
-                                "UPDATED",
-                                "CLAIMED",
-                                "STARTED",
-                                "HEARTBEAT",
-                                "PAUSED",
-                                "RESUMED",
-                                "FAILED",
-                                "RELEASED",
-                                "STOPPED",
-                                "DELETED"
-                            ]
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "SESSION",
+                                    "CREATED",
+                                    "UPDATED",
+                                    "CLAIMED",
+                                    "STARTED",
+                                    "HEARTBEAT",
+                                    "PAUSED",
+                                    "RESUMED",
+                                    "FAILED",
+                                    "RELEASED",
+                                    "STOPPED",
+                                    "DELETED"
+                                ]
+                            }
                         }
                     },
                     {
                         "name": "actor",
                         "in": "query",
-                        "description": "Filter by actor (Authelia user or API principal)",
+                        "description": "Filter by actor (Authelia user or API principal; case-insensitive substring match)",
                         "required": false,
                         "schema": {
                             "type": "string"

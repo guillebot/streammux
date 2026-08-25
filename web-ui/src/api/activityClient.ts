@@ -29,7 +29,7 @@ export async function recordSession(): Promise<void> {
 export interface ListActivityParams {
   limit?: number;
   jobId?: string;
-  eventType?: string;
+  eventTypes?: string[];
   actor?: string;
 }
 
@@ -37,7 +37,11 @@ export async function listActivity(params: ListActivityParams = {}): Promise<Job
   const q = new URLSearchParams();
   if (params.limit != null) q.set("limit", String(params.limit));
   if (params.jobId) q.set("jobId", params.jobId);
-  if (params.eventType) q.set("eventType", params.eventType);
+  if (params.eventTypes) {
+    for (const t of params.eventTypes) {
+      if (t) q.append("eventType", t);
+    }
+  }
   if (params.actor) q.set("actor", params.actor);
   const suffix = q.toString() ? `?${q.toString()}` : "";
   const res = await apiFetch(`${ACTIVITY}${suffix}`);

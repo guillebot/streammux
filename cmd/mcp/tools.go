@@ -29,10 +29,10 @@ func toolList() []map[string]any {
 		tool("get_job_status", "Get runtime status for a job.", map[string]any{"job_id": str}, []string{"job_id"}),
 		tool("get_job_lease", "Get the current lease for a job.", map[string]any{"job_id": str}, []string{"job_id"}),
 		tool("get_job_events", "List audit events for a job.", map[string]any{"job_id": str}, []string{"job_id"}),
-		tool("list_activity", "List recent audit events across all jobs (newest first).", map[string]any{
+		tool("list_activity", "List recent audit events across all jobs (newest first). event_type accepts a single value, a comma-separated list, or an array to filter across multiple event types.", map[string]any{
 			"limit":      map[string]any{"type": "integer"},
 			"job_id":     str,
-			"event_type": str,
+			"event_type": map[string]any{"oneOf": []any{str, strArr}},
 			"actor":      str,
 		}, nil),
 		tool("get_health", "Platform health (Kafka + read model).", nil, nil),
@@ -417,8 +417,8 @@ func readProxyPath(p toolsCallParams) (string, error) {
 		if jobID := argString(p.Arguments, "job_id"); jobID != "" {
 			q.Set("jobId", jobID)
 		}
-		if eventType := argString(p.Arguments, "event_type"); eventType != "" {
-			q.Set("eventType", eventType)
+		for _, eventType := range collectEventTypes(p.Arguments, "event_type") {
+			q.Add("eventType", eventType)
 		}
 		if actor := argString(p.Arguments, "actor"); actor != "" {
 			q.Set("actor", actor)
@@ -542,6 +542,39 @@ func argStringSlice(args map[string]any, key string) []string {
 			continue
 		}
 		out = append(out, strings.TrimSpace(s))
+	}
+	return out
+}
+
+// collectEventTypes reads an argument that may arrive as a single string, a
+// comma-separated string, or an array of strings, and returns the list of
+// non-empty trimmed values. Order and duplicates from the caller are preserved.
+func collectEventTypes(args map[string]any, key string) []string {
+	if args == nil {
+		return nil
+	}
+	raw, ok := args[key]
+	if !ok {
+		return nil
+	}
+	var out []string
+	switch v := raw.(type) {
+	case string:
+		for _, part := range strings.Split(v, ",") {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+	case []any:
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				continue
+			}
+			if trimmed := strings.TrimSpace(s); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
 	}
 	return out
 }

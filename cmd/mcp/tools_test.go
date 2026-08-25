@@ -30,6 +30,36 @@ func TestReadProxyPathListActivityWithoutFilters(t *testing.T) {
 	}
 }
 
+func TestReadProxyPathListActivityRepeatsCommaSeparatedEventType(t *testing.T) {
+	path, err := readProxyPath(toolsCallParams{
+		Name: "list_activity",
+		Arguments: map[string]any{
+			"event_type": "PAUSED, STARTED",
+		},
+	})
+	if err != nil {
+		t.Fatalf("readProxyPath() error = %v", err)
+	}
+	if path != "/activity?eventType=PAUSED&eventType=STARTED" {
+		t.Fatalf("unexpected path: %q", path)
+	}
+}
+
+func TestReadProxyPathListActivityAcceptsEventTypeArray(t *testing.T) {
+	path, err := readProxyPath(toolsCallParams{
+		Name: "list_activity",
+		Arguments: map[string]any{
+			"event_type": []any{"PAUSED", "STARTED"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("readProxyPath() error = %v", err)
+	}
+	if path != "/activity?eventType=PAUSED&eventType=STARTED" {
+		t.Fatalf("unexpected path: %q", path)
+	}
+}
+
 func TestIsWriteToolExcludesListActivity(t *testing.T) {
 	if isWriteTool("list_activity") {
 		t.Fatal("list_activity should be read-only")

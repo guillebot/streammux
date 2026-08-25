@@ -30,7 +30,7 @@ The home page lists all jobs returned by `GET /jobs`. Each row links to the job 
 
 The job detail page (`/job/:jobId`) shows definition, status, lease, and an **events timeline** (API and orchestrator entries). Use it to create, update, pause, resume, restart, or delete jobs. Pause/resume update `desiredState` via `PUT /jobs/{id}` so orchestrators react consistently. Validation errors from the API (for example topic allowlist violations) appear inline.
 
-The **Logs** page (`/logs`) lists recent activity across all jobs with filters for job id, event type, and user. On OneLab, the user column shows your Authelia identity when the edge proxy forwards `Remote-User` headers. See [observability.md](observability.md) for retention limits and the OTLP roadmap.
+The **Logs** page (`/logs`) lists recent activity across all jobs with filters for job id (case-insensitive substring), event type (multi-select), and user (case-insensitive substring), plus a client-side free-text search over the message and user columns. On OneLab, the user column shows your Authelia identity when the edge proxy forwards `Remote-User` headers. See [observability.md](observability.md) for retention limits and the OTLP roadmap.
 
 ## Job Builder
 

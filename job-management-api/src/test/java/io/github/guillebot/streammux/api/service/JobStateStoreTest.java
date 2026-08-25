@@ -46,6 +46,21 @@ class JobStateStoreTest {
     }
 
     @Test
+    void appendEventIgnoresDuplicateEventIds() {
+        // The API's local appendEvent path and the KafkaJobStateProjector both
+        // land in appendEvent for the same event (once locally, once via the
+        // Kafka round-trip). Deduping by eventId keeps /activity and the
+        // per-job event stream single-copy.
+        JobStateStore store = new JobStateStore();
+        JobEvent original = jobEvent("job-1", EventType.CREATED);
+        store.appendEvent(original);
+        store.appendEvent(original);
+
+        assertEquals(1, store.getEvents("job-1").size());
+        assertEquals(1, store.listRecentEvents(10, null, null, null).size());
+    }
+
+    @Test
     void removeJobClearsDefinitionLeaseStatusAndEvents() {
         JobStateStore store = new JobStateStore();
         store.upsertDefinition(jobDefinition("job-1"));
@@ -106,10 +121,53 @@ class JobStateStoreTest {
 
         assertEquals(2, store.listRecentEvents(10, "job-a", null, null).size());
         assertEquals(EventType.UPDATED, store.listRecentEvents(1, "job-a", null, null).getFirst().eventType());
-        assertEquals(1, store.listRecentEvents(10, null, EventType.STARTED, null).size());
+        assertEquals(1, store.listRecentEvents(10, null, List.of(EventType.STARTED), null).size());
+    }
+
+    @Test
+    void listRecentEventsMatchesAnyOfMultipleEventTypes() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("job-a", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z")));
+        store.appendEvent(jobEvent("job-a", EventType.PAUSED, Instant.parse("2024-01-01T00:00:01Z")));
+        store.appendEvent(jobEvent("job-a", EventType.STARTED, Instant.parse("2024-01-01T00:00:02Z")));
+        store.appendEvent(jobEvent("job-a", EventType.UPDATED, Instant.parse("2024-01-01T00:00:03Z")));
+
+        assertEquals(2, store.listRecentEvents(10, null, List.of(EventType.PAUSED, EventType.STARTED), null).size());
+        assertEquals(4, store.listRecentEvents(10, null, List.of(), null).size());
+        assertEquals(4, store.listRecentEvents(10, null, null, null).size());
+    }
+
+    @Test
+    void listRecentEventsMatchesJobIdSubstringCaseInsensitively() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("route-app-alpha", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z"), "operator"));
+        store.appendEvent(jobEvent("route-app-beta", EventType.STARTED, Instant.parse("2024-01-01T00:00:01Z"), "operator"));
+        store.appendEvent(jobEvent("sampler-1", EventType.UPDATED, Instant.parse("2024-01-01T00:00:02Z"), "operator"));
+
+        assertEquals(2, store.listRecentEvents(10, "ROUTE", null, null).size());
+        assertEquals(2, store.listRecentEvents(10, "  route-app  ", null, null).size());
+        assertEquals(1, store.listRecentEvents(10, "beta", null, null).size());
+        assertEquals(0, store.listRecentEvents(10, "missing", null, null).size());
+    }
+
+    @Test
+    void listRecentEventsMatchesActorSubstringCaseInsensitively() {
+        JobStateStore store = new JobStateStore();
+        store.appendEvent(jobEvent("job-a", EventType.CREATED, Instant.parse("2024-01-01T00:00:00Z"), "jsolarin@optimum.com"));
+        store.appendEvent(jobEvent("job-a", EventType.UPDATED, Instant.parse("2024-01-01T00:00:01Z"), "gschimmel@optimum.com"));
+        store.appendEvent(jobEvent("job-a", EventType.PAUSED, Instant.parse("2024-01-01T00:00:02Z"), null));
+
+        assertEquals(1, store.listRecentEvents(10, null, null, "jsolarin").size());
+        assertEquals(1, store.listRecentEvents(10, null, null, "JSOLARIN").size());
+        assertEquals(2, store.listRecentEvents(10, null, null, "@optimum.com").size());
+        assertEquals(0, store.listRecentEvents(10, null, null, "unknown").size());
     }
 
     private static JobEvent jobEvent(String jobId, EventType eventType, Instant eventTime) {
+        return jobEvent(jobId, eventType, eventTime, "tester");
+    }
+
+    private static JobEvent jobEvent(String jobId, EventType eventType, Instant eventTime, String actor) {
         return new JobEvent(
             "event-" + jobId + "-" + eventType,
             jobId,
@@ -120,7 +178,7 @@ class JobStateStoreTest {
             "api",
             eventType.name(),
             Map.of(),
-            "tester"
+            actor
         );
     }
 
