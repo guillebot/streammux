@@ -39,7 +39,7 @@ RELEASE_TAG="${DATE}-$(printf '%02d' "$next")"
 
 if [[ "${1:-}" == "--assign" ]]; then
   env_file="${RELEASE_ENV_FILE:-release.env}"
-  echo "RELEASE_TAG=${RELEASE_TAG}" >> "${env_file}"
+  printf 'RELEASE_TAG=%s\n' "${RELEASE_TAG}" > "${env_file}"
 fi
 
 echo "${RELEASE_TAG}"
