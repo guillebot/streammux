@@ -126,15 +126,17 @@ Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-
 | `SPRING_PROFILES_ACTIVE` | job-management-api, site-orchestrator | Set to `prod` on kstreams for JSON logging (must be in compose `environment:`, not only `.env`) |
 | `STREAMMUX_OTEL_KAFKA_USER` / `STREAMMUX_OTEL_KAFKA_PASSWORD` | otelcol sidecar | SCRAM credentials for platform metrics/logs Kafka (Ansible vault) |
 
-Production telemetry is deployed by Ansible (`playbooks/kstreams/streammux/deploy.yml`): otelcol scrapes both Java services, ships metrics to Mimir and container stdout to Loki. Pin `streammux_image_tag` to the **8-character** GitLab CI SHA. Details: [observability.md](observability.md).
+Production telemetry is deployed by Ansible (`playbooks/kstreams/streammux/deploy.yml`): otelcol scrapes both Java services, ships metrics to Mimir and container stdout to Loki. Pin `streammux_image_tag` to a **`YYYYMMDD-NN` release tag** from GitLab `release:tag`. Details: [observability.md](observability.md), [DEPLOY.md](DEPLOY.md).
 
 ## Building and publishing images
+
+Release and deploy workflow: **[DEPLOY.md](DEPLOY.md)** (manual `release:tag` → `YYYYMMDD-NN` → Ansible pin).
 
 ### GitLab CI (primary)
 
 File: [.gitlab-ci.yml](../.gitlab-ci.yml)
 
-On every push to a branch, tag, or same-project merge request, CI runs `mvn test` then builds and pushes all four images to the GitLab Container Registry:
+On every push to a branch or merge request, CI runs tests then **`images:build`** pushes dev tags to the GitLab Container Registry:
 
 | Service | Image path |
 | ------- | ---------- |
@@ -142,24 +144,24 @@ On every push to a branch, tag, or same-project merge request, CI runs `mvn test
 | Site orchestrator | `.../site-orchestrator` |
 | Web UI | `.../web-ui` |
 | Job catalog API | `.../job-catalog-api` |
+| MCP | `.../mcp` |
 
-Tags per commit: `<short-sha>` (GitLab uses **8 characters**, e.g. `ca1de651`), `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main` and git tags, `:latest` is also pushed.
+Dev tags per commit: `<short-sha>`, `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main`, `:latest` is also pushed.
 
-Deploy hosts pull via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to a CI SHA to pin a release. Open merge-request pipelines build feature branches; a bare branch push may skip CI when other MRs are open (see `.gitlab-ci.yml` workflow rules).
+**Production releases** use manual **`release:tag`** on `main`, which creates git tag `YYYYMMDD-NN` and runs **`release:images`** (immutable registry tag only). Deploy via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to that release ID.
 
-### Manual semver releases
+### Manual local builds
 
 Script: [build_and_push.sh](../build_and_push.sh)
 
-- Builds all four Dockerfiles, tags with a version from the `VERSION` file (bumped per run), and pushes semver + `:latest` tags.
-- Set `IMAGE_REPO` to your GitLab registry path (defaults to `registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux`).
+Emergency or air-gapped builds only. Tags images with `YYYYMMDD-NN` (auto-computed or `-v`):
 
 ```bash
 export IMAGE_REPO=registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux
 docker login registry.gitlab.com
-./build_and_push.sh           # patch bump + push
-./build_and_push.sh --minor
-./build_and_push.sh --no-push # build only
+./build_and_push.sh
+./build_and_push.sh -v 20260825-01
+./build_and_push.sh --no-push
 ```
 
 ## JVM / build stack

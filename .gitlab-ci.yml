@@ -1,21 +1,22 @@
 # =============================================================================
 # Streammux GitLab CI/CD pipeline
 # =============================================================================
-# Builds four container images and pushes to the GitLab Container Registry.
 # Test stage gates package: Java unit + integration (Testcontainers/dind), web-ui
 # (vitest + build), Go (MCP), job-catalog-api (syntax check).
 #
-# Image tags (per service):
+# Dev image tags (per service, images:build):
 #   :<short-sha>            always (immutable per commit)
 #   :<branch-slug>-<sha>    always (immutable, branch-scoped)
 #   :<branch-slug>          on branch pipelines (mutable)
-#   :<git-tag>              on tag pipelines
-#   :latest                 only on default branch and tags
+#   :latest                 only on default branch
+#
+# Release image tags (release:images / release:images:retag):
+#   :YYYYMMDD-NN            immutable release tag only (no :latest)
 #
 # Registry layout (CI_REGISTRY_IMAGE = project registry root):
 #   registry.gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux/<service>:<tag>
 #
-# Manual releases: ./build_and_push.sh still bumps VERSION and pushes semver tags.
+# Release cut: manual release:tag on main — see docs/DEPLOY.md
 # =============================================================================
 
 workflow:
@@ -30,6 +31,7 @@ workflow:
 
 stages:
   - test
+  - release
   - package
 
 variables:
@@ -146,19 +148,11 @@ test:job-catalog-api:
     - !reference [.test-rules, rules]
 
 .docker-base:
-  stage: package
   image: "${DOCKER_TAG}@${DOCKER_DIGEST}"
   services:
     - name: "${DIND_TAG}@${DIND_DIGEST}"
       alias: docker
   interruptible: false
-  needs:
-    - job: test:java:unit
-    - job: test:java:integration
-      optional: true
-    - job: test:web-ui
-    - job: test:go
-    - job: test:job-catalog-api
   variables:
     DOCKER_HOST: "tcp://docker:2376"
     DOCKER_TLS_CERTDIR: "/certs"
@@ -170,26 +164,30 @@ test:job-catalog-api:
     - docker context create ci-dind --docker "host=${DOCKER_HOST},ca=${DOCKER_CERT_PATH}/ca.pem,cert=${DOCKER_CERT_PATH}/cert.pem,key=${DOCKER_CERT_PATH}/key.pem"
     - docker buildx create --use --name ci-builder --driver docker-container ci-dind
     - docker buildx inspect --bootstrap
-  script:
     - SHORT_SHA="${CI_COMMIT_SHORT_SHA}"
     - REF_SLUG="${CI_COMMIT_REF_SLUG}"
     - IMAGE="${IMAGE_REPO}/${IMAGE_NAME}"
-    - TAGS="${IMAGE}:${SHORT_SHA} ${IMAGE}:${REF_SLUG}-${SHORT_SHA}"
     - |
-      if [ -n "${CI_COMMIT_TAG:-}" ]; then
-        TAGS="${TAGS} ${IMAGE}:${CI_COMMIT_TAG}"
+      if [ -n "${RELEASE_TAG:-}" ]; then
+        TAGS="${IMAGE}:${RELEASE_TAG}"
+        APP_VERSION="${RELEASE_TAG}"
       else
-        TAGS="${TAGS} ${IMAGE}:${REF_SLUG}"
-      fi
-    - |
-      if [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH}" ] || [ -n "${CI_COMMIT_TAG:-}" ]; then
-        TAGS="${TAGS} ${IMAGE}:latest"
+        TAGS="${IMAGE}:${SHORT_SHA} ${IMAGE}:${REF_SLUG}-${SHORT_SHA}"
+        if [ -n "${CI_COMMIT_TAG:-}" ]; then
+          TAGS="${TAGS} ${IMAGE}:${CI_COMMIT_TAG}"
+        else
+          TAGS="${TAGS} ${IMAGE}:${REF_SLUG}"
+        fi
+        if [ "${CI_COMMIT_BRANCH:-}" = "${CI_DEFAULT_BRANCH}" ] || [ -n "${CI_COMMIT_TAG:-}" ]; then
+          TAGS="${TAGS} ${IMAGE}:latest"
+        fi
+        APP_VERSION="$(tr -d '[:space:]' < "${CI_PROJECT_DIR}/VERSION" 2>/dev/null || echo "${CI_COMMIT_SHORT_SHA}")"
       fi
     - TAG_ARGS=""
     - for t in $TAGS; do TAG_ARGS="${TAG_ARGS} --tag ${t}"; done
+  script:
     - |
       if [ "${IMAGE_NAME}" = "web-ui" ]; then
-        APP_VERSION="$(tr -d '[:space:]' < "${CI_PROJECT_DIR}/VERSION" 2>/dev/null || echo "${CI_COMMIT_SHORT_SHA}")"
         BUILD_ARGS="${BUILD_ARGS} --build-arg VITE_APP_VERSION=${APP_VERSION}"
       fi
     - |
@@ -221,8 +219,7 @@ test:job-catalog-api:
         PUSH: "true"
     - when: never
 
-images:build:
-  extends: .docker-base
+.images-matrix:
   parallel:
     matrix:
       - IMAGE_NAME: job-management-api
@@ -245,3 +242,94 @@ images:build:
         DOCKERFILE: deploy/go.Dockerfile
         BUILD_CONTEXT: .
         BUILD_ARGS: "--build-arg SERVICE=mcp --build-arg DOCKER_HUB_PROXY=${DOCKER_HUB_PROXY}"
+
+# Manual release cut on main: git tag YYYYMMDD-NN + build/push all images with that tag.
+# Not Ansible — see docs/DEPLOY.md. Requires tag push permission (CI_JOB_TOKEN or
+# RELEASE_GIT_PUSH_TOKEN project access token with write_repository).
+release:tag:
+  stage: release
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
+  resource_group: release
+  interruptible: false
+  needs: []
+  variables:
+    GIT_DEPTH: "0"
+  before_script:
+    - apk add --no-cache bash
+    - git fetch --tags origin
+  script:
+    - bash scripts/next-release-tag.sh --assign
+    - source release.env
+    - echo "Creating release tag ${RELEASE_TAG} at ${CI_COMMIT_SHA}"
+    - |
+      if git rev-parse "${RELEASE_TAG}" >/dev/null 2>&1; then
+        echo "ERROR: tag ${RELEASE_TAG} already exists" >&2
+        exit 1
+      fi
+    - git config user.email "streammux-ci@${CI_SERVER_HOST}"
+    - git config user.name "Streammux GitLab CI"
+    - git tag -a "${RELEASE_TAG}" -m "Streammux release ${RELEASE_TAG} (${CI_COMMIT_SHORT_SHA})" "${CI_COMMIT_SHA}"
+    - |
+      PUSH_TOKEN="${RELEASE_GIT_PUSH_TOKEN:-${CI_JOB_TOKEN}}"
+      git remote set-url origin "https://gitlab-ci-token:${PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - git push origin "${RELEASE_TAG}"
+  artifacts:
+    reports:
+      dotenv: release.env
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+      allow_failure: false
+
+release:images:
+  extends: .docker-base
+  stage: release
+  needs:
+    - job: release:tag
+      artifacts: true
+  parallel: !reference [.images-matrix, parallel]
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success
+
+release:images:retag:
+  extends: .docker-base
+  stage: release
+  parallel: !reference [.images-matrix, parallel]
+  variables:
+    RELEASE_TAG: $CI_COMMIT_TAG
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^\d{8}-\d{2}$/
+
+images:build:
+  extends: .docker-base
+  stage: package
+  needs:
+    - job: test:java:unit
+    - job: test:java:integration
+      optional: true
+    - job: test:web-ui
+    - job: test:go
+    - job: test:job-catalog-api
+  parallel: !reference [.images-matrix, parallel]
+  rules:
+    # Release tags are built by release:images / release:images:retag with
+    # VITE_APP_VERSION=RELEASE_TAG. Skip here to avoid overwriting that tag
+    # with a SHA-baked UI build.
+    - if: $CI_COMMIT_TAG =~ /^\d{8}-\d{2}$/
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID
+      variables:
+        PUSH: "false"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        PUSH: "true"
+    - if: $CI_COMMIT_BRANCH
+      variables:
+        PUSH: "true"
+    - if: $CI_COMMIT_TAG
+      variables:
+        PUSH: "true"
+    - when: never
