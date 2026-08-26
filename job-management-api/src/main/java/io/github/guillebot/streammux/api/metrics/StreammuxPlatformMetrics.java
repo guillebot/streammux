@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.api.metrics;
 
 import io.github.guillebot.streammux.api.service.JobStateStore;
+import io.github.guillebot.streammux.api.service.JobStatusResolver;
 import io.github.guillebot.streammux.api.service.PlatformHealthService;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.HealthState;
@@ -31,6 +32,7 @@ public class StreammuxPlatformMetrics {
     private final MeterRegistry registry;
     private final JobStateStore stateStore;
     private final PlatformHealthService platformHealthService;
+    private final JobStatusResolver statusResolver;
 
     private final AtomicInteger platformKafkaUp = new AtomicInteger(0);
     private final AtomicInteger readModelJobs = new AtomicInteger(0);
@@ -52,11 +54,13 @@ public class StreammuxPlatformMetrics {
     public StreammuxPlatformMetrics(
         MeterRegistry registry,
         JobStateStore stateStore,
-        PlatformHealthService platformHealthService
+        PlatformHealthService platformHealthService,
+        JobStatusResolver statusResolver
     ) {
         this.registry = registry;
         this.stateStore = stateStore;
         this.platformHealthService = platformHealthService;
+        this.statusResolver = statusResolver;
 
         Gauge.builder("streammux.platform.kafka.up", platformKafkaUp, AtomicInteger::get)
             .description("1 when the management API can reach the configured Kafka cluster")
@@ -100,7 +104,11 @@ public class StreammuxPlatformMetrics {
         Map<String, Integer> runtimeRollup = new HashMap<>();
         Set<String> activeJobIds = new HashSet<>();
         for (JobDefinition definition : stateStore.listJobs()) {
-            Optional<JobRuntimeStatus> status = stateStore.getStatus(definition.jobId());
+            Optional<JobRuntimeStatus> status = statusResolver.resolve(
+                stateStore.getStatus(definition.jobId()),
+                Optional.of(definition),
+                stateStore.getLease(definition.jobId())
+            );
             if (status.isEmpty()) {
                 continue;
             }

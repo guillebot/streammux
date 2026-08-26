@@ -43,6 +43,16 @@ export function hasTrafficMetrics(lag: LagMetrics | null | undefined): boolean {
   return lag.processedCount > 0 || lag.outputRatePerSecond > 0 || lag.inputLag > 0;
 }
 
+export function statusDisplayLabel(status: JobRuntimeStatus | null | undefined): string {
+  if (!status) return "Not reported";
+  if (status.failureReason) return status.state;
+  return status.state;
+}
+
+export function statusDisplayTitle(status: JobRuntimeStatus | null | undefined): string | undefined {
+  return status?.failureReason ?? undefined;
+}
+
 export function formatLagMetricsSummary(lag: LagMetrics | null | undefined): string {
   if (!lag) return "—";
   const parts: string[] = [];

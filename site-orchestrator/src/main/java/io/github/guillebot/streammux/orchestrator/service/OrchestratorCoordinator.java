@@ -9,16 +9,21 @@ import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class OrchestratorCoordinator {
+public class OrchestratorCoordinator implements ConsumerSeekAware {
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestratorCoordinator.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
@@ -27,6 +32,7 @@ public class OrchestratorCoordinator {
     private final LeaseManager leaseManager;
     private final KafkaOrchestratorPublisher publisher;
     private final StreammuxOrchestratorMetrics orchestratorMetrics;
+    private final Set<TopicPartition> bootstrappedPartitions = ConcurrentHashMap.newKeySet();
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
@@ -40,6 +46,16 @@ public class OrchestratorCoordinator {
         this.leaseManager = leaseManager;
         this.publisher = publisher;
         this.orchestratorMetrics = orchestratorMetrics;
+    }
+
+    @Override
+    public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
+        for (TopicPartition partition : assignments.keySet()) {
+            if (bootstrappedPartitions.add(partition)) {
+                LOGGER.info("Seeking to beginning of compacted topic {} after orchestrator startup", partition.topic());
+                callback.seekToBeginning(partition.topic(), partition.partition());
+            }
+        }
     }
 
     @KafkaListener(topics = "${streammux.topics.job-definitions}")
@@ -86,6 +102,8 @@ public class OrchestratorCoordinator {
         orchestratorMetrics.recordReconcile();
         for (JobDefinition definition : stateStore.listDefinitions()) {
             reconcile(definition.jobId(), false);
+            JobLease lease = stateStore.getLease(definition.jobId()).orElse(null);
+            orchestratorService.recoverOwnedRunnerIfMissing(definition, lease);
         }
     }
 

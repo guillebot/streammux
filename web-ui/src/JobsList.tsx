@@ -8,6 +8,8 @@ import {
   JobHealthBadge,
   formatLagMetricsSummary,
   kafkaStreamsState,
+  statusDisplayLabel,
+  statusDisplayTitle,
 } from "./jobStatusDisplay";
 import type { JobDefinition, JobLease, JobRuntimeStatus } from "./types";
 
@@ -278,7 +280,9 @@ export function JobsList() {
                     </td>
                     <td className="mono">{j.jobVersion}</td>
                     <td>{j.desiredState}</td>
-                    <td>{status?.state ?? "Not reported"}</td>
+                    <td title={statusDisplayTitle(status ?? undefined)}>
+                      {statusDisplayLabel(status ?? undefined)}
+                    </td>
                     <td>{status ? <JobHealthBadge health={status.health} /> : "—"}</td>
                     <td className="mono" title={streamsState ?? undefined}>
                       {streamsState ?? "—"}
