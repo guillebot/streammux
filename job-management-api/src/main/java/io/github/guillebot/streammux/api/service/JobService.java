@@ -32,23 +32,32 @@ public class JobService {
     private final JobCommandPublisher commandPublisher;
     private final TopicValidationProperties topicValidationProperties;
     private final RequestActorResolver actorResolver;
+    private final JobStatusResolver statusResolver;
 
     public JobService(
         JobStateStore stateStore,
         JobCommandPublisher commandPublisher,
         TopicValidationProperties topicValidationProperties,
-        RequestActorResolver actorResolver
+        RequestActorResolver actorResolver,
+        JobStatusResolver statusResolver
     ) {
         this.stateStore = stateStore;
         this.commandPublisher = commandPublisher;
         this.topicValidationProperties = topicValidationProperties;
         this.actorResolver = actorResolver;
+        this.statusResolver = statusResolver;
     }
 
     public Collection<JobDefinition> listJobs() { return stateStore.listJobs(); }
     public JobDefinition getJob(String jobId) { return stateStore.getJob(jobId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: " + jobId)); }
     public Optional<JobLease> getLease(String jobId) { return stateStore.getLease(jobId); }
-    public Optional<JobRuntimeStatus> getStatus(String jobId) { return stateStore.getStatus(jobId); }
+    public Optional<JobRuntimeStatus> getStatus(String jobId) {
+        return statusResolver.resolve(
+            stateStore.getStatus(jobId),
+            stateStore.getJob(jobId),
+            stateStore.getLease(jobId)
+        );
+    }
     public List<JobEvent> getEvents(String jobId) { return stateStore.getEvents(jobId); }
 
     public JobDefinition createJob(JobDefinition definition) {

@@ -6,6 +6,7 @@ import io.github.guillebot.streammux.api.config.KafkaTopicProperties;
 import io.github.guillebot.streammux.api.config.TopicValidationProperties;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.api.service.JobStateStore;
+import io.github.guillebot.streammux.api.service.JobStatusResolver;
 import io.github.guillebot.streammux.api.service.KafkaJobCommandPublisher;
 import io.github.guillebot.streammux.api.service.KafkaJobStateProjector;
 import io.github.guillebot.streammux.api.service.RequestActorResolver;
@@ -76,7 +77,8 @@ class JobManagementFlowIT extends KafkaIntegrationSupport {
             apiStateStore,
             new KafkaJobCommandPublisher(kafkaTemplate, topics),
             new TopicValidationProperties(List.of(), List.of(), List.of(), List.of()),
-            actorResolver
+            actorResolver,
+            new JobStatusResolver()
         );
         KafkaJobStateProjector projector = new KafkaJobStateProjector(projectedStateStore);
 

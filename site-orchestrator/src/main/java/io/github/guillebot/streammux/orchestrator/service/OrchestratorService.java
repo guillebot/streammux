@@ -92,6 +92,16 @@ public class OrchestratorService {
         return jobRunnerRegistry.resolve(definition).status(jobId);
     }
 
+    public void recoverOwnedRunnerIfMissing(JobDefinition definition, JobLease lease) {
+        if (definition.desiredState() != DesiredJobState.ACTIVE) return;
+        if (lease == null || !leaseManager.ownsLease(lease) || lease.isExpired(Instant.now())) return;
+        String jobId = definition.jobId();
+        Long activeEpoch = activeLeaseEpochs.get(jobId);
+        if (activeEpoch != null && activeEpoch == lease.leaseEpoch()) return;
+        if (pendingRunnerEpochs.containsKey(jobId)) return;
+        startRunner(definition, lease.leaseEpoch(), "Runner recovered after restart", Map.of("recovery", true, "leaseEpoch", lease.leaseEpoch()));
+    }
+
     /**
      * Starts a runner after Kafka confirms this instance holds the pending claim epoch.
      * Invoked from the job-leases listener path only so multiple simultaneous claimants

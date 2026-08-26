@@ -46,7 +46,7 @@ class JobServiceTest {
     private RequestActorResolver actorResolver;
 
     private JobService newService() {
-        return new JobService(stateStore, commandPublisher, topicValidationProperties(), actorResolver);
+        return new JobService(stateStore, commandPublisher, topicValidationProperties(), actorResolver, new JobStatusResolver());
     }
 
     @Test

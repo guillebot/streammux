@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.api.metrics;
 
 import io.github.guillebot.streammux.api.service.JobStateStore;
+import io.github.guillebot.streammux.api.service.JobStatusResolver;
 import io.github.guillebot.streammux.api.service.PlatformHealthService;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.HealthState;
@@ -37,18 +38,19 @@ class StreammuxPlatformMetricsTest {
         stateStore = new JobStateStore();
         platformHealthService = mock(PlatformHealthService.class);
         registry = new SimpleMeterRegistry();
-        metrics = new StreammuxPlatformMetrics(registry, stateStore, platformHealthService);
+        metrics = new StreammuxPlatformMetrics(registry, stateStore, platformHealthService, new JobStatusResolver());
     }
 
     @Test
     void refreshJobMetricsPublishesConfiguredRuntimeAndLagSeries() {
+        Instant now = Instant.now();
         stateStore.upsertDefinition(jobDefinition("job-a", JobType.ROUTE_APP, DesiredJobState.ACTIVE));
         stateStore.upsertStatus(new JobRuntimeStatus(
             "job-a",
             1,
             RuntimeState.RUNNING,
             HealthState.HEALTHY,
-            Instant.parse("2024-01-01T00:00:30Z"),
+            now.minusSeconds(5),
             new WorkerMetadata("worker-a", "route-app", "RUNNING", Map.of()),
             null,
             new LagMetrics(42, 7, 100)
@@ -60,8 +62,8 @@ class StreammuxPlatformMetricsTest {
             "kstreams1.srv.hcvlny.alticeusa.net",
             2,
             LeaseStatus.RUNNING,
-            Instant.parse("2024-01-01T00:01:00Z"),
-            Instant.parse("2024-01-01T00:00:30Z")
+            now.plusSeconds(60),
+            now.minusSeconds(5)
         ));
 
         metrics.refreshJobMetrics();

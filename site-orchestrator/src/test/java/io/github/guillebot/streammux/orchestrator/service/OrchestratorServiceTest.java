@@ -239,6 +239,35 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    void recoverOwnedRunnerIfMissingStartsRunnerWhenLeaseHeldButNotActive() {
+        JobDefinition definition = jobDefinition();
+        Instant futureExpiry = Instant.now().plusSeconds(3600);
+        JobLease runningLease = new JobLease(
+            "job-1",
+            1,
+            "site-a",
+            "instance-a",
+            2,
+            LeaseStatus.RUNNING,
+            futureExpiry,
+            Instant.now()
+        );
+        when(leaseManager.ownsLease(eq(runningLease))).thenReturn(true);
+        when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
+
+        OrchestratorService service = newService();
+        service.recoverOwnedRunnerIfMissing(definition, runningLease);
+
+        verify(jobRunner).start(definition, 2);
+        verify(eventPublisher).publishForDefinition(
+            eq(definition),
+            eq(EventType.STARTED),
+            eq("Runner recovered after restart"),
+            anyMap()
+        );
+    }
+
+    @Test
     void failedRunnerWaitsForRestartBackoff() {
         JobDefinition definition = jobDefinition();
         JobLease runningLease = new JobLease("job-1", 1, "site-a", "instance-a", 2, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:01:00Z"), Instant.parse("2024-01-01T00:00:00Z"));
