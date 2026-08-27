@@ -269,6 +269,32 @@ async function readApiError(response) {
   return text.length > 240 ? `${text.slice(0, 240)}...` : text;
 }
 
+/**
+ * Runs the payload through job-management-api's dry-run validator so bad definitions
+ * cannot be stored in the catalog. Returns `null` when the payload is valid, an object
+ * `{ status, message }` when the validator (or the transport) rejects it. The status is
+ * `400` for validator failures (surfaced to the client as-is) and `502` for transport
+ * failures so the caller can distinguish user error from an unavailable upstream.
+ */
+async function validateWithJobApi(payload) {
+  let response;
+  try {
+    response = await fetch(`${JOB_API}/jobs/validate`, {
+      method: "POST",
+      headers: jobApiHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    return { status: 502, message: `job-management-api unreachable for validation: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (response.ok) return null;
+  const detail = await readApiError(response);
+  if (response.status >= 400 && response.status < 500) {
+    return { status: 400, message: `Invalid job definition: ${detail}` };
+  }
+  return { status: 502, message: `job-management-api validate failed: ${detail}` };
+}
+
 /** @type {import("express").RequestHandler} */
 function notFound(_req, res) {
   res.status(404).json({ error: "Not found" });
@@ -314,6 +340,10 @@ router.post("/entries", async (req, res) => {
   } catch {
     return res.status(400).json({ error: "payload is not serializable" });
   }
+  const validationError = await validateWithJobApi(payload);
+  if (validationError) {
+    return res.status(validationError.status).json({ error: validationError.message });
+  }
   const t = nowIso();
   try {
     const record = await withCatalogWrite(async () => {
@@ -343,6 +373,10 @@ router.put("/entries/:id", async (req, res) => {
       JSON.stringify(payload);
     } catch {
       return res.status(400).json({ error: "payload is not serializable" });
+    }
+    const validationError = await validateWithJobApi(payload);
+    if (validationError) {
+      return res.status(validationError.status).json({ error: validationError.message });
     }
   }
   try {
