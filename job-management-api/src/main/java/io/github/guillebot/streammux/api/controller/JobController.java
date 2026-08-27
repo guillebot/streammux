@@ -47,6 +47,20 @@ public class JobController {
     @GetMapping
     public Collection<JobDefinition> list() { return jobService.listJobs(); }
 
+    @Operation(
+        summary = "Validate job",
+        description = "Runs the same validator used by create/update/rename without persisting or publishing anything. Returns 200 with {\"valid\":true} when the definition passes and 400 VALIDATION_ERROR (matching a real save) when it does not."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Definition is valid"),
+        @ApiResponse(responseCode = "400", description = "Definition failed validation; body has the VALIDATION_ERROR envelope")
+    })
+    @PostMapping("/validate")
+    public ValidateJobResponse validate(@RequestBody JobDefinition definition) {
+        jobService.validate(definition);
+        return new ValidateJobResponse(true);
+    }
+
     @Operation(summary = "Get job")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Job definition"),

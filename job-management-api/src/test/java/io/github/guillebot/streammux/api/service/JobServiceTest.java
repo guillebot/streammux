@@ -284,6 +284,51 @@ class JobServiceTest {
     }
 
     @Test
+    void validateAcceptsWellFormedDefinition() {
+        JobService service = newService();
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE, "alice");
+
+        service.validate(definition);
+
+        verify(stateStore, never()).upsertDefinition(any());
+        verify(commandPublisher, never()).publishDefinition(any());
+    }
+
+    @Test
+    void validateRethrowsValidatorFailure() {
+        JobService service = newService();
+        JobDefinition definition = new JobDefinition(
+            "job-1",
+            1,
+            JobType.ROUTE_APP,
+            DesiredJobState.ACTIVE,
+            5,
+            "site-a",
+            LeasePolicy.defaults(),
+            1,
+            new RouteAppConfig(
+                "input-topic",
+                PayloadFormat.JSON,
+                PayloadFormat.JSON,
+                null,
+                List.of(new RouteDefinition("route-1", "malformed ==== value", "alerts")),
+                Map.of(),
+                Map.of()
+            ),
+            null,
+            null,
+            Map.of(),
+            List.of(),
+            Instant.parse("2024-01-01T00:00:00Z"),
+            "tester"
+        );
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.validate(definition));
+        assertEquals(true, exception.getMessage().contains("routeAppConfig.routes[0].filterExpression invalid"));
+        verify(stateStore, never()).upsertDefinition(any());
+    }
+
+    @Test
     void getJobThrowsNotFoundForMissingJob() {
         JobService service = newService();
         when(stateStore.getJob("missing")).thenReturn(Optional.empty());

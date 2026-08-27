@@ -60,6 +60,15 @@ public class JobService {
     }
     public List<JobEvent> getEvents(String jobId) { return stateStore.getEvents(jobId); }
 
+    /**
+     * Runs the same validator used by create/update/rename without touching the state store or
+     * Kafka. Throws {@link IllegalArgumentException} on failure so the shared exception handler
+     * returns a {@code 400 VALIDATION_ERROR} response identical to the ones a real save produces.
+     */
+    public void validate(JobDefinition definition) {
+        JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());
+    }
+
     public JobDefinition createJob(JobDefinition definition) {
         String actor = actorResolver.currentActor();
         JobDefinitionValidator.validate(definition, topicValidationProperties.toPolicy());

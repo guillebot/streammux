@@ -67,6 +67,7 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `GET` | `/jobs/{jobId}/status` | Runtime status from Kafka read model | `200` (body empty if none yet) |
 | `GET` | `/jobs/{jobId}/lease` | Current lease | `200` (body empty if none yet) |
 | `POST` | `/jobs/{jobId}/rename` | Rename job (publishes new key + `DELETED` sentinel on old key; body `{"newJobId":"…"}`) | `200` / `400` / `404` / `409` |
+| `POST` | `/jobs/validate` | Dry-run validation: runs the same validator as create/update without persisting; returns `{"valid":true}` or a `VALIDATION_ERROR` envelope | `200` / `400` |
 | `GET` | `/jobs/{jobId}/events` | Audit events | `200` |
 | `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId` (case-insensitive substring), `eventType` (may repeat to match any of several types), `actor` (case-insensitive substring)) | `200` |
 | `GET` | `/activity/me` | Resolved actor for current request (Authelia user when proxied) | `200` |
@@ -221,6 +222,25 @@ curl -u "$AUTH" -X PUT "$API/jobs/route-poc-1" \
 ```
 
 Setting `"desiredState": "PAUSED"` on the definition is the primary operational lever today.
+
+### Validate a job definition without saving
+
+Runs the same rules `POST /jobs` and `PUT /jobs/{jobId}` enforce (required fields, job-type config, topic allowlists, ROUTE_APP filter expression syntax) without touching Kafka or the read model. Useful for UI pre-save checks, catalog editors, and CI linting of job JSON.
+
+```bash
+curl -u "$AUTH" -X POST "$API/jobs/validate" \
+  -H 'Content-Type: application/json' \
+  -d @candidate-job.json
+```
+
+Success returns `200 {"valid": true}`. Any validation failure returns a `400` with the same `VALIDATION_ERROR` envelope as create/update — for example a bad filter:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"
+}
+```
 
 ### Rename a job
 

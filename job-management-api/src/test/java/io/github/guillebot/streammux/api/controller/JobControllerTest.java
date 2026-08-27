@@ -110,6 +110,33 @@ class JobControllerTest {
     }
 
     @Test
+    void validateReturnsValidTrueForGoodDefinition() throws Exception {
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE);
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(definition)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.valid").value(true));
+
+        verify(jobService).validate(definition);
+    }
+
+    @Test
+    void validateBadPayloadReturnsBadRequestWithMessage() throws Exception {
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"))
+            .when(jobService).validate(definition);
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(definition)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message").value("routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"));
+    }
+
+    @Test
     void renameReturnsRenamedDefinition() throws Exception {
         JobDefinition renamed = jobDefinition("job-new", 1, DesiredJobState.ACTIVE);
         when(jobService.renameJob("job-old", "job-new")).thenReturn(renamed);
