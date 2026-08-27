@@ -53,6 +53,15 @@ export async function getJob(jobId: string): Promise<JobDefinition> {
   return (await res.json()) as JobDefinition;
 }
 
+export async function validateJob(definition: JobDefinition): Promise<void> {
+  const res = await apiFetch(`${JOBS}/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(definition),
+  });
+  if (!res.ok) await handleError(res);
+}
+
 export async function createJob(definition: JobDefinition): Promise<JobDefinition> {
   const res = await apiFetch(JOBS, {
     method: "POST",

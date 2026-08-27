@@ -14,6 +14,7 @@ import {
   getStatus,
   renameJob,
   updateJob,
+  validateJob,
 } from "./api/client";
 import { resolveActor } from "./actorCache";
 import { JobEventTimeline } from "./JobEventTimeline";
@@ -123,6 +124,15 @@ export function JobDetail() {
       const def = parseDefinition();
       const actor = await resolveActor();
       const withActor = { ...def, updatedBy: actor };
+      // Pre-flight validation: run the same rules the API would apply on create/update
+      // (topic allowlists, ROUTE_APP filter syntax, job-type config shape) so we fail
+      // before anything is written to Kafka or the catalog.
+      try {
+        await validateJob(withActor);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        return;
+      }
       if (isNew) {
         const created = await createJob(withActor);
         try {

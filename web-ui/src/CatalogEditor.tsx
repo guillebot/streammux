@@ -8,6 +8,7 @@ import {
   pushCatalogEntry,
   updateCatalogEntry,
 } from "./api/catalogClient";
+import { validateJob } from "./api/client";
 import { InlineSpinner } from "./InlineSpinner";
 import { newJobTemplate } from "./templates";
 import type { JobDefinition } from "./types";
@@ -63,6 +64,14 @@ export function CatalogEditor() {
     try {
       setBusyAction("save");
       const payload = parsePayload();
+      // Pre-flight validation against job-management-api so invalid definitions
+      // never enter the catalog; catalog-api enforces this server-side too.
+      try {
+        await validateJob(payload);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        return;
+      }
       if (isNew) {
         const created = await createCatalogEntry(title, payload);
         setNotice("Saved to catalog.");
@@ -119,6 +128,16 @@ export function CatalogEditor() {
     setError(null);
     try {
       setBusyAction("push");
+      // Validate the current editor buffer (may include unsaved edits) before pushing so the
+      // user sees the same error they would from Save, without a round-trip through Kafka.
+      try {
+        const payload = parsePayload();
+        await validateJob(payload);
+      } catch (e) {
+        if (e instanceof SyntaxError) setError(`Invalid JSON: ${e.message}`);
+        else setError(e instanceof Error ? e.message : String(e));
+        return;
+      }
       await pushCatalogEntry(id);
       setNotice("Pushed to job-management-api (POST or PUT).");
     } catch (e) {
