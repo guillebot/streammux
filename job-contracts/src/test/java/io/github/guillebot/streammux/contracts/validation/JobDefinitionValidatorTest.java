@@ -71,6 +71,74 @@ class JobDefinitionValidatorTest {
     }
 
     @Test
+    void rejectsBlankFilterExpression() {
+        TopicValidationPolicy policy = TopicValidationPolicy.unrestricted();
+
+        RouteAppConfig routeAppConfig = new RouteAppConfig(
+            "in-topic",
+            PayloadFormat.JSON,
+            PayloadFormat.JSON,
+            null,
+            List.of(new RouteDefinition("route-1", "  ", "out-topic")),
+            Map.of(),
+            Map.of()
+        );
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> JobDefinitionValidator.validate(
+            jobOfType(JobType.ROUTE_APP, routeAppConfig, null, null),
+            policy
+        ));
+
+        assertTrue(exception.getMessage().contains("routeAppConfig.routes[0].filterExpression is required"));
+    }
+
+    @Test
+    void rejectsUnparseableFilterExpression() {
+        TopicValidationPolicy policy = TopicValidationPolicy.unrestricted();
+
+        RouteAppConfig routeAppConfig = new RouteAppConfig(
+            "in-topic",
+            PayloadFormat.JSON,
+            PayloadFormat.JSON,
+            null,
+            List.of(new RouteDefinition("route-1", "message ==== \"foo\"", "out-topic")),
+            Map.of(),
+            Map.of()
+        );
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> JobDefinitionValidator.validate(
+            jobOfType(JobType.ROUTE_APP, routeAppConfig, null, null),
+            policy
+        ));
+
+        assertTrue(exception.getMessage().contains("routeAppConfig.routes[0].filterExpression invalid"));
+    }
+
+    @Test
+    void acceptsBooleanFilterExpression() {
+        TopicValidationPolicy policy = TopicValidationPolicy.unrestricted();
+
+        RouteAppConfig routeAppConfig = new RouteAppConfig(
+            "in-topic",
+            PayloadFormat.JSON,
+            PayloadFormat.JSON,
+            null,
+            List.of(new RouteDefinition(
+                "route-1",
+                "severity == \"MAJOR\" || severity == \"CRITICAL\"",
+                "out-topic"
+            )),
+            Map.of(),
+            Map.of()
+        );
+
+        assertDoesNotThrow(() -> JobDefinitionValidator.validate(
+            jobOfType(JobType.ROUTE_APP, routeAppConfig, null, null),
+            policy
+        ));
+    }
+
+    @Test
     void allowsRandomSamplerWithinTopicPolicy() {
         TopicValidationPolicy policy = new TopicValidationPolicy(
             List.of("net.optimum.monitoring.netscout.fixed.voicesip.json"),
@@ -219,7 +287,7 @@ class JobDefinitionValidatorTest {
             PayloadFormat.JSON,
             PayloadFormat.JSON,
             null,
-            List.of(new RouteDefinition("route-1", "Message", outputTopic)),
+            List.of(new RouteDefinition("route-1", "message == \"Message-SMS\"", outputTopic)),
             Map.of(),
             Map.of()
         );

@@ -52,7 +52,9 @@ public final class JobDefinitionValidator {
             throw new IllegalArgumentException("routeAppConfig.routes must include at least one route");
         }
 
-        for (RouteDefinition route : routeAppConfig.routes()) {
+        for (int i = 0; i < routeAppConfig.routes().size(); i++) {
+            RouteDefinition route = routeAppConfig.routes().get(i);
+            String prefix = "routeAppConfig.routes[" + i + "]";
             if (route == null) {
                 throw new IllegalArgumentException("routeAppConfig.routes cannot contain null routes");
             }
@@ -61,6 +63,14 @@ public final class JobDefinitionValidator {
             }
             if (!topicValidationPolicy.isOutputTopicAllowed(route.outputTopic())) {
                 throw new IllegalArgumentException("route outputTopic is not allowed: " + route.outputTopic());
+            }
+            if (isBlank(route.filterExpression())) {
+                throw new IllegalArgumentException(prefix + ".filterExpression is required");
+            }
+            try {
+                RouteFilterExpression.validateSyntax(route.filterExpression());
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException(prefix + ".filterExpression invalid: " + ex.getMessage());
             }
         }
     }

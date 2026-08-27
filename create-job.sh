@@ -38,7 +38,7 @@ curl -X POST "http://localhost:${JOB_MANAGEMENT_API_PORT:-8080}/jobs" \
         },
         {
           \"routeId\": \"contains-bar\",
-          \"filterExpression\": \"bar\",
+          \"filterExpression\": \"application_name == \\\"SIP_UDP\\\"\",
           \"outputTopic\": \"net.optimum.experimental.streamlens.streammux.output2\"
         }
       ],

@@ -13,6 +13,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.PayloadFormat;
+import io.github.guillebot.streammux.contracts.validation.RouteFilterExpression;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
