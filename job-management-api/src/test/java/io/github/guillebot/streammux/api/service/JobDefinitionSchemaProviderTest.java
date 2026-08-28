@@ -78,6 +78,53 @@ class JobDefinitionSchemaProviderTest {
     }
 
     @Test
+    void validateRejectsUnknownNestedField() throws Exception {
+        // Regression guard: nullable $ref properties must not hide nested
+        // `additionalProperties` violations behind an anyOf branch.
+        JsonNode payload = objectMapper.valueToTree(sampleDefinition());
+        com.fasterxml.jackson.databind.node.ObjectNode config =
+            (com.fasterxml.jackson.databind.node.ObjectNode) payload.get("routeAppConfig");
+        config.put("inputaTopic", "typo.topic");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> provider.validate(payload));
+        assertTrue(
+            ex.getMessage().toLowerCase().contains("inputatopic"),
+            () -> "message should mention the nested typoed field, was: " + ex.getMessage()
+        );
+    }
+
+    @Test
+    void nullableConfigDefsAcceptNullOnTheWire() {
+        // Jackson round-trips unused config components as `null`; the def-level type
+        // widening lets those pass structural validation.
+        JsonNode routeAppConfig = provider.getSchemaJson().at("/$defs/RouteAppConfig");
+        JsonNode type = routeAppConfig.get("type");
+        assertTrue(type != null && type.isArray(), () -> "RouteAppConfig.type should be an array, was: " + type);
+        boolean object = false;
+        boolean nullable = false;
+        for (JsonNode t : type) {
+            if ("object".equals(t.asText())) object = true;
+            if ("null".equals(t.asText())) nullable = true;
+        }
+        assertTrue(object && nullable, () -> "RouteAppConfig.type should include both object and null, was: " + type);
+    }
+
+    @Test
+    void jobDefinitionRootTypeStaysStrict() {
+        // The root of the payload must be a JobDefinition object, not null.
+        JsonNode root = provider.getSchemaJson().at("/$defs/JobDefinition");
+        JsonNode type = root.get("type");
+        if (type == null) return; // swagger-core sometimes omits type when properties is present; that's fine.
+        if (type.isTextual()) {
+            assertTrue(!"null".equals(type.asText()), "root JobDefinition must not accept a bare null");
+            return;
+        }
+        for (JsonNode t : type) {
+            assertTrue(!"null".equals(t.asText()), "root JobDefinition must not accept a bare null");
+        }
+    }
+
+    @Test
     void validateRejectsBadEnum() throws Exception {
         JsonNode payload = objectMapper.valueToTree(sampleDefinition());
         ((com.fasterxml.jackson.databind.node.ObjectNode) payload).put("desiredState", "TOTALLY_INVALID");

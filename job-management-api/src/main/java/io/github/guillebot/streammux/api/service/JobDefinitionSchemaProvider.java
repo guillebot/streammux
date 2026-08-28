@@ -97,6 +97,13 @@ public class JobDefinitionSchemaProvider {
                 rewriteRefs(object);
                 tightenAdditionalProperties(object);
                 allowNullOnProperties(object);
+                // Root stays strict (a null body is not a JobDefinition). Other defs are
+                // reached via $ref and may hold null on the wire (Jackson emits unused config
+                // components as null), so widen the def's own type to include "null". Keeping
+                // the $ref bare (see widenNullable) preserves nested per-property errors.
+                if (!ROOT_DEF.equals(entry.getKey())) {
+                    widenObjectTypeToIncludeNull(object);
+                }
                 defs.set(entry.getKey(), object);
             } else {
                 defs.set(entry.getKey(), converted);
@@ -199,15 +206,10 @@ public class JobDefinitionSchemaProvider {
     private void widenNullable(ObjectNode node) {
         JsonNode ref = node.get("$ref");
         if (ref != null && ref.isTextual()) {
-            // Wrap in anyOf (not oneOf) so a value that happens to satisfy both branches
-            // (e.g. because we've also widened nested object properties to accept null)
-            // doesn't trip the "must match exactly one" rule.
-            ObjectNode refClone = node.deepCopy();
-            ArrayNode anyOf = objectMapper.createArrayNode();
-            anyOf.add(refClone);
-            anyOf.add(objectMapper.createObjectNode().put("type", "null"));
-            node.removeAll();
-            node.set("anyOf", anyOf);
+            // Leave the $ref bare. Wrapping it in anyOf/oneOf collapses nested
+            // `additionalProperties` violations into a generic "no branch matched" error.
+            // Nullability comes from the target def's own `type: ["object","null"]`
+            // (see buildSchemaDocument).
             return;
         }
         JsonNode type = node.get("type");
@@ -233,6 +235,39 @@ public class JobDefinitionSchemaProvider {
             if (!hasNull) {
                 ((ArrayNode) type).add("null");
             }
+        }
+    }
+
+    /**
+     * Adds {@code "null"} to a definition's own {@code type} so a bare {@code $ref} to it
+     * accepts null on the wire. Object defs missing an explicit {@code type} get
+     * {@code ["object", "null"]}; textual/array types are widened in place.
+     */
+    private void widenObjectTypeToIncludeNull(ObjectNode object) {
+        JsonNode type = object.get("type");
+        JsonNode properties = object.get("properties");
+        boolean looksLikeObject = properties != null && properties.isObject();
+        if (type == null) {
+            if (!looksLikeObject) return;
+            ArrayNode types = objectMapper.createArrayNode();
+            types.add("object");
+            types.add("null");
+            object.set("type", types);
+            return;
+        }
+        if (type.isTextual()) {
+            if ("null".equals(type.asText())) return;
+            ArrayNode types = objectMapper.createArrayNode();
+            types.add(type.asText());
+            types.add("null");
+            object.set("type", types);
+            return;
+        }
+        if (type.isArray()) {
+            for (JsonNode t : type) {
+                if (t.isTextual() && "null".equals(t.asText())) return;
+            }
+            ((ArrayNode) type).add("null");
         }
     }
 
