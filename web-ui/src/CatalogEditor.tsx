@@ -107,7 +107,7 @@ export function CatalogEditor() {
       setBusyAction("save");
       const payload = parsePayload();
       // Pre-flight validation against job-management-api so invalid definitions
-      // never enter the catalog; catalog-api enforces this server-side too.
+      // never enter the catalog; the API is the only server-side validator.
       try {
         await validateJob(payload);
       } catch (e) {
