@@ -5,7 +5,7 @@ import { hostname } from "node:os";
 import { buildKafkaClientConfig } from "./kafka-config.mjs";
 
 const PORT = Number(process.env.PORT ?? 3000);
-const JOB_API_RAW = (process.env.JOB_MANAGEMENT_API_URL ?? "").trim();
+const JOB_API_RAW = (process.env.JOB_MANAGEMENT_API_URL ?? "").trim().replace(/\/$/, "");
 const BROKERS = (process.env.KAFKA_BOOTSTRAP_SERVERS ?? "")
   .split(",")
   .map((s) => s.trim())
@@ -29,24 +29,7 @@ if (!TOPIC) {
   process.exit(1);
 }
 
-/** Parsed once at startup so every outbound call resolves paths against a validated base. */
-let JOB_API_BASE;
-try {
-  JOB_API_BASE = new URL(JOB_API_RAW);
-} catch {
-  console.error(`job-catalog-api: JOB_MANAGEMENT_API_URL is not a valid URL: ${JOB_API_RAW}`);
-  process.exit(1);
-}
-if (JOB_API_BASE.protocol !== "http:" && JOB_API_BASE.protocol !== "https:") {
-  console.error(`job-catalog-api: JOB_MANAGEMENT_API_URL must use http or https, got ${JOB_API_BASE.protocol}`);
-  process.exit(1);
-}
-if (!JOB_API_BASE.host) {
-  console.error("job-catalog-api: JOB_MANAGEMENT_API_URL must have a host");
-  process.exit(1);
-}
-
-const JOB_API = JOB_API_BASE.toString().replace(/\/$/, "");
+const JOB_API = JOB_API_RAW;
 const API_USERNAME = (process.env.STREAMMUX_API_USERNAME ?? "streammux").trim();
 const API_PASSWORD = (process.env.STREAMMUX_API_PASSWORD ?? "").trim();
 
@@ -56,20 +39,6 @@ function jobApiHeaders(extra = {}) {
     headers.Authorization = `Basic ${Buffer.from(`${API_USERNAME}:${API_PASSWORD}`).toString("base64")}`;
   }
   return headers;
-}
-
-/**
- * Build a URL against the parsed job-management-api base and fetch it. Callers pass an
- * absolute path (e.g. `/jobs/validate`); the base's own path prefix, if any, is preserved.
- * Passing a URL object to fetch keeps SAST from taint-flagging every outbound call site.
- */
-function jobApiFetch(path, init) {
-  if (typeof path !== "string" || !path.startsWith("/")) {
-    throw new Error(`jobApiFetch path must be an absolute path starting with '/', got ${path}`);
-  }
-  const url = new URL(JOB_API_BASE);
-  url.pathname = url.pathname.replace(/\/$/, "") + path;
-  return fetch(url, init);
 }
 
 const TOPIC_CLEANUP = {
@@ -300,32 +269,6 @@ async function readApiError(response) {
   return text.length > 240 ? `${text.slice(0, 240)}...` : text;
 }
 
-/**
- * Runs the payload through job-management-api's dry-run validator so bad definitions
- * cannot be stored in the catalog. Returns `null` when the payload is valid, an object
- * `{ status, message }` when the validator (or the transport) rejects it. The status is
- * `400` for validator failures (surfaced to the client as-is) and `502` for transport
- * failures so the caller can distinguish user error from an unavailable upstream.
- */
-async function validateWithJobApi(payload) {
-  let response;
-  try {
-    response = await jobApiFetch("/jobs/validate", {
-      method: "POST",
-      headers: jobApiHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-    });
-  } catch (e) {
-    return { status: 502, message: `job-management-api unreachable for validation: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  if (response.ok) return null;
-  const detail = await readApiError(response);
-  if (response.status >= 400 && response.status < 500) {
-    return { status: 400, message: `Invalid job definition: ${detail}` };
-  }
-  return { status: 502, message: `job-management-api validate failed: ${detail}` };
-}
-
 /** @type {import("express").RequestHandler} */
 function notFound(_req, res) {
   res.status(404).json({ error: "Not found" });
@@ -371,10 +314,6 @@ router.post("/entries", async (req, res) => {
   } catch {
     return res.status(400).json({ error: "payload is not serializable" });
   }
-  const validationError = await validateWithJobApi(payload);
-  if (validationError) {
-    return res.status(validationError.status).json({ error: validationError.message });
-  }
   const t = nowIso();
   try {
     const record = await withCatalogWrite(async () => {
@@ -404,10 +343,6 @@ router.put("/entries/:id", async (req, res) => {
       JSON.stringify(payload);
     } catch {
       return res.status(400).json({ error: "payload is not serializable" });
-    }
-    const validationError = await validateWithJobApi(payload);
-    if (validationError) {
-      return res.status(validationError.status).json({ error: validationError.message });
     }
   }
   try {
@@ -498,18 +433,18 @@ router.post("/entries/:id/push", async (req, res) => {
     return res.status(400).json({ error: "payload.jobId must be a non-empty string" });
   }
   const jobId = job.jobId;
-  const probePath = `/jobs/${encodeURIComponent(jobId)}`;
+  const url = `${JOB_API}/jobs/${encodeURIComponent(jobId)}`;
   try {
-    let probe = await jobApiFetch(probePath, { method: "GET", headers: jobApiHeaders() });
+    let probe = await fetch(url, { method: "GET", headers: jobApiHeaders() });
     let apiRes;
     if (probe.status === 404) {
-      apiRes = await jobApiFetch("/jobs", {
+      apiRes = await fetch(`${JOB_API}/jobs`, {
         method: "POST",
         headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
       });
     } else if (probe.ok) {
-      apiRes = await jobApiFetch(probePath, {
+      apiRes = await fetch(url, {
         method: "PUT",
         headers: jobApiHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(job),
