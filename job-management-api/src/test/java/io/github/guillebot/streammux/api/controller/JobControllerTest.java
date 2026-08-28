@@ -141,6 +141,22 @@ class JobControllerTest {
     }
 
     @Test
+    void validateBadTypeReturnsBadRequestBeforeService() throws Exception {
+        // A structurally malformed payload (jobId is an integer) should be rejected by the
+        // schema before JobService.validate is called at all.
+        String payload = "{\"jobId\": 42, \"jobType\": \"ROUTE_APP\"}";
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsStringIgnoringCase("jobId")));
+
+        org.mockito.Mockito.verify(jobService, org.mockito.Mockito.never()).validate(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void getSchemaReturnsJsonSchemaDocument() throws Exception {
         mockMvc.perform(get("/jobs/schema"))
             .andExpect(status().isOk())
