@@ -67,6 +67,7 @@ From the OpenAPI document (includes actuator entries when `springdoc.show-actuat
 | `GET` | `/jobs/{jobId}/status` | Runtime status from Kafka read model | `200` (body empty if none yet) |
 | `GET` | `/jobs/{jobId}/lease` | Current lease | `200` (body empty if none yet) |
 | `POST` | `/jobs/{jobId}/rename` | Rename job (publishes new key + `DELETED` sentinel on old key; body `{"newJobId":"…"}`) | `200` / `400` / `404` / `409` |
+| `GET` | `/jobs/schema` | JobDefinition JSON Schema (2020-12) used by the server pre-bind validator and by the web UI editor | `200` |
 | `POST` | `/jobs/validate` | Dry-run validation: runs the same validator as create/update without persisting; returns `{"valid":true}` or a `VALIDATION_ERROR` envelope | `200` / `400` |
 | `GET` | `/jobs/{jobId}/events` | Audit events | `200` |
 | `GET` | `/activity` | Global audit feed (newest first; query: `limit`, `jobId` (case-insensitive substring), `eventType` (may repeat to match any of several types), `actor` (case-insensitive substring)) | `200` |
@@ -223,6 +224,14 @@ curl -u "$AUTH" -X PUT "$API/jobs/route-poc-1" \
 
 Setting `"desiredState": "PAUSED"` on the definition is the primary operational lever today.
 
+### Fetch the JobDefinition JSON Schema
+
+Returns the JSON Schema (2020-12) that describes `JobDefinition` and every referenced type. The server applies this same schema to incoming payloads before binding on `POST /jobs`, `PUT /jobs/{jobId}`, and `POST /jobs/validate`, so structural issues (wrong types, unknown fields, bad enum values) fail with the same `VALIDATION_ERROR` shape as the semantic rules below. The web UI's Monaco/CodeMirror editor also loads this document to power inline linting, autocomplete, and hover tooltips — one source of truth for the shape of a valid job.
+
+```bash
+curl -u "$AUTH" -sS "$API/jobs/schema" | jq .
+```
+
 ### Validate a job definition without saving
 
 Runs the same rules `POST /jobs` and `PUT /jobs/{jobId}` enforce (required fields, job-type config, topic allowlists, ROUTE_APP filter expression syntax) without touching Kafka or the read model. Useful for UI pre-save checks, catalog editors, and CI linting of job JSON.
@@ -288,10 +297,13 @@ Push calls the management API with the stored payload; validation errors (for ex
 
 ## Validation and errors
 
-The API validates job definitions before publishing to Kafka:
+The API validates job definitions before publishing to Kafka, in two layers:
 
-- **Topic allowlists** — when `STREAMMUX_ALLOWED_INPUT_*` or `STREAMMUX_ALLOWED_OUTPUT_*` are configured, input/output topics in job config must match.
-- **Job type config** — the block matching `jobType` must be present and well-formed (`routeAppConfig`, `randomSamplerConfig`, or `alarmsToZtrConfig`).
+- **Structural (schema)** — the payload must match the JSON Schema served by [`GET /jobs/schema`](#fetch-the-jobdefinition-json-schema). Wrong types, unknown fields (typos like `filterExpresion`), and invalid enum values fail here before Jackson binding, with a JSON-pointer path in the message.
+- **Semantic** — after binding, the same validator runs for create/update/validate/rename:
+  - **Topic allowlists** — when `STREAMMUX_ALLOWED_INPUT_*` or `STREAMMUX_ALLOWED_OUTPUT_*` are configured, input/output topics in job config must match.
+  - **Job type config** — the block matching `jobType` must be present and well-formed (`routeAppConfig`, `randomSamplerConfig`, or `alarmsToZtrConfig`).
+  - **ROUTE_APP filter expressions** — parsed and rejected on syntax errors with a position-aware message.
 
 Validation failures return **`400 Bad Request`** with a JSON body:
 

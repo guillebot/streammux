@@ -545,6 +545,28 @@
                 }
             }
         },
+        "/jobs/schema": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Job definition JSON Schema",
+                "description": "Returns the JSON Schema 2020-12 document that describes JobDefinition and every referenced type. The same schema is applied server-side before create/update/validate bind the payload, so the editor and the API agree on shape.",
+                "operationId": "schema",
+                "responses": {
+                    "200": {
+                        "description": "JSON Schema document",
+                        "content": {
+                            "application/schema+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JsonNode"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/jobs/meta/settings": {
             "get": {
                 "tags": [
@@ -1318,6 +1340,7 @@
                     }
                 }
             },
+            "JsonNode": {},
             "ApiSettings": {
                 "type": "object",
                 "properties": {
