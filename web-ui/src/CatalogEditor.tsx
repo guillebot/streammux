@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   createCatalogEntry,
@@ -14,6 +14,7 @@ import { JsonEditor } from "./JsonEditor";
 import { newJobTemplate } from "./templates";
 import type { JobDefinition } from "./types";
 import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
+import { extractPathFromMessage } from "./validationPathRange";
 
 export function CatalogEditor() {
   const { id: idParam } = useParams();
@@ -23,11 +24,35 @@ export function CatalogEditor() {
   const validId = !isNew && Number.isInteger(id);
 
   const [title, setTitle] = useState("");
-  const [jsonText, setJsonText] = useState("");
+  const [jsonText, setJsonTextState] = useState("");
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [validation, setValidation] = useState<
+    | { kind: "idle" }
+    | { kind: "running" }
+    | { kind: "ok" }
+    | { kind: "fail"; path: string | null; message: string }
+  >({ kind: "idle" });
+
+  // Any edit invalidates the last validation result so the squiggle doesn't
+  // linger over a field the user has already changed.
+  const setJsonText = useCallback((next: string) => {
+    setJsonTextState(next);
+    setValidation((prev) => (prev.kind === "idle" ? prev : { kind: "idle" }));
+  }, []);
+
+  const jsonParseError = useMemo(() => {
+    if (!jsonText) return "Fix JSON syntax first";
+    try {
+      const parsed: unknown = JSON.parse(jsonText);
+      if (typeof parsed !== "object" || parsed === null) return "JSON must be an object";
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Invalid JSON";
+    }
+  }, [jsonText]);
 
   const { schema: jobDefinitionSchema } = useJobDefinitionSchema();
 
@@ -60,6 +85,19 @@ export function CatalogEditor() {
     const parsed: unknown = JSON.parse(jsonText);
     if (typeof parsed !== "object" || parsed === null) throw new Error("JSON must be a job definition object");
     return parsed as JobDefinition;
+  };
+
+  const onValidateConfig = async () => {
+    setValidation({ kind: "running" });
+    try {
+      const payload = parsePayload();
+      await validateJob(payload);
+      setValidation({ kind: "ok" });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      const path = extractPathFromMessage(message);
+      setValidation({ kind: "fail", path, message });
+    }
   };
 
   const onSave = async () => {
@@ -192,7 +230,18 @@ export function CatalogEditor() {
             value={jsonText}
             onChange={setJsonText}
             schema={jobDefinitionSchema}
+            externalDiagnostic={
+              validation.kind === "fail"
+                ? { path: validation.path, message: validation.message }
+                : null
+            }
           />
+
+          {validation.kind === "ok" ? (
+            <div className="validation-banner ok">Definition is valid.</div>
+          ) : validation.kind === "fail" ? (
+            <div className="validation-banner fail">{validation.message}</div>
+          ) : null}
 
           <div className="btn-row">
             <button type="button" className="primary" disabled={busyAction !== null} onClick={() => void onSave()}>
@@ -203,6 +252,23 @@ export function CatalogEditor() {
                 </>
               ) : (
                 "Save to catalog"
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={
+                busyAction !== null || validation.kind === "running" || jsonParseError !== null
+              }
+              title={jsonParseError ?? undefined}
+              onClick={() => void onValidateConfig()}
+            >
+              {validation.kind === "running" ? (
+                <>
+                  <InlineSpinner />
+                  Validating...
+                </>
+              ) : (
+                "Validate config"
               )}
             </button>
             {!isNew && validId ? (

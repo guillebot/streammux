@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   createCatalogEntry,
@@ -29,6 +29,7 @@ import {
 import { takeStashedJobDefinition } from "./jobBuilderStash";
 import { JsonEditor } from "./JsonEditor";
 import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
+import { extractPathFromMessage } from "./validationPathRange";
 import { newJobTemplate } from "./templates";
 import {
   JobHealthBadge,
@@ -45,11 +46,35 @@ export function JobDetail() {
   const isNew = rawJobId === "new";
   const jobId = isNew ? null : rawJobId ?? null;
 
-  const [jsonText, setJsonText] = useState("");
+  const [jsonText, setJsonTextState] = useState("");
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [validation, setValidation] = useState<
+    | { kind: "idle" }
+    | { kind: "running" }
+    | { kind: "ok" }
+    | { kind: "fail"; path: string | null; message: string }
+  >({ kind: "idle" });
+
+  // Any edit to the JSON invalidates the last validation result and clears the
+  // squiggle so the user isn't chasing a stale diagnostic.
+  const setJsonText = useCallback((next: string) => {
+    setJsonTextState(next);
+    setValidation((prev) => (prev.kind === "idle" ? prev : { kind: "idle" }));
+  }, []);
+
+  const jsonParseError = useMemo(() => {
+    if (!jsonText) return "Fix JSON syntax first";
+    try {
+      const parsed: unknown = JSON.parse(jsonText);
+      if (typeof parsed !== "object" || parsed === null) return "JSON must be an object";
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Invalid JSON";
+    }
+  }, [jsonText]);
 
   const [status, setStatus] = useState<JobRuntimeStatus | null | undefined>(undefined);
   const [lease, setLease] = useState<JobLease | null | undefined>(undefined);
@@ -118,6 +143,20 @@ export function JobDetail() {
     const parsed: unknown = JSON.parse(jsonText);
     if (typeof parsed !== "object" || parsed === null) throw new Error("JSON must be an object");
     return parsed as JobDefinition;
+  };
+
+  const onValidateConfig = async () => {
+    setValidation({ kind: "running" });
+    try {
+      const def = parseDefinition();
+      const actor = await resolveActor();
+      await validateJob({ ...def, updatedBy: actor });
+      setValidation({ kind: "ok" });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      const path = extractPathFromMessage(message);
+      setValidation({ kind: "fail", path, message });
+    }
   };
 
   const onSave = async () => {
@@ -332,7 +371,18 @@ export function JobDetail() {
             value={jsonText}
             onChange={setJsonText}
             schema={jobDefinitionSchema}
+            externalDiagnostic={
+              validation.kind === "fail"
+                ? { path: validation.path, message: validation.message }
+                : null
+            }
           />
+
+          {validation.kind === "ok" ? (
+            <div className="validation-banner ok">Definition is valid.</div>
+          ) : validation.kind === "fail" ? (
+            <div className="validation-banner fail">{validation.message}</div>
+          ) : null}
 
           <div className="btn-row">
             <button type="button" className="primary" disabled={busyAction !== null} onClick={() => void onSave()}>
@@ -345,6 +395,23 @@ export function JobDetail() {
                 "Create"
               ) : (
                 "Save changes"
+              )}
+            </button>
+            <button
+              type="button"
+              disabled={
+                busyAction !== null || validation.kind === "running" || jsonParseError !== null
+              }
+              title={jsonParseError ?? undefined}
+              onClick={() => void onValidateConfig()}
+            >
+              {validation.kind === "running" ? (
+                <>
+                  <InlineSpinner />
+                  Validating...
+                </>
+              ) : (
+                "Validate config"
               )}
             </button>
             {!isNew && jobId ? (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { json, jsonLanguage, jsonParseLinter } from "@codemirror/lang-json";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { linter, lintGutter } from "@codemirror/lint";
+import { linter, lintGutter, type Diagnostic } from "@codemirror/lint";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import {
@@ -12,6 +12,7 @@ import {
   jsonSchemaLinter,
   stateExtensions,
 } from "codemirror-json-schema";
+import { resolveJsonPathRange } from "./validationPathRange";
 
 export interface JsonEditorProps {
   value: string;
@@ -27,6 +28,13 @@ export interface JsonEditorProps {
    * schema fetch resolves without any visible degradation.
    */
   schema?: unknown | null;
+  /**
+   * Optional server-side validation failure to overlay as a CodeMirror error
+   * diagnostic. When `path` resolves to a value inside the current JSON the
+   * squiggle lands on that exact range; otherwise it falls back to the whole
+   * document so the user still sees a visible error.
+   */
+  externalDiagnostic?: { path: string | null; message: string } | null;
 }
 
 type Scheme = "light" | "dark";
@@ -124,6 +132,7 @@ export function JsonEditor({
   className = "json-editor",
   minHeight = 320,
   schema,
+  externalDiagnostic,
 }: JsonEditorProps) {
   const [scheme, setScheme] = useState<Scheme>(preferredScheme);
 
@@ -137,6 +146,24 @@ export function JsonEditor({
 
   const theme = useMemo(() => buildUiTheme(scheme === "dark"), [scheme]);
 
+  const externalLinter = useMemo(() => {
+    if (!externalDiagnostic) return null;
+    const { path, message } = externalDiagnostic;
+    return linter((view) => {
+      const doc = view.state.doc.toString();
+      const range = path ? resolveJsonPathRange(doc, path) : null;
+      const diagnostic: Diagnostic = range
+        ? { from: range.from, to: range.to, severity: "error", message }
+        : {
+            from: 0,
+            to: Math.max(doc.length, 1),
+            severity: "error",
+            message,
+          };
+      return [diagnostic];
+    });
+  }, [externalDiagnostic]);
+
   const extensions = useMemo(() => {
     const base = [
       json(),
@@ -144,18 +171,20 @@ export function JsonEditor({
       lintGutter(),
       syntaxHighlighting(jsonHighlight),
     ];
-    if (!schema) return base;
-    // Enable schema-driven linting, hovers and completion while still keeping the plain
-    // JSON parse linter so raw-syntax mistakes surface immediately even if the schema hasn't
-    // loaded yet or the schema linter needs a debounce.
-    return [
-      ...base,
-      linter(jsonSchemaLinter(), { needsRefresh: handleRefresh, delay: 500 }),
-      jsonLanguage.data.of({ autocomplete: jsonCompletion() }),
-      hoverTooltip(jsonSchemaHover()),
-      stateExtensions(schema),
-    ];
-  }, [schema]);
+    const withSchema = !schema
+      ? base
+      : // Enable schema-driven linting, hovers and completion while still keeping the plain
+        // JSON parse linter so raw-syntax mistakes surface immediately even if the schema hasn't
+        // loaded yet or the schema linter needs a debounce.
+        [
+          ...base,
+          linter(jsonSchemaLinter(), { needsRefresh: handleRefresh, delay: 500 }),
+          jsonLanguage.data.of({ autocomplete: jsonCompletion() }),
+          hoverTooltip(jsonSchemaHover()),
+          stateExtensions(schema),
+        ];
+    return externalLinter ? [...withSchema, externalLinter] : withSchema;
+  }, [schema, externalLinter]);
 
   return (
     <div id={id} className={className}>
