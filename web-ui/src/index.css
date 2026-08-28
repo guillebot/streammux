@@ -638,12 +638,9 @@ tr:last-child td {
 .json-editor {
   width: 100%;
   min-height: 320px;
-  padding: 0.75rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  resize: vertical;
+  overflow: hidden;
 }
 
 .panel {

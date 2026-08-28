@@ -27,6 +27,7 @@ import {
   kafkaStreamsState,
 } from "./jobStatusDisplay";
 import { takeStashedJobDefinition } from "./jobBuilderStash";
+import { JsonEditor } from "./JsonEditor";
 import { newJobTemplate } from "./templates";
 import {
   JobHealthBadge,
@@ -322,12 +323,11 @@ export function JobDetail() {
           <label className="muted" htmlFor="def-json">
             Job definition (JSON)
           </label>
-          <textarea
+          <JsonEditor
             id="def-json"
-            className="json-editor mono"
-            spellCheck={false}
+            ariaLabel="Job definition (JSON)"
             value={jsonText}
-            onChange={(e) => setJsonText(e.target.value)}
+            onChange={setJsonText}
           />
 
           <div className="btn-row">

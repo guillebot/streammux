@@ -10,6 +10,7 @@ import {
 } from "./api/catalogClient";
 import { validateJob } from "./api/client";
 import { InlineSpinner } from "./InlineSpinner";
+import { JsonEditor } from "./JsonEditor";
 import { newJobTemplate } from "./templates";
 import type { JobDefinition } from "./types";
 
@@ -182,12 +183,11 @@ export function CatalogEditor() {
           <label className="muted" htmlFor="cat-json" style={{ display: "block", marginTop: "0.75rem" }}>
             Job definition (JSON)
           </label>
-          <textarea
+          <JsonEditor
             id="cat-json"
-            className="json-editor mono"
-            spellCheck={false}
+            ariaLabel="Job definition (JSON)"
             value={jsonText}
-            onChange={(e) => setJsonText(e.target.value)}
+            onChange={setJsonText}
           />
 
           <div className="btn-row">
