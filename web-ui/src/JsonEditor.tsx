@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
-import { json, jsonParseLinter } from "@codemirror/lang-json";
+import { json, jsonLanguage, jsonParseLinter } from "@codemirror/lang-json";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter, lintGutter } from "@codemirror/lint";
-import { EditorView } from "@codemirror/view";
+import { EditorView, hoverTooltip } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import {
+  handleRefresh,
+  jsonCompletion,
+  jsonSchemaHover,
+  jsonSchemaLinter,
+  stateExtensions,
+} from "codemirror-json-schema";
 
 export interface JsonEditorProps {
   value: string;
@@ -13,6 +20,13 @@ export interface JsonEditorProps {
   ariaLabel?: string;
   className?: string;
   minHeight?: number;
+  /**
+   * Optional JSON Schema. When provided, the editor gains schema-aware linting, hover
+   * tooltips, and autocompletion in addition to plain JSON syntax linting. Passing null or
+   * undefined leaves the editor with syntax-only linting so callers can render before their
+   * schema fetch resolves without any visible degradation.
+   */
+  schema?: unknown | null;
 }
 
 type Scheme = "light" | "dark";
@@ -109,6 +123,7 @@ export function JsonEditor({
   ariaLabel,
   className = "json-editor",
   minHeight = 320,
+  schema,
 }: JsonEditorProps) {
   const [scheme, setScheme] = useState<Scheme>(preferredScheme);
 
@@ -122,25 +137,40 @@ export function JsonEditor({
 
   const theme = useMemo(() => buildUiTheme(scheme === "dark"), [scheme]);
 
+  const extensions = useMemo(() => {
+    const base = [
+      json(),
+      linter(jsonParseLinter(), { delay: 500 }),
+      lintGutter(),
+      syntaxHighlighting(jsonHighlight),
+    ];
+    if (!schema) return base;
+    // Enable schema-driven linting, hovers and completion while still keeping the plain
+    // JSON parse linter so raw-syntax mistakes surface immediately even if the schema hasn't
+    // loaded yet or the schema linter needs a debounce.
+    return [
+      ...base,
+      linter(jsonSchemaLinter(), { needsRefresh: handleRefresh, delay: 500 }),
+      jsonLanguage.data.of({ autocomplete: jsonCompletion() }),
+      hoverTooltip(jsonSchemaHover()),
+      stateExtensions(schema),
+    ];
+  }, [schema]);
+
   return (
     <div id={id} className={className}>
       <CodeMirror
         value={value}
         onChange={onChange}
         height={`${minHeight}px`}
-        extensions={[
-          json(),
-          linter(jsonParseLinter(), { delay: 500 }),
-          lintGutter(),
-          syntaxHighlighting(jsonHighlight),
-        ]}
+        extensions={extensions}
         theme={theme}
         aria-label={ariaLabel}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,
           highlightActiveLine: true,
-          autocompletion: false,
+          autocompletion: Boolean(schema),
         }}
       />
     </div>

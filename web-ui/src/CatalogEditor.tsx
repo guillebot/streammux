@@ -13,6 +13,7 @@ import { InlineSpinner } from "./InlineSpinner";
 import { JsonEditor } from "./JsonEditor";
 import { newJobTemplate } from "./templates";
 import type { JobDefinition } from "./types";
+import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
 
 export function CatalogEditor() {
   const { id: idParam } = useParams();
@@ -27,6 +28,8 @@ export function CatalogEditor() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const { schema: jobDefinitionSchema } = useJobDefinitionSchema();
 
   const load = useCallback(async () => {
     if (!validId) return;
@@ -188,6 +191,7 @@ export function CatalogEditor() {
             ariaLabel="Job definition (JSON)"
             value={jsonText}
             onChange={setJsonText}
+            schema={jobDefinitionSchema}
           />
 
           <div className="btn-row">

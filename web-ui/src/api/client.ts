@@ -41,6 +41,12 @@ export async function getKafkaTopicCatalog(): Promise<KafkaTopicCatalog> {
   return (await res.json()) as KafkaTopicCatalog;
 }
 
+export async function getJobDefinitionSchema(): Promise<unknown> {
+  const res = await apiFetch(`${JOBS}/schema`);
+  if (!res.ok) await handleError(res);
+  return (await res.json()) as unknown;
+}
+
 export async function listJobs(): Promise<JobDefinition[]> {
   const res = await apiFetch(JOBS);
   if (!res.ok) await handleError(res);

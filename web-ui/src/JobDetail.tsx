@@ -28,6 +28,7 @@ import {
 } from "./jobStatusDisplay";
 import { takeStashedJobDefinition } from "./jobBuilderStash";
 import { JsonEditor } from "./JsonEditor";
+import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
 import { newJobTemplate } from "./templates";
 import {
   JobHealthBadge,
@@ -54,6 +55,8 @@ export function JobDetail() {
   const [lease, setLease] = useState<JobLease | null | undefined>(undefined);
   const [events, setEvents] = useState<JobEvent[] | null | undefined>(undefined);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const { schema: jobDefinitionSchema } = useJobDefinitionSchema();
 
   const newJobSeededRef = useRef(false);
 
@@ -328,6 +331,7 @@ export function JobDetail() {
             ariaLabel="Job definition (JSON)"
             value={jsonText}
             onChange={setJsonText}
+            schema={jobDefinitionSchema}
           />
 
           <div className="btn-row">
