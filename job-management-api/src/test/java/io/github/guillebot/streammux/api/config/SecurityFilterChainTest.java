@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.api.config;
 
 import io.github.guillebot.streammux.api.controller.JobController;
+import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * that set {@code addFilters = false}).
  */
 @WebMvcTest(controllers = JobController.class)
-@Import(SecurityConfiguration.class)
+@Import({SecurityConfiguration.class, JobDefinitionSchemaProvider.class})
 class SecurityFilterChainTest {
 
     @Autowired

@@ -1,5 +1,7 @@
 package io.github.guillebot.streammux.api.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
 import io.github.guillebot.streammux.contracts.model.CommandType;
@@ -12,6 +14,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,9 +34,15 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/jobs")
 public class JobController {
-    private final JobService jobService;
+    private static final String SCHEMA_MEDIA_TYPE = "application/schema+json";
 
-    public JobController(JobService jobService) { this.jobService = jobService; }
+    private final JobService jobService;
+    private final JobDefinitionSchemaProvider schemaProvider;
+
+    public JobController(JobService jobService, JobDefinitionSchemaProvider schemaProvider) {
+        this.jobService = jobService;
+        this.schemaProvider = schemaProvider;
+    }
 
     @Operation(summary = "Create job", description = "Registers a new job and publishes the definition to Kafka.")
     @ApiResponses({
@@ -46,6 +56,21 @@ public class JobController {
     @Operation(summary = "List jobs")
     @GetMapping
     public Collection<JobDefinition> list() { return jobService.listJobs(); }
+
+    @Operation(
+        summary = "Job definition JSON Schema",
+        description = "Returns the JSON Schema 2020-12 document that describes JobDefinition and every referenced type. "
+            + "The same schema is applied server-side before create/update/validate bind the payload, so the editor and the API agree on shape."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "JSON Schema document")
+    })
+    @GetMapping(path = "/schema", produces = SCHEMA_MEDIA_TYPE)
+    public ResponseEntity<JsonNode> schema() {
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(SCHEMA_MEDIA_TYPE))
+            .body(schemaProvider.getSchemaJson());
+    }
 
     @Operation(
         summary = "Validate job",

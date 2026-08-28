@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,11 +43,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(JobDefinitionSchemaProvider.class)
 class JobControllerTest {
 
     @Autowired
@@ -134,6 +138,17 @@ class JobControllerTest {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
             .andExpect(jsonPath("$.message").value("routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"));
+    }
+
+    @Test
+    void getSchemaReturnsJsonSchemaDocument() throws Exception {
+        mockMvc.perform(get("/jobs/schema"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("application/schema+json"))
+            .andExpect(jsonPath("$.$schema").value("https://json-schema.org/draft/2020-12/schema"))
+            .andExpect(jsonPath("$.$ref").value("#/$defs/JobDefinition"))
+            .andExpect(jsonPath("$.$defs.JobDefinition").exists())
+            .andExpect(jsonPath("$.$defs.RouteAppConfig").exists());
     }
 
     @Test
