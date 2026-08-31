@@ -8,12 +8,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class KafkaStreamsApplicationIdsTest {
 
     @Test
-    void buildsPrefixedLeaseScopedApplicationId() {
-        assertEquals("streammux-onetrap-to-nrby-only-access-155", KafkaStreamsApplicationIds.applicationId("onetrap-to-nrby-only-access", 155));
+    void buildsStablePrefixedApplicationId() {
+        assertEquals("streammux-onetrap-to-nrby-only-access", KafkaStreamsApplicationIds.applicationId("onetrap-to-nrby-only-access"));
+    }
+
+    @Test
+    void buildsLegacyEpochScopedApplicationId() {
+        assertEquals(
+            "streammux-onetrap-to-nrby-only-access-155",
+            KafkaStreamsApplicationIds.legacyApplicationId("onetrap-to-nrby-only-access", 155)
+        );
     }
 
     @Test
     void rejectsBlankJobId() {
-        assertThrows(IllegalArgumentException.class, () -> KafkaStreamsApplicationIds.applicationId(" ", 1));
+        assertThrows(IllegalArgumentException.class, () -> KafkaStreamsApplicationIds.applicationId(" "));
     }
 }

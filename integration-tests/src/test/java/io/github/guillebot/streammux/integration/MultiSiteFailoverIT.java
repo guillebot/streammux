@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,7 +85,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         coordinatorB.onJobLease(firstLease);
         coordinatorB.onJobDefinition(definitionRecord);
 
-        verify(runnerA).start(definition, 1);
+        verify(runnerA, timeout(5000)).start(definition, 1);
         verify(runnerB, never()).start(any(), anyLong());
 
         Thread.sleep(1200);
@@ -177,7 +178,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             DesiredJobState.ACTIVE,
             1,
             null,
-            new LeasePolicy(1, 1, 10, true),
+            new LeasePolicy(1, 1, 0, true),
             1,
             new RouteAppConfig(
                 "input-topic",
