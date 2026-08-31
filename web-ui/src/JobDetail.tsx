@@ -61,16 +61,22 @@ export function JobDetail() {
     setValidation((prev) => (prev.kind === "idle" ? prev : { kind: "idle" }));
   }, []);
 
-  const jsonParseError = useMemo(() => {
-    if (!jsonText) return "Fix JSON syntax first";
+  // Derive both the parsed JobDefinition and the parse error from `jsonText` in one
+  // pass. `parseResult.def` is the source of truth the Basic-tab form will bind to
+  // (consumed in a follow-up commit); `jsonParseError` keeps its existing semantics.
+  const parseResult = useMemo<{ def: JobDefinition | null; error: string | null }>(() => {
+    if (!jsonText) return { def: null, error: "Fix JSON syntax first" };
     try {
       const parsed: unknown = JSON.parse(jsonText);
-      if (typeof parsed !== "object" || parsed === null) return "JSON must be an object";
-      return null;
+      if (typeof parsed !== "object" || parsed === null) {
+        return { def: null, error: "JSON must be an object" };
+      }
+      return { def: parsed as JobDefinition, error: null };
     } catch (e) {
-      return e instanceof Error ? e.message : "Invalid JSON";
+      return { def: null, error: e instanceof Error ? e.message : "Invalid JSON" };
     }
   }, [jsonText]);
+  const jsonParseError = parseResult.error;
 
   const [status, setStatus] = useState<JobRuntimeStatus | null | undefined>(undefined);
   const [lease, setLease] = useState<JobLease | null | undefined>(undefined);
