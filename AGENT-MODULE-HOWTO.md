@@ -95,7 +95,7 @@ Implement [`JobRunner`](job-contracts/src/main/java/io/github/guillebot/streammu
 | Method | Contract |
 | ------ | -------- |
 | `supports(JobDefinition)` | Return true **only** for your `JobType` (and optionally extra guards). Must be mutually exclusive with other runners for the same type. |
-| `start(JobDefinition, long leaseEpoch)` | Start local processing for `definition.jobId()`. The lease epoch changes when ownership changes; use it in Kafka Streams `application.id` (or equivalent) so a new owner does not collide with committed state. Existing runners call `stop(jobId)` before starting ([`RouteAppRunner`](runners/job-runner-route-app/src/main/java/io/github/guillebot/streammux/routeapp/RouteAppRunner.java), [`RandomSamplerRunner`](runners/job-runner-random-sampler/src/main/java/io/github/guillebot/streammux/randomsampler/RandomSamplerRunner.java)) — follow that idiom to avoid duplicate workers. |
+| `start(JobDefinition, long leaseEpoch)` | Start local processing for `definition.jobId()`. Pass `leaseEpoch` through for logging/events; Kafka Streams `application.id` is stable per job via `KafkaStreamsApplicationIds.applicationId(jobId)`. Existing runners call `stop(jobId)` before starting ([`RouteAppRunner`](runners/job-runner-route-app/src/main/java/io/github/guillebot/streammux/routeapp/RouteAppRunner.java), [`RandomSamplerRunner`](runners/job-runner-random-sampler/src/main/java/io/github/guillebot/streammux/randomsampler/RandomSamplerRunner.java)) — follow that idiom to avoid duplicate workers. |
 | `stop(String jobId)` | Tear down resources; must be safe to call when already stopped. |
 | `status(String jobId)` | Return a non-null [`JobRuntimeStatus`](job-contracts/src/main/java/io/github/guillebot/streammux/contracts/model/JobRuntimeStatus.java) describing local view (`RUNNING` vs `STOPPED`, health, optional `WorkerMetadata`, lag placeholders if unknown). |
 
@@ -181,4 +181,4 @@ The UI is **not** part of the Maven reactor; ship UI changes separately if you u
 | `ROUTE_APP` | [`runners/job-runner-route-app`](runners/job-runner-route-app) | Multi-route filters, payload normalization |
 | `ALARMS_TO_ZTR` | [`runners/job-runner-alarms-to-ztr`](runners/job-runner-alarms-to-ztr) | Mapping templates + filter rules |
 
-Use these as canonical patterns for topology factories, `application.id` + `leaseEpoch`, `KafkaStreamsRunnerSupport` (per-module copy under `runner/support/`), and `JobRuntimeStatus` construction.
+Use these as canonical patterns for topology factories, stable `application.id` per job, `KafkaStreamsRunnerSupport` (per-module copy under `runner/support/`), and `JobRuntimeStatus` construction.

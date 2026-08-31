@@ -60,10 +60,10 @@ mvn -pl :job-runner-<name> test
 - **Contracts are the source of truth.** API JSON, Kafka serde, orchestrator, and runners must agree on `JobDefinition` shape. Extend the record in `job-contracts`, then fix every `new JobDefinition(...)` call site (compiler will surface most misses).
 - **Validation in contracts.** Add type-specific checks to `JobDefinitionValidator`. Run input/output topic names through `TopicValidationPolicy` when the config references Kafka topics.
 - **Idempotent lifecycle.** Runners must tolerate repeated `start`/`stop` calls from the orchestrator reconcile loop. Existing runners call `stop(jobId)` at the beginning of `start`.
-- **Lease epoch in runtime identity.** Include `leaseEpoch` in Kafka Streams `application.id` (or equivalent) so a new lease owner does not reuse committed state from a previous owner. Use `KafkaStreamsApplicationIds.applicationId(jobId, leaseEpoch)` — all runner groups are prefixed `streammux-`:
+- **Stable Kafka Streams application id.** Use `KafkaStreamsApplicationIds.applicationId(jobId)` — one consumer group per job, prefixed `streammux-`. Lease epoch stays in orchestrator leases only; do not embed it in `application.id` (stateless runners reuse committed offsets across restart and failover):
 
 ```java
-properties.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaStreamsApplicationIds.applicationId(definition.jobId(), leaseEpoch));
+properties.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaStreamsApplicationIds.applicationId(definition.jobId()));
 ```
 
 - **One runner per job type.** `JobRunnerRegistry` resolves with `findFirst()` on Spring-injected beans. Exactly one `supports()` implementation may match a given `jobType`.
