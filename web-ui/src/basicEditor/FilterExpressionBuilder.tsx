@@ -21,6 +21,10 @@ export interface FilterExpressionBuilderProps {
   onChange: (next: string) => void;
   /** Optional ID prefix so multiple builders on the same page don't collide. */
   idPrefix?: string;
+  /** Outer container gets `aria-invalid="true"` and a red frame when true. */
+  invalid?: boolean;
+  /** Used as the `data-error-path` marker for scroll-to-error targeting. */
+  errorScope?: string;
 }
 
 /**
@@ -32,6 +36,8 @@ export function FilterExpressionBuilder({
   value,
   onChange,
   idPrefix = "filter",
+  invalid,
+  errorScope,
 }: FilterExpressionBuilderProps) {
   const [tree, setTree] = useState<FilterGroup>(() => safeParse(value).tree);
   const [parseError, setParseError] = useState<string | null>(
@@ -76,7 +82,11 @@ export function FilterExpressionBuilder({
   const canSwitchToBuilder = parseError == null;
 
   return (
-    <div className="filter-builder">
+    <div
+      className={invalid ? "filter-builder filter-builder-invalid" : "filter-builder"}
+      aria-invalid={invalid || undefined}
+      data-error-path={errorScope}
+    >
       <div className="filter-mode-toggle">
         <button
           type="button"

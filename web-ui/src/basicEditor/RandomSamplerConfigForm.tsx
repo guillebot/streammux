@@ -1,14 +1,23 @@
 import type { ChangeEvent } from "react";
 import type { RandomSamplerConfig } from "../types";
+import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { StringMapEditor } from "./StringMapEditor";
 
 export interface RandomSamplerConfigFormProps {
   value: RandomSamplerConfig;
   onChange: (next: RandomSamplerConfig) => void;
+  /** Normalized server-validation error path. */
+  errorPath?: string | null;
 }
 
+const SCOPE = "randomSamplerConfig";
+
 /** Basic-tab config panel for `RANDOM_SAMPLER` jobs. */
-export function RandomSamplerConfigForm({ value, onChange }: RandomSamplerConfigFormProps) {
+export function RandomSamplerConfigForm({
+  value,
+  onChange,
+  errorPath,
+}: RandomSamplerConfigFormProps) {
   const update = <K extends keyof RandomSamplerConfig>(
     key: K,
     next: RandomSamplerConfig[K],
@@ -36,6 +45,10 @@ export function RandomSamplerConfigForm({ value, onChange }: RandomSamplerConfig
           spellCheck={false}
           value={value.inputTopic}
           onChange={(e) => update("inputTopic", e.currentTarget.value)}
+          aria-invalid={
+            isErrorOnField(errorPath, `${SCOPE}.inputTopic`) || undefined
+          }
+          data-error-path={`${SCOPE}.inputTopic`}
         />
       </label>
 
@@ -48,6 +61,10 @@ export function RandomSamplerConfigForm({ value, onChange }: RandomSamplerConfig
           spellCheck={false}
           value={value.outputTopic}
           onChange={(e) => update("outputTopic", e.currentTarget.value)}
+          aria-invalid={
+            isErrorOnField(errorPath, `${SCOPE}.outputTopic`) || undefined
+          }
+          data-error-path={`${SCOPE}.outputTopic`}
         />
       </label>
 
@@ -64,6 +81,8 @@ export function RandomSamplerConfigForm({ value, onChange }: RandomSamplerConfig
           step={0.01}
           value={Number.isFinite(value.rate) ? value.rate : 0}
           onChange={onRateChange}
+          aria-invalid={isErrorOnField(errorPath, `${SCOPE}.rate`) || undefined}
+          data-error-path={`${SCOPE}.rate`}
         />
       </label>
 
@@ -74,6 +93,8 @@ export function RandomSamplerConfigForm({ value, onChange }: RandomSamplerConfig
           onChange={(next) => update("streamProperties", next)}
           addLabel="+ Add stream property"
           emptyLabel="No stream properties."
+          invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
+          errorScope={`${SCOPE}.streamProperties`}
         />
       </div>
     </section>

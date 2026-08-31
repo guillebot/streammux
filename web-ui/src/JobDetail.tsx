@@ -35,6 +35,7 @@ import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
 import { extractPathFromMessage } from "./validationPathRange";
 import { newJobTemplate } from "./templates";
 import { BasicJobForm } from "./basicEditor/BasicJobForm";
+import { normalizeErrorPath } from "./basicEditor/errorFieldMap";
 import { Tabs, TabPanel } from "./components/Tabs";
 import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "./types";
 
@@ -91,6 +92,15 @@ export function JobDetail() {
       setJsonText(JSON.stringify(next, null, 2));
     },
     [setJsonText],
+  );
+
+  // Server-side validation errors (from "Validate config") carry a dotted path
+  // pointing at the offending field. Normalize once here so both the Basic tab's
+  // per-field highlight logic and the tab strip's badge can use it.
+  const basicErrorPath = useMemo(
+    () =>
+      validation.kind === "fail" ? normalizeErrorPath(validation.path) : null,
+    [validation],
   );
 
   const [status, setStatus] = useState<JobRuntimeStatus | null | undefined>(undefined);
@@ -396,7 +406,11 @@ export function JobDetail() {
             ariaLabel="Job definition editor mode"
             idPrefix="job-def"
             tabs={[
-              { value: "basic", label: "Basic" },
+              {
+                value: "basic",
+                label: "Basic",
+                badge: basicErrorPath ? "!" : false,
+              },
               { value: "advanced", label: "Advanced" },
             ]}
           >
@@ -405,6 +419,7 @@ export function JobDetail() {
                 def={parsedDef}
                 jsonParseError={jsonParseError}
                 onChange={onBasicChange}
+                errorPath={basicErrorPath}
               />
             </TabPanel>
             <TabPanel value="advanced">

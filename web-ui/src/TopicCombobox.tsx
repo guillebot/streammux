@@ -21,6 +21,8 @@ type Props = {
    * the Basic editor so topics outside the allowlist-derived catalog can still be set.
    */
   allowCustom?: boolean;
+  /** Marker used by the Basic editor to scroll/focus this field on a server error. */
+  dataErrorPath?: string;
 };
 
 const wrapperStyle: CSSProperties = {
@@ -120,6 +122,7 @@ export function TopicCombobox({
   placeholder,
   invalid,
   allowCustom,
+  dataErrorPath,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -260,6 +263,7 @@ export function TopicCombobox({
         }
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
+        data-error-path={dataErrorPath}
         className="text-input"
         style={invalid ? invalidInputStyle : inputStyle}
         autoComplete="off"

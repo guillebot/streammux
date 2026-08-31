@@ -1,6 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { PayloadFormat, RouteAppConfig, RouteDefinition } from "../types";
 import { TopicCombobox } from "../TopicCombobox";
+import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { RouteListEditor } from "./RouteListEditor";
 import { StringMapEditor } from "./StringMapEditor";
 import { useTopicCatalog } from "./useTopicCatalog";
@@ -10,7 +11,11 @@ const FORMAT_OPTIONS: PayloadFormat[] = ["JSON", "PROTOBUF"];
 export interface RouteAppConfigFormProps {
   value: RouteAppConfig;
   onChange: (next: RouteAppConfig) => void;
+  /** Normalized server-validation error path. */
+  errorPath?: string | null;
 }
+
+const SCOPE = "routeAppConfig";
 
 /**
  * Basic-tab config panel for `ROUTE_APP` jobs. Renders the input topic, format
@@ -18,7 +23,11 @@ export interface RouteAppConfigFormProps {
  * property maps. The filter expression is a plain textarea for now — the
  * nested-group builder replaces it in a follow-up commit.
  */
-export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps) {
+export function RouteAppConfigForm({
+  value,
+  onChange,
+  errorPath,
+}: RouteAppConfigFormProps) {
   const { inputTopics, outputTopics, loading: topicsLoading } = useTopicCatalog();
 
   const update = <K extends keyof RouteAppConfig>(key: K, next: RouteAppConfig[K]) => {
@@ -49,7 +58,7 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
           {topicsLoading ? <span className="muted"> (loading…)</span> : null}
         </span>
         <TopicCombobox
-          id="routeAppConfig-input-topic"
+          id={`${SCOPE}-input-topic`}
           ariaLabel="Input topic"
           value={value.inputTopic}
           onChange={(next) => update("inputTopic", next)}
@@ -57,6 +66,8 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
           disabled={topicsLoading}
           allowCustom
           placeholder="Type to filter topics…"
+          invalid={isErrorOnField(errorPath, `${SCOPE}.inputTopic`)}
+          dataErrorPath={`${SCOPE}.inputTopic`}
         />
       </div>
 
@@ -69,6 +80,10 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
             onChange={(e) =>
               update("inputFormat", e.currentTarget.value as PayloadFormat)
             }
+            aria-invalid={
+              isErrorOnField(errorPath, `${SCOPE}.inputFormat`) || undefined
+            }
+            data-error-path={`${SCOPE}.inputFormat`}
           >
             {FORMAT_OPTIONS.map((f) => (
               <option key={f} value={f}>
@@ -86,6 +101,10 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
             onChange={(e) =>
               update("outputFormat", e.currentTarget.value as PayloadFormat)
             }
+            aria-invalid={
+              isErrorOnField(errorPath, `${SCOPE}.outputFormat`) || undefined
+            }
+            data-error-path={`${SCOPE}.outputFormat`}
           >
             {FORMAT_OPTIONS.map((f) => (
               <option key={f} value={f}>
@@ -111,6 +130,10 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
           placeholder="my-subject-value"
           value={protobufSchemaSubject}
           onChange={onSchemaSubjectChange}
+          aria-invalid={
+            isErrorOnField(errorPath, `${SCOPE}.protobufSchemaSubject`) || undefined
+          }
+          data-error-path={`${SCOPE}.protobufSchemaSubject`}
         />
       </label>
 
@@ -119,6 +142,8 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
         <RouteListEditor
           value={value.routes}
           onChange={onRoutesChange}
+          errorScope={`${SCOPE}.routes`}
+          errorPath={errorPath}
           outputTopicOptions={outputTopics}
           topicsLoading={topicsLoading}
         />
@@ -131,6 +156,8 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
           onChange={(next) => update("streamProperties", next)}
           addLabel="+ Add stream property"
           emptyLabel="No stream properties."
+          invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
+          errorScope={`${SCOPE}.streamProperties`}
         />
       </div>
 
@@ -141,6 +168,8 @@ export function RouteAppConfigForm({ value, onChange }: RouteAppConfigFormProps)
           onChange={(next) => update("serdeProperties", next)}
           addLabel="+ Add serde property"
           emptyLabel="No serde properties."
+          invalid={isErrorUnderField(errorPath, `${SCOPE}.serdeProperties`)}
+          errorScope={`${SCOPE}.serdeProperties`}
         />
       </div>
     </section>

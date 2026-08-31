@@ -44,6 +44,10 @@ export interface StringMapEditorProps {
   emptyLabel?: string;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
+  /** Outer container gets `aria-invalid="true"` and a red frame when true. */
+  invalid?: boolean;
+  /** Used as the `data-error-path` marker for scroll-to-error targeting. */
+  errorScope?: string;
 }
 
 /**
@@ -58,6 +62,8 @@ export function StringMapEditor({
   emptyLabel = "No entries.",
   keyPlaceholder = "key",
   valuePlaceholder = "value",
+  invalid,
+  errorScope,
 }: StringMapEditorProps) {
   const [rows, setRows] = useState<KvRow[]>(() => recordToRows(value));
   const lastEmittedRef = useRef<Record<string, string>>(value);
@@ -98,7 +104,11 @@ export function StringMapEditor({
   }, [rows]);
 
   return (
-    <div className="kv-editor">
+    <div
+      className={invalid ? "kv-editor kv-editor-invalid" : "kv-editor"}
+      aria-invalid={invalid || undefined}
+      data-error-path={errorScope}
+    >
       {rows.length === 0 ? (
         <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
           {emptyLabel}

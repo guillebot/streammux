@@ -1882,3 +1882,13 @@ select.form-select {
   line-height: 1;
   border-radius: 999px;
 }
+
+/* Container-level highlighting when a validation error targets a nested field. */
+.kv-editor-invalid,
+.chip-editor-invalid,
+.filter-builder-invalid,
+.route-card-invalid {
+  outline: 1px solid var(--danger);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

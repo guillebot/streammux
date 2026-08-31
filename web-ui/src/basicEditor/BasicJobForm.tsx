@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import type {
   DesiredJobState,
@@ -7,6 +7,7 @@ import type {
   RandomSamplerConfig,
   RouteAppConfig,
 } from "../types";
+import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { RandomSamplerConfigForm } from "./RandomSamplerConfigForm";
 import { RouteAppConfigForm } from "./RouteAppConfigForm";
 import { StringMapEditor } from "./StringMapEditor";
@@ -18,6 +19,12 @@ export interface BasicJobFormProps {
   def: JobDefinition | null;
   jsonParseError: string | null;
   onChange: (next: JobDefinition) => void;
+  /**
+   * Already-normalized server-validation error path (see
+   * {@link ./errorFieldMap#normalizeErrorPath}). When set, the matching Basic
+   * field is highlighted and scrolled/focused into view.
+   */
+  errorPath?: string | null;
 }
 
 /**
@@ -25,7 +32,48 @@ export interface BasicJobFormProps {
  * config panel. Two-way bound to the caller's parsed def; every edit calls
  * `onChange` with a fresh object.
  */
-export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProps) {
+export function BasicJobForm({
+  def,
+  jsonParseError,
+  onChange,
+  errorPath,
+}: BasicJobFormProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!errorPath || !rootRef.current) return;
+    // Find the deepest field marker whose `data-error-path` is at or above the
+    // error path. That's the most specific Basic-form field we can highlight,
+    // and the one worth scrolling into view / focusing.
+    const candidates = rootRef.current.querySelectorAll<HTMLElement>(
+      "[data-error-path]",
+    );
+    let best: HTMLElement | null = null;
+    let bestLen = -1;
+    candidates.forEach((el) => {
+      const p = el.dataset.errorPath;
+      if (!p) return;
+      const matches =
+        errorPath === p ||
+        errorPath.startsWith(`${p}.`) ||
+        errorPath.startsWith(`${p}[`);
+      if (matches && p.length > bestLen) {
+        best = el;
+        bestLen = p.length;
+      }
+    });
+    if (!best) return;
+    const target = best as HTMLElement;
+    target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const focusable =
+      target.matches("input, select, textarea, button")
+        ? (target as HTMLElement)
+        : target.querySelector<HTMLElement>(
+            "input:not([type=hidden]), select, textarea, button",
+          );
+    focusable?.focus({ preventScroll: true });
+  }, [errorPath]);
+
   if (!def) {
     return (
       <p className="muted">
@@ -55,7 +103,7 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
   };
 
   return (
-    <div className="form-stack">
+    <div className="form-stack" ref={rootRef}>
       <label className="form-field">
         <span className="form-label">Job id</span>
         <input
@@ -65,6 +113,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           spellCheck={false}
           value={def.jobId}
           onChange={(e) => update("jobId", e.currentTarget.value)}
+          aria-invalid={isErrorOnField(errorPath, "jobId") || undefined}
+          data-error-path="jobId"
         />
       </label>
 
@@ -74,6 +124,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           className="select-inline form-select"
           value={def.jobType}
           onChange={(e) => onJobTypeChange(e.currentTarget.value as JobType)}
+          aria-invalid={isErrorOnField(errorPath, "jobType") || undefined}
+          data-error-path="jobType"
         >
           {JOB_TYPE_OPTIONS.map((t) => (
             <option key={t} value={t}>
@@ -96,6 +148,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           onChange={(e) =>
             update("desiredState", e.currentTarget.value as DesiredJobState)
           }
+          aria-invalid={isErrorOnField(errorPath, "desiredState") || undefined}
+          data-error-path="desiredState"
         >
           {DESIRED_STATE_OPTIONS.map((s) => (
             <option key={s} value={s}>
@@ -120,6 +174,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           placeholder="site-a"
           value={def.siteAffinity}
           onChange={(e) => update("siteAffinity", e.currentTarget.value)}
+          aria-invalid={isErrorOnField(errorPath, "siteAffinity") || undefined}
+          data-error-path="siteAffinity"
         />
       </label>
 
@@ -130,6 +186,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           type="number"
           value={Number.isFinite(def.priority) ? def.priority : 0}
           onChange={onNumberChange("priority")}
+          aria-invalid={isErrorOnField(errorPath, "priority") || undefined}
+          data-error-path="priority"
         />
       </label>
 
@@ -141,6 +199,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           min={0}
           value={Number.isFinite(def.parallelism) ? def.parallelism : 0}
           onChange={onNumberChange("parallelism")}
+          aria-invalid={isErrorOnField(errorPath, "parallelism") || undefined}
+          data-error-path="parallelism"
         />
       </label>
 
@@ -151,6 +211,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
           onChange={(next) => update("labels", next)}
           addLabel="+ Add label"
           emptyLabel="No labels."
+          invalid={isErrorUnderField(errorPath, "labels")}
+          errorScope="labels"
         />
       </div>
 
@@ -159,6 +221,8 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
         <TagsEditor
           value={def.tags ?? []}
           onChange={(next) => update("tags", next)}
+          invalid={isErrorUnderField(errorPath, "tags")}
+          errorScope="tags"
         />
       </div>
 
@@ -166,6 +230,7 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
         <RouteAppConfigForm
           value={def.routeAppConfig ?? defaultRouteAppConfig()}
           onChange={(next) => update("routeAppConfig", next)}
+          errorPath={errorPath}
         />
       ) : null}
 
@@ -173,6 +238,7 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
         <RandomSamplerConfigForm
           value={def.randomSamplerConfig ?? defaultRandomSamplerConfig()}
           onChange={(next) => update("randomSamplerConfig", next)}
+          errorPath={errorPath}
         />
       ) : null}
 
@@ -239,9 +305,13 @@ export function applyJobTypeSwitch(def: JobDefinition, nextType: JobType): JobDe
 function TagsEditor({
   value,
   onChange,
+  invalid,
+  errorScope,
 }: {
   value: string[];
   onChange: (next: string[]) => void;
+  invalid?: boolean;
+  errorScope?: string;
 }) {
   const [draft, setDraft] = useState("");
 
@@ -277,7 +347,11 @@ function TagsEditor({
   };
 
   return (
-    <div className="chip-editor">
+    <div
+      className={invalid ? "chip-editor chip-editor-invalid" : "chip-editor"}
+      aria-invalid={invalid || undefined}
+      data-error-path={errorScope}
+    >
       <div className="chip-row">
         {value.map((tag) => (
           <span key={tag} className="chip">

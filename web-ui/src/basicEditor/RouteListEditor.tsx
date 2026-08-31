@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RouteDefinition } from "../types";
 import { TopicCombobox } from "../TopicCombobox";
+import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { FilterExpressionBuilder } from "./FilterExpressionBuilder";
 
 function nextRowId(): string {
@@ -24,6 +25,10 @@ function fromRows(rows: RouteRow[]): RouteDefinition[] {
 export interface RouteListEditorProps {
   value: RouteDefinition[];
   onChange: (next: RouteDefinition[]) => void;
+  /** Base path for error highlighting, e.g. `routeAppConfig.routes`. */
+  errorScope?: string;
+  /** Normalized server-validation error path. */
+  errorPath?: string | null;
   /** Output topic options for the per-route topic combobox. */
   outputTopicOptions?: string[];
   /** Disables the topic comboboxes while the catalog is loading. */
@@ -38,6 +43,8 @@ export interface RouteListEditorProps {
 export function RouteListEditor({
   value,
   onChange,
+  errorScope,
+  errorPath,
   outputTopicOptions = [],
   topicsLoading,
 }: RouteListEditorProps) {
@@ -95,54 +102,77 @@ export function RouteListEditor({
           No routes.
         </p>
       ) : null}
-      {rows.map((row) => (
-        <div key={row.id} className="route-card">
-          <div className="route-card-header">
-            <label className="form-field route-card-title-field">
-              <span className="form-label">Route id</span>
-              <input
-                className="text-input"
-                type="text"
-                autoComplete="off"
-                spellCheck={false}
-                value={row.route.routeId}
-                onChange={(e) => updateRow(row.id, { routeId: e.currentTarget.value })}
+      {rows.map((row, index) => {
+        const routeScope = errorScope ? `${errorScope}[${index}]` : undefined;
+        const routeCardInvalid =
+          routeScope != null && isErrorUnderField(errorPath, routeScope);
+        const routeIdPath = routeScope ? `${routeScope}.routeId` : undefined;
+        const outputTopicPath = routeScope ? `${routeScope}.outputTopic` : undefined;
+        const filterPath = routeScope ? `${routeScope}.filterExpression` : undefined;
+        return (
+          <div
+            key={row.id}
+            className={
+              routeCardInvalid ? "route-card route-card-invalid" : "route-card"
+            }
+            aria-invalid={routeCardInvalid || undefined}
+            data-error-path={routeScope}
+          >
+            <div className="route-card-header">
+              <label className="form-field route-card-title-field">
+                <span className="form-label">Route id</span>
+                <input
+                  className="text-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={row.route.routeId}
+                  onChange={(e) =>
+                    updateRow(row.id, { routeId: e.currentTarget.value })
+                  }
+                  aria-invalid={isErrorOnField(errorPath, routeIdPath) || undefined}
+                  data-error-path={routeIdPath}
+                />
+              </label>
+              <button
+                type="button"
+                className="danger route-card-remove"
+                onClick={() => removeRow(row.id)}
+                aria-label={`Remove route ${row.route.routeId || "(unnamed)"}`}
+              >
+                Remove
+              </button>
+            </div>
+
+            <div className="form-field">
+              <span className="form-label">Output topic</span>
+              <TopicCombobox
+                id={`route-output-topic-${row.id}`}
+                ariaLabel="Output topic"
+                value={row.route.outputTopic}
+                onChange={(next) => updateRow(row.id, { outputTopic: next })}
+                options={outputTopicOptions}
+                disabled={topicsLoading}
+                allowCustom
+                placeholder="Type to filter topics…"
+                invalid={isErrorOnField(errorPath, outputTopicPath)}
+                dataErrorPath={outputTopicPath}
               />
-            </label>
-            <button
-              type="button"
-              className="danger route-card-remove"
-              onClick={() => removeRow(row.id)}
-              aria-label={`Remove route ${row.route.routeId || "(unnamed)"}`}
-            >
-              Remove
-            </button>
-          </div>
+            </div>
 
-          <div className="form-field">
-            <span className="form-label">Output topic</span>
-            <TopicCombobox
-              id={`route-output-topic-${row.id}`}
-              ariaLabel="Output topic"
-              value={row.route.outputTopic}
-              onChange={(next) => updateRow(row.id, { outputTopic: next })}
-              options={outputTopicOptions}
-              disabled={topicsLoading}
-              allowCustom
-              placeholder="Type to filter topics…"
-            />
+            <div className="form-field">
+              <span className="form-label">Filter expression</span>
+              <FilterExpressionBuilder
+                value={row.route.filterExpression}
+                onChange={(next) => updateRow(row.id, { filterExpression: next })}
+                idPrefix={`filter-${row.id}`}
+                invalid={isErrorOnField(errorPath, filterPath)}
+                errorScope={filterPath}
+              />
+            </div>
           </div>
-
-          <div className="form-field">
-            <span className="form-label">Filter expression</span>
-            <FilterExpressionBuilder
-              value={row.route.filterExpression}
-              onChange={(next) => updateRow(row.id, { filterExpression: next })}
-              idPrefix={`filter-${row.id}`}
-            />
-          </div>
-        </div>
-      ))}
+        );
+      })}
       <div>
         <button type="button" onClick={addRow}>
           + Add route
