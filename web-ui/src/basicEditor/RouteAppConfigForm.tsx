@@ -52,26 +52,26 @@ export function RouteAppConfigForm({
         ROUTE_APP config
       </h3>
 
-      <div className="form-field">
-        <span className="form-label">
-          Input topic
-          {topicsLoading ? <span className="muted"> (loading…)</span> : null}
-        </span>
-        <TopicCombobox
-          id={`${SCOPE}-input-topic`}
-          ariaLabel="Input topic"
-          value={value.inputTopic}
-          onChange={(next) => update("inputTopic", next)}
-          options={inputTopics}
-          disabled={topicsLoading}
-          allowCustom
-          placeholder="Type to filter topics…"
-          invalid={isErrorOnField(errorPath, `${SCOPE}.inputTopic`)}
-          dataErrorPath={`${SCOPE}.inputTopic`}
-        />
-      </div>
-
       <div className="form-row">
+        <div className="form-field">
+          <span className="form-label">
+            Input topic
+            {topicsLoading ? <span className="muted"> (loading…)</span> : null}
+          </span>
+          <TopicCombobox
+            id={`${SCOPE}-input-topic`}
+            ariaLabel="Input topic"
+            value={value.inputTopic}
+            onChange={(next) => update("inputTopic", next)}
+            options={inputTopics}
+            disabled={topicsLoading}
+            allowCustom
+            placeholder="Type to filter topics…"
+            invalid={isErrorOnField(errorPath, `${SCOPE}.inputTopic`)}
+            dataErrorPath={`${SCOPE}.inputTopic`}
+          />
+        </div>
+
         <label className="form-field">
           <span className="form-label">Input format</span>
           <select
@@ -149,28 +149,30 @@ export function RouteAppConfigForm({
         />
       </div>
 
-      <div className="form-field">
-        <span className="form-label">Stream properties</span>
-        <StringMapEditor
-          value={value.streamProperties}
-          onChange={(next) => update("streamProperties", next)}
-          addLabel="+ Add stream property"
-          emptyLabel="No stream properties."
-          invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
-          errorScope={`${SCOPE}.streamProperties`}
-        />
-      </div>
+      <div className="form-row">
+        <div className="form-field">
+          <span className="form-label">Stream properties</span>
+          <StringMapEditor
+            value={value.streamProperties}
+            onChange={(next) => update("streamProperties", next)}
+            addLabel="+ Add stream property"
+            emptyLabel="No stream properties."
+            invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
+            errorScope={`${SCOPE}.streamProperties`}
+          />
+        </div>
 
-      <div className="form-field">
-        <span className="form-label">Serde properties</span>
-        <StringMapEditor
-          value={value.serdeProperties}
-          onChange={(next) => update("serdeProperties", next)}
-          addLabel="+ Add serde property"
-          emptyLabel="No serde properties."
-          invalid={isErrorUnderField(errorPath, `${SCOPE}.serdeProperties`)}
-          errorScope={`${SCOPE}.serdeProperties`}
-        />
+        <div className="form-field">
+          <span className="form-label">Serde properties</span>
+          <StringMapEditor
+            value={value.serdeProperties}
+            onChange={(next) => update("serdeProperties", next)}
+            addLabel="+ Add serde property"
+            emptyLabel="No serde properties."
+            invalid={isErrorUnderField(errorPath, `${SCOPE}.serdeProperties`)}
+            errorScope={`${SCOPE}.serdeProperties`}
+          />
+        </div>
       </div>
     </section>
   );

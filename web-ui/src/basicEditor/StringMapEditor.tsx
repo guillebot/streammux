@@ -120,7 +120,7 @@ export function StringMapEditor({
         return (
           <div key={row.id} className="kv-row">
             <input
-              className={dupe ? "text-input invalid" : "text-input"}
+              className={dupe ? "text-input kv-key invalid" : "text-input kv-key"}
               type="text"
               placeholder={keyPlaceholder}
               autoComplete="off"
@@ -135,28 +135,30 @@ export function StringMapEditor({
               aria-invalid={dupe || undefined}
               title={dupe ? "Duplicate key" : undefined}
             />
-            <input
-              className="text-input"
-              type="text"
-              placeholder={valuePlaceholder}
-              autoComplete="off"
-              spellCheck={false}
-              value={row.value}
-              onChange={(e) => {
-                const next = rows.map((r) =>
-                  r.id === row.id ? { ...r, value: e.currentTarget.value } : r,
-                );
-                commit(next);
-              }}
-            />
-            <button
-              type="button"
-              className="kv-remove"
-              aria-label="Remove entry"
-              onClick={() => commit(rows.filter((r) => r.id !== row.id))}
-            >
-              ×
-            </button>
+            <div className="kv-value">
+              <input
+                className="text-input"
+                type="text"
+                placeholder={valuePlaceholder}
+                autoComplete="off"
+                spellCheck={false}
+                value={row.value}
+                onChange={(e) => {
+                  const next = rows.map((r) =>
+                    r.id === row.id ? { ...r, value: e.currentTarget.value } : r,
+                  );
+                  commit(next);
+                }}
+              />
+              <button
+                type="button"
+                className="kv-remove"
+                aria-label="Remove entry"
+                onClick={() => commit(rows.filter((r) => r.id !== row.id))}
+              >
+                ×
+              </button>
+            </div>
           </div>
         );
       })}

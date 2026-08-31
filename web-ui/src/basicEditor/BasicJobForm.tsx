@@ -103,106 +103,112 @@ export function BasicJobForm({
   };
 
   return (
-    <div className="form-stack" ref={rootRef}>
-      <label className="form-field">
-        <span className="form-label">Job id</span>
-        <input
-          className="text-input"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          value={def.jobId}
-          onChange={(e) => update("jobId", e.currentTarget.value)}
-          aria-invalid={isErrorOnField(errorPath, "jobId") || undefined}
-          data-error-path="jobId"
-        />
-      </label>
+    <div className="form-stack form-stack--wide" ref={rootRef}>
+      <div className="form-row">
+        <label className="form-field">
+          <span className="form-label">Job id</span>
+          <input
+            className="text-input"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={def.jobId}
+            onChange={(e) => update("jobId", e.currentTarget.value)}
+            aria-invalid={isErrorOnField(errorPath, "jobId") || undefined}
+            data-error-path="jobId"
+          />
+        </label>
 
-      <label className="form-field">
-        <span className="form-label">Job type</span>
-        <select
-          className="select-inline form-select"
-          value={def.jobType}
-          onChange={(e) => onJobTypeChange(e.currentTarget.value as JobType)}
-          aria-invalid={isErrorOnField(errorPath, "jobType") || undefined}
-          data-error-path="jobType"
-        >
-          {JOB_TYPE_OPTIONS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-          {unsupportedJobType ? (
-            // Keep the current value selectable so the select doesn't silently rewrite
-            // an unknown jobType coming from the wire (e.g. ALARMS_TO_ZTR).
-            <option value={def.jobType}>{def.jobType}</option>
-          ) : null}
-        </select>
-      </label>
+        <label className="form-field">
+          <span className="form-label">Job type</span>
+          <select
+            className="select-inline form-select"
+            value={def.jobType}
+            onChange={(e) => onJobTypeChange(e.currentTarget.value as JobType)}
+            aria-invalid={isErrorOnField(errorPath, "jobType") || undefined}
+            data-error-path="jobType"
+          >
+            {JOB_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+            {unsupportedJobType ? (
+              // Keep the current value selectable so the select doesn't silently rewrite
+              // an unknown jobType coming from the wire (e.g. ALARMS_TO_ZTR).
+              <option value={def.jobType}>{def.jobType}</option>
+            ) : null}
+          </select>
+        </label>
+      </div>
 
-      <label className="form-field">
-        <span className="form-label">Desired state</span>
-        <select
-          className="select-inline form-select"
-          value={def.desiredState}
-          onChange={(e) =>
-            update("desiredState", e.currentTarget.value as DesiredJobState)
-          }
-          aria-invalid={isErrorOnField(errorPath, "desiredState") || undefined}
-          data-error-path="desiredState"
-        >
-          {DESIRED_STATE_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-          {def.desiredState !== "ACTIVE" && def.desiredState !== "PAUSED" ? (
-            // DELETED is a sentinel the API emits; keep it selectable if it arrives so
-            // the current value is preserved on save even though we don't offer it.
-            <option value={def.desiredState}>{def.desiredState}</option>
-          ) : null}
-        </select>
-      </label>
+      <div className="form-row">
+        <label className="form-field">
+          <span className="form-label">Desired state</span>
+          <select
+            className="select-inline form-select"
+            value={def.desiredState}
+            onChange={(e) =>
+              update("desiredState", e.currentTarget.value as DesiredJobState)
+            }
+            aria-invalid={isErrorOnField(errorPath, "desiredState") || undefined}
+            data-error-path="desiredState"
+          >
+            {DESIRED_STATE_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+            {def.desiredState !== "ACTIVE" && def.desiredState !== "PAUSED" ? (
+              // DELETED is a sentinel the API emits; keep it selectable if it arrives so
+              // the current value is preserved on save even though we don't offer it.
+              <option value={def.desiredState}>{def.desiredState}</option>
+            ) : null}
+          </select>
+        </label>
 
-      <label className="form-field">
-        <span className="form-label">Site affinity</span>
-        <input
-          className="text-input"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="site-a"
-          value={def.siteAffinity}
-          onChange={(e) => update("siteAffinity", e.currentTarget.value)}
-          aria-invalid={isErrorOnField(errorPath, "siteAffinity") || undefined}
-          data-error-path="siteAffinity"
-        />
-      </label>
+        <label className="form-field">
+          <span className="form-label">Site affinity</span>
+          <input
+            className="text-input"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="site-a"
+            value={def.siteAffinity}
+            onChange={(e) => update("siteAffinity", e.currentTarget.value)}
+            aria-invalid={isErrorOnField(errorPath, "siteAffinity") || undefined}
+            data-error-path="siteAffinity"
+          />
+        </label>
+      </div>
 
-      <label className="form-field">
-        <span className="form-label">Priority</span>
-        <input
-          className="text-input"
-          type="number"
-          value={Number.isFinite(def.priority) ? def.priority : 0}
-          onChange={onNumberChange("priority")}
-          aria-invalid={isErrorOnField(errorPath, "priority") || undefined}
-          data-error-path="priority"
-        />
-      </label>
+      <div className="form-row">
+        <label className="form-field">
+          <span className="form-label">Priority</span>
+          <input
+            className="text-input"
+            type="number"
+            value={Number.isFinite(def.priority) ? def.priority : 0}
+            onChange={onNumberChange("priority")}
+            aria-invalid={isErrorOnField(errorPath, "priority") || undefined}
+            data-error-path="priority"
+          />
+        </label>
 
-      <label className="form-field">
-        <span className="form-label">Parallelism</span>
-        <input
-          className="text-input"
-          type="number"
-          min={0}
-          value={Number.isFinite(def.parallelism) ? def.parallelism : 0}
-          onChange={onNumberChange("parallelism")}
-          aria-invalid={isErrorOnField(errorPath, "parallelism") || undefined}
-          data-error-path="parallelism"
-        />
-      </label>
+        <label className="form-field">
+          <span className="form-label">Parallelism</span>
+          <input
+            className="text-input"
+            type="number"
+            min={0}
+            value={Number.isFinite(def.parallelism) ? def.parallelism : 0}
+            onChange={onNumberChange("parallelism")}
+            aria-invalid={isErrorOnField(errorPath, "parallelism") || undefined}
+            data-error-path="parallelism"
+          />
+        </label>
+      </div>
 
       <div className="form-field">
         <span className="form-label">Labels</span>

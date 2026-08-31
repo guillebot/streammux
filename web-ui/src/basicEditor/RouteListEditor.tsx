@@ -118,8 +118,8 @@ export function RouteListEditor({
             aria-invalid={routeCardInvalid || undefined}
             data-error-path={routeScope}
           >
-            <div className="route-card-header">
-              <label className="form-field route-card-title-field">
+            <div className="form-row">
+              <label className="form-field">
                 <span className="form-label">Route id</span>
                 <input
                   className="text-input"
@@ -134,30 +134,33 @@ export function RouteListEditor({
                   data-error-path={routeIdPath}
                 />
               </label>
-              <button
-                type="button"
-                className="danger route-card-remove"
-                onClick={() => removeRow(row.id)}
-                aria-label={`Remove route ${row.route.routeId || "(unnamed)"}`}
-              >
-                Remove
-              </button>
-            </div>
 
-            <div className="form-field">
-              <span className="form-label">Output topic</span>
-              <TopicCombobox
-                id={`route-output-topic-${row.id}`}
-                ariaLabel="Output topic"
-                value={row.route.outputTopic}
-                onChange={(next) => updateRow(row.id, { outputTopic: next })}
-                options={outputTopicOptions}
-                disabled={topicsLoading}
-                allowCustom
-                placeholder="Type to filter topics…"
-                invalid={isErrorOnField(errorPath, outputTopicPath)}
-                dataErrorPath={outputTopicPath}
-              />
+              <div className="form-field">
+                <span className="form-label">Output topic</span>
+                <TopicCombobox
+                  id={`route-output-topic-${row.id}`}
+                  ariaLabel="Output topic"
+                  value={row.route.outputTopic}
+                  onChange={(next) => updateRow(row.id, { outputTopic: next })}
+                  options={outputTopicOptions}
+                  disabled={topicsLoading}
+                  allowCustom
+                  placeholder="Type to filter topics…"
+                  invalid={isErrorOnField(errorPath, outputTopicPath)}
+                  dataErrorPath={outputTopicPath}
+                />
+              </div>
+
+              <div className="form-field form-row-end">
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => removeRow(row.id)}
+                  aria-label={`Remove route ${row.route.routeId || "(unnamed)"}`}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
 
             <div className="form-field">

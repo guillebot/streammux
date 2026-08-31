@@ -36,55 +36,57 @@ export function RandomSamplerConfigForm({
         RANDOM_SAMPLER config
       </h3>
 
-      <label className="form-field">
-        <span className="form-label">Input topic</span>
-        <input
-          className="text-input"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          value={value.inputTopic}
-          onChange={(e) => update("inputTopic", e.currentTarget.value)}
-          aria-invalid={
-            isErrorOnField(errorPath, `${SCOPE}.inputTopic`) || undefined
-          }
-          data-error-path={`${SCOPE}.inputTopic`}
-        />
-      </label>
+      <div className="form-row">
+        <label className="form-field">
+          <span className="form-label">Input topic</span>
+          <input
+            className="text-input"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={value.inputTopic}
+            onChange={(e) => update("inputTopic", e.currentTarget.value)}
+            aria-invalid={
+              isErrorOnField(errorPath, `${SCOPE}.inputTopic`) || undefined
+            }
+            data-error-path={`${SCOPE}.inputTopic`}
+          />
+        </label>
 
-      <label className="form-field">
-        <span className="form-label">Output topic</span>
-        <input
-          className="text-input"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          value={value.outputTopic}
-          onChange={(e) => update("outputTopic", e.currentTarget.value)}
-          aria-invalid={
-            isErrorOnField(errorPath, `${SCOPE}.outputTopic`) || undefined
-          }
-          data-error-path={`${SCOPE}.outputTopic`}
-        />
-      </label>
+        <label className="form-field">
+          <span className="form-label">Output topic</span>
+          <input
+            className="text-input"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={value.outputTopic}
+            onChange={(e) => update("outputTopic", e.currentTarget.value)}
+            aria-invalid={
+              isErrorOnField(errorPath, `${SCOPE}.outputTopic`) || undefined
+            }
+            data-error-path={`${SCOPE}.outputTopic`}
+          />
+        </label>
 
-      <label className="form-field">
-        <span className="form-label">
-          Sample rate
-          <span className="form-hint"> (0.0 – 1.0)</span>
-        </span>
-        <input
-          className="text-input"
-          type="number"
-          min={0}
-          max={1}
-          step={0.01}
-          value={Number.isFinite(value.rate) ? value.rate : 0}
-          onChange={onRateChange}
-          aria-invalid={isErrorOnField(errorPath, `${SCOPE}.rate`) || undefined}
-          data-error-path={`${SCOPE}.rate`}
-        />
-      </label>
+        <label className="form-field">
+          <span className="form-label">
+            Sample rate
+            <span className="form-hint"> (0.0 – 1.0)</span>
+          </span>
+          <input
+            className="text-input"
+            type="number"
+            min={0}
+            max={1}
+            step={0.01}
+            value={Number.isFinite(value.rate) ? value.rate : 0}
+            onChange={onRateChange}
+            aria-invalid={isErrorOnField(errorPath, `${SCOPE}.rate`) || undefined}
+            data-error-path={`${SCOPE}.rate`}
+          />
+        </label>
+      </div>
 
       <div className="form-field">
         <span className="form-label">Stream properties</span>

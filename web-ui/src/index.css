@@ -1193,6 +1193,10 @@ tr:last-child td {
   max-width: 28rem;
 }
 
+.form-stack.form-stack--wide {
+  max-width: none;
+}
+
 .form-field {
   display: flex;
   flex-direction: column;
@@ -1587,16 +1591,31 @@ select.form-select {
 
 .kv-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Match the .form-row column split so key/value line up with the fields above. */
+.kv-row > .kv-key,
+.kv-row > .kv-value {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.kv-value {
+  display: flex;
   gap: 0.4rem;
   align-items: center;
 }
 
-.kv-row .text-input {
+.kv-value > .text-input {
   flex: 1 1 0;
   min-width: 0;
 }
 
 .kv-remove {
+  flex: 0 0 auto;
   width: 2rem;
   padding: 0.35rem 0;
   line-height: 1;
@@ -1698,6 +1717,11 @@ select.form-select {
   min-width: 0;
 }
 
+.form-row-end {
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
 .form-hint {
   font-weight: 400;
   color: var(--muted);
@@ -1718,22 +1742,6 @@ select.form-select {
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
-}
-
-.route-card-header {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.6rem;
-}
-
-.route-card-title-field {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.route-card-remove {
-  flex: 0 0 auto;
-  align-self: flex-end;
 }
 
 .filter-textarea {
