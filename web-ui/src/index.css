@@ -1666,3 +1666,78 @@ select.form-select {
   font: inherit;
   outline: none;
 }
+
+.config-panel {
+  margin-top: 0.5rem;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.config-panel-heading {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.form-row > .form-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.form-hint {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.route-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.route-card-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.route-card-title-field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.route-card-remove {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.filter-textarea {
+  min-height: 3.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}

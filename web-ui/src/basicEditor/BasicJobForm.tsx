@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
-import type { DesiredJobState, JobDefinition, JobType } from "../types";
+import type {
+  DesiredJobState,
+  JobDefinition,
+  JobType,
+  RandomSamplerConfig,
+  RouteAppConfig,
+} from "../types";
+import { RandomSamplerConfigForm } from "./RandomSamplerConfigForm";
+import { RouteAppConfigForm } from "./RouteAppConfigForm";
+import { StringMapEditor } from "./StringMapEditor";
 
 const JOB_TYPE_OPTIONS: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER"];
 const DESIRED_STATE_OPTIONS: DesiredJobState[] = ["ACTIVE", "PAUSED"];
@@ -12,9 +21,9 @@ export interface BasicJobFormProps {
 }
 
 /**
- * Basic tab form for editing top-level JobDefinition fields (scalars, labels, tags).
- * Two-way bound to the caller's parsed def; every edit calls `onChange` with a fresh
- * object. Config panels (ROUTE_APP, RANDOM_SAMPLER) land in a follow-up commit.
+ * Basic tab form for editing top-level JobDefinition fields plus the per-jobType
+ * config panel. Two-way bound to the caller's parsed def; every edit calls
+ * `onChange` with a fresh object.
  */
 export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProps) {
   if (!def) {
@@ -40,6 +49,11 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
       if (Number.isFinite(v)) update(key, v);
     };
 
+  const onJobTypeChange = (nextType: JobType) => {
+    if (nextType === def.jobType) return;
+    onChange(applyJobTypeSwitch(def, nextType));
+  };
+
   return (
     <div className="form-stack">
       <label className="form-field">
@@ -59,7 +73,7 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
         <select
           className="select-inline form-select"
           value={def.jobType}
-          onChange={(e) => update("jobType", e.currentTarget.value as JobType)}
+          onChange={(e) => onJobTypeChange(e.currentTarget.value as JobType)}
         >
           {JOB_TYPE_OPTIONS.map((t) => (
             <option key={t} value={t}>
@@ -132,9 +146,11 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
 
       <div className="form-field">
         <span className="form-label">Labels</span>
-        <LabelsEditor
+        <StringMapEditor
           value={def.labels ?? {}}
           onChange={(next) => update("labels", next)}
+          addLabel="+ Add label"
+          emptyLabel="No labels."
         />
       </div>
 
@@ -146,6 +162,20 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
         />
       </div>
 
+      {def.jobType === "ROUTE_APP" ? (
+        <RouteAppConfigForm
+          value={def.routeAppConfig ?? defaultRouteAppConfig()}
+          onChange={(next) => update("routeAppConfig", next)}
+        />
+      ) : null}
+
+      {def.jobType === "RANDOM_SAMPLER" ? (
+        <RandomSamplerConfigForm
+          value={def.randomSamplerConfig ?? defaultRandomSamplerConfig()}
+          onChange={(next) => update("randomSamplerConfig", next)}
+        />
+      ) : null}
+
       {unsupportedJobType ? (
         <p className="muted" style={{ marginTop: "0.5rem" }}>
           Job type <code className="mono">{def.jobType}</code> is not supported in the
@@ -156,157 +186,52 @@ export function BasicJobForm({ def, jsonParseError, onChange }: BasicJobFormProp
   );
 }
 
-// ---- Labels editor ---------------------------------------------------------
+// ---- JobType switch --------------------------------------------------------
 
-export interface LabelRow {
-  id: string;
-  key: string;
-  value: string;
+export function defaultRouteAppConfig(): RouteAppConfig {
+  return {
+    inputTopic: "",
+    inputFormat: "JSON",
+    outputFormat: "JSON",
+    protobufSchemaSubject: null,
+    routes: [],
+    streamProperties: {},
+    serdeProperties: {},
+  };
 }
 
-function nextRowId(): string {
-  const c = typeof crypto !== "undefined" ? crypto : undefined;
-  return c && "randomUUID" in c ? c.randomUUID() : Math.random().toString(36).slice(2);
+export function defaultRandomSamplerConfig(): RandomSamplerConfig {
+  return {
+    inputTopic: "",
+    outputTopic: "",
+    rate: 0.1,
+    streamProperties: {},
+  };
 }
 
-export function labelsToRows(labels: Record<string, string>): LabelRow[] {
-  return Object.entries(labels).map(([k, v]) => ({ id: nextRowId(), key: k, value: v }));
-}
-
-export function rowsToLabels(rows: LabelRow[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const row of rows) {
-    const key = row.key.trim();
-    if (!key) continue;
-    // Last write wins; the duplicate-key row shows an error state in the UI so the
-    // user can see something is off before saving.
-    out[key] = row.value;
+/**
+ * Rewrite the def so exactly one of `routeAppConfig` / `randomSamplerConfig` is
+ * populated to match the new jobType. Preserves the existing config for the target
+ * type if one is already present so switching back and forth is non-destructive.
+ */
+export function applyJobTypeSwitch(def: JobDefinition, nextType: JobType): JobDefinition {
+  if (nextType === "ROUTE_APP") {
+    return {
+      ...def,
+      jobType: "ROUTE_APP",
+      routeAppConfig: def.routeAppConfig ?? defaultRouteAppConfig(),
+      randomSamplerConfig: null,
+    };
   }
-  return out;
-}
-
-function LabelsEditor({
-  value,
-  onChange,
-}: {
-  value: Record<string, string>;
-  onChange: (next: Record<string, string>) => void;
-}) {
-  // Rows are the local editing state so typing in a key input doesn't shuffle row
-  // order every keystroke. We only re-derive from `value` when the parent's object
-  // has actually changed to something we didn't produce (e.g. a JSON-tab edit).
-  const [rows, setRows] = useState<LabelRow[]>(() => labelsToRows(value));
-  const lastEmittedRef = useRef<Record<string, string>>(value);
-
-  useEffect(() => {
-    if (value === lastEmittedRef.current) return;
-    const currentSerialized = rowsToLabels(rows);
-    if (shallowEqualRecord(currentSerialized, value)) {
-      lastEmittedRef.current = value;
-      return;
-    }
-    setRows(labelsToRows(value));
-    lastEmittedRef.current = value;
-    // Intentionally exclude `rows` from deps so external updates don't loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  const commit = useCallback(
-    (nextRows: LabelRow[]) => {
-      setRows(nextRows);
-      const next = rowsToLabels(nextRows);
-      lastEmittedRef.current = next;
-      onChange(next);
-    },
-    [onChange],
-  );
-
-  const duplicateKeys = useMemo(() => {
-    const seen = new Map<string, number>();
-    const dupes = new Set<string>();
-    for (const r of rows) {
-      const k = r.key.trim();
-      if (!k) continue;
-      const prev = seen.get(k);
-      if (prev != null) dupes.add(k);
-      else seen.set(k, 1);
-    }
-    return dupes;
-  }, [rows]);
-
-  return (
-    <div className="kv-editor">
-      {rows.length === 0 ? (
-        <p className="muted" style={{ margin: 0, fontSize: "0.85rem" }}>
-          No labels.
-        </p>
-      ) : null}
-      {rows.map((row) => {
-        const trimmedKey = row.key.trim();
-        const dupe = trimmedKey !== "" && duplicateKeys.has(trimmedKey);
-        return (
-          <div key={row.id} className="kv-row">
-            <input
-              className={dupe ? "text-input invalid" : "text-input"}
-              type="text"
-              placeholder="key"
-              autoComplete="off"
-              spellCheck={false}
-              value={row.key}
-              onChange={(e) => {
-                const next = rows.map((r) =>
-                  r.id === row.id ? { ...r, key: e.currentTarget.value } : r,
-                );
-                commit(next);
-              }}
-              aria-invalid={dupe || undefined}
-              title={dupe ? "Duplicate label key" : undefined}
-            />
-            <input
-              className="text-input"
-              type="text"
-              placeholder="value"
-              autoComplete="off"
-              spellCheck={false}
-              value={row.value}
-              onChange={(e) => {
-                const next = rows.map((r) =>
-                  r.id === row.id ? { ...r, value: e.currentTarget.value } : r,
-                );
-                commit(next);
-              }}
-            />
-            <button
-              type="button"
-              className="kv-remove"
-              aria-label="Remove label"
-              onClick={() => commit(rows.filter((r) => r.id !== row.id))}
-            >
-              ×
-            </button>
-          </div>
-        );
-      })}
-      <div>
-        <button
-          type="button"
-          onClick={() =>
-            commit([...rows, { id: nextRowId(), key: "", value: "" }])
-          }
-        >
-          + Add label
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function shallowEqualRecord(a: Record<string, string>, b: Record<string, string>): boolean {
-  const ak = Object.keys(a);
-  const bk = Object.keys(b);
-  if (ak.length !== bk.length) return false;
-  for (const k of ak) if (a[k] !== b[k]) return false;
-  return true;
+  if (nextType === "RANDOM_SAMPLER") {
+    return {
+      ...def,
+      jobType: "RANDOM_SAMPLER",
+      randomSamplerConfig: def.randomSamplerConfig ?? defaultRandomSamplerConfig(),
+      routeAppConfig: null,
+    };
+  }
+  return { ...def, jobType: nextType };
 }
 
 // ---- Tags editor -----------------------------------------------------------
