@@ -74,10 +74,23 @@ class RouteAppTopologyFactoryTest {
 
         Properties properties = factory.properties(definition, 9);
 
-        assertEquals("job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
+        assertEquals("streammux-job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
         assertEquals("kafka.example:9092", properties.getProperty(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG));
         assertEquals("earliest", properties.getProperty(StreamsConfig.consumerPrefix("auto.offset.reset")));
         assertEquals(1, properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG));
+    }
+
+    @Test
+    void ignoresApplicationIdOverrideInStreamProperties() {
+        JobDefinition definition = jobDefinitionWithStreamProperties(Map.of(
+            StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka.example:9092",
+            StreamsConfig.APPLICATION_ID_CONFIG, "custom-override"
+        ));
+        RouteAppTopologyFactory factory = new RouteAppTopologyFactory();
+
+        Properties properties = factory.properties(definition, 9);
+
+        assertEquals("streammux-job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
     }
 
     @Test
@@ -92,6 +105,37 @@ class RouteAppTopologyFactoryTest {
 
     private static JobDefinition jobDefinition() {
         return jobDefinitionWithParallelism(1);
+    }
+
+    private static JobDefinition jobDefinitionWithStreamProperties(Map<String, String> streamProperties) {
+        return new JobDefinition(
+            "job-1",
+            1,
+            JobType.ROUTE_APP,
+            DesiredJobState.ACTIVE,
+            1,
+            "site-a",
+            LeasePolicy.defaults(),
+            1,
+            new RouteAppConfig(
+                "input-topic",
+                PayloadFormat.JSON,
+                PayloadFormat.JSON,
+                null,
+                List.of(
+                    new RouteDefinition("route-1", "message.type == \"ALARM\"", "alerts-topic"),
+                    new RouteDefinition("route-2", "contains-bar", "contains-topic")
+                ),
+                streamProperties,
+                Map.of()
+            ),
+            null,
+            null,
+            Map.of(),
+            List.of(),
+            Instant.parse("2024-01-01T00:00:00Z"),
+            "tester"
+        );
     }
 
     private static JobDefinition jobDefinitionWithParallelism(int parallelism) {

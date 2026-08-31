@@ -150,7 +150,7 @@ class AlarmsToZtrTopologyFactoryTest {
 
         Properties properties = factory.properties(definition, 9);
 
-        assertEquals("job-alarms-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
+        assertEquals("streammux-job-alarms-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
         assertEquals("kafka.example:9092", properties.getProperty(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG));
         assertEquals(Serdes.StringSerde.class, properties.get(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG));
         assertEquals(Serdes.ByteArraySerde.class, properties.get(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG));
