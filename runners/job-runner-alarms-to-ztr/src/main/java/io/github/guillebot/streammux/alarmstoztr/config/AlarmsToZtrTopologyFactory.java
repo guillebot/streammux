@@ -65,7 +65,7 @@ public class AlarmsToZtrTopologyFactory {
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
         properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class);
         properties.putAll(streamProperties);
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaStreamsApplicationIds.applicationId(definition.jobId(), leaseEpoch));
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaStreamsApplicationIds.applicationId(definition.jobId()));
         if (!properties.containsKey(StreamsConfig.NUM_STREAM_THREADS_CONFIG)) {
             properties.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, Math.max(1, definition.parallelism()));
         }

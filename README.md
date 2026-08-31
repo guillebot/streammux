@@ -142,7 +142,7 @@ Lease ownership is driven by desired state and lease expiry:
 The orchestrator resolves a `JobRunner` implementation for the job type. Today the only implementation is `RouteAppRunner`, which:
 
 - builds a Kafka Streams topology from `routeAppConfig`
-- uses `jobId` plus lease epoch as the Kafka Streams application id
+- uses a stable Kafka Streams application id of `streammux-{jobId}` (one consumer group per job)
 - stops and restarts the stream when lease ownership changes
 
 ## `route-app` Filter Expressions

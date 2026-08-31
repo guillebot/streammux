@@ -142,7 +142,7 @@ class RandomSamplerTopologyFactoryTest {
         JobDefinition definition = jobDefinition(0.5d);
         RandomSamplerTopologyFactory factory = new RandomSamplerTopologyFactory();
         Properties properties = factory.properties(definition, 7);
-        assertEquals("streammux-job-1-7", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
+        assertEquals("streammux-job-1", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
         assertEquals("kafka.example:9092", properties.getProperty(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG));
     }
 

@@ -74,7 +74,7 @@ class RouteAppTopologyFactoryTest {
 
         Properties properties = factory.properties(definition, 9);
 
-        assertEquals("streammux-job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
+        assertEquals("streammux-job-1", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
         assertEquals("kafka.example:9092", properties.getProperty(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG));
         assertEquals("earliest", properties.getProperty(StreamsConfig.consumerPrefix("auto.offset.reset")));
         assertEquals(1, properties.get(StreamsConfig.NUM_STREAM_THREADS_CONFIG));
@@ -90,7 +90,7 @@ class RouteAppTopologyFactoryTest {
 
         Properties properties = factory.properties(definition, 9);
 
-        assertEquals("streammux-job-1-9", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
+        assertEquals("streammux-job-1", properties.getProperty(StreamsConfig.APPLICATION_ID_CONFIG));
     }
 
     @Test
