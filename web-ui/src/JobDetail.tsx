@@ -34,6 +34,8 @@ import { JsonEditor } from "./JsonEditor";
 import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
 import { extractPathFromMessage } from "./validationPathRange";
 import { newJobTemplate } from "./templates";
+import { BasicJobForm } from "./basicEditor/BasicJobForm";
+import { Tabs, TabPanel } from "./components/Tabs";
 import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "./types";
 
 export function JobDetail() {
@@ -76,7 +78,20 @@ export function JobDetail() {
       return { def: null, error: e instanceof Error ? e.message : "Invalid JSON" };
     }
   }, [jsonText]);
+  const parsedDef = parseResult.def;
   const jsonParseError = parseResult.error;
+
+  const [activeTab, setActiveTab] = useState<"basic" | "advanced">("basic");
+
+  // Live two-way binding: Basic-form edits re-serialize the whole def back into
+  // jsonText so the Advanced tab reflects them and existing save/validate paths
+  // (which read jsonText) keep working unchanged.
+  const onBasicChange = useCallback(
+    (next: JobDefinition) => {
+      setJsonText(JSON.stringify(next, null, 2));
+    },
+    [setJsonText],
+  );
 
   const [status, setStatus] = useState<JobRuntimeStatus | null | undefined>(undefined);
   const [lease, setLease] = useState<JobLease | null | undefined>(undefined);
@@ -375,21 +390,41 @@ export function JobDetail() {
 
       {!loading || isNew ? (
         <>
-          <label className="muted" htmlFor="def-json">
-            Job definition (JSON)
-          </label>
-          <JsonEditor
-            id="def-json"
-            ariaLabel="Job definition (JSON)"
-            value={jsonText}
-            onChange={setJsonText}
-            schema={jobDefinitionSchema}
-            externalDiagnostic={
-              validation.kind === "fail"
-                ? { path: validation.path, message: validation.message }
-                : null
-            }
-          />
+          <Tabs<"basic" | "advanced">
+            value={activeTab}
+            onChange={setActiveTab}
+            ariaLabel="Job definition editor mode"
+            idPrefix="job-def"
+            tabs={[
+              { value: "basic", label: "Basic" },
+              { value: "advanced", label: "Advanced" },
+            ]}
+          >
+            <TabPanel value="basic">
+              <BasicJobForm
+                def={parsedDef}
+                jsonParseError={jsonParseError}
+                onChange={onBasicChange}
+              />
+            </TabPanel>
+            <TabPanel value="advanced">
+              <label className="muted" htmlFor="def-json">
+                Job definition (JSON)
+              </label>
+              <JsonEditor
+                id="def-json"
+                ariaLabel="Job definition (JSON)"
+                value={jsonText}
+                onChange={setJsonText}
+                schema={jobDefinitionSchema}
+                externalDiagnostic={
+                  validation.kind === "fail"
+                    ? { path: validation.path, message: validation.message }
+                    : null
+                }
+              />
+            </TabPanel>
+          </Tabs>
 
           {validation.kind === "ok" ? (
             <div className="validation-banner ok">Definition is valid.</div>
