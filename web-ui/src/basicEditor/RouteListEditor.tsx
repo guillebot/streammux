@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RouteDefinition } from "../types";
 import { TopicCombobox } from "../TopicCombobox";
+import { FilterExpressionBuilder } from "./FilterExpressionBuilder";
 
 function nextRowId(): string {
   const c = typeof crypto !== "undefined" ? crypto : undefined;
@@ -132,20 +133,14 @@ export function RouteListEditor({
             />
           </div>
 
-          <label className="form-field">
+          <div className="form-field">
             <span className="form-label">Filter expression</span>
-            <textarea
-              className="text-input mono filter-textarea"
-              rows={2}
-              spellCheck={false}
-              autoComplete="off"
+            <FilterExpressionBuilder
               value={row.route.filterExpression}
-              onChange={(e) =>
-                updateRow(row.id, { filterExpression: e.currentTarget.value })
-              }
-              placeholder='e.g. type == "alarm" && severity in ["MAJOR","CRITICAL"]'
+              onChange={(next) => updateRow(row.id, { filterExpression: next })}
+              idPrefix={`filter-${row.id}`}
             />
-          </label>
+          </div>
         </div>
       ))}
       <div>

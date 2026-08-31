@@ -1741,3 +1741,144 @@ select.form-select {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   resize: vertical;
 }
+
+.filter-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-mode-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.15rem;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  align-self: flex-start;
+}
+
+.filter-mode-toggle button {
+  padding: 0.2rem 0.7rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.filter-mode-toggle button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.filter-mode-toggle button.filter-mode-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.filter-mode-toggle button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.filter-parse-error {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.filter-group-root {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.filter-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.filter-group-header-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-left: auto;
+}
+
+.filter-group-empty {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.filter-group-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.filter-group-child {
+  min-width: 0;
+}
+
+.filter-rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+}
+
+.filter-negate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.filter-op-select {
+  flex: 0 0 auto;
+  min-width: 5rem;
+}
+
+.filter-path-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.filter-value-input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.filter-rule-remove {
+  flex: 0 0 auto;
+  width: 2rem;
+  padding: 0.35rem 0;
+  line-height: 1;
+  border-radius: 999px;
+}
