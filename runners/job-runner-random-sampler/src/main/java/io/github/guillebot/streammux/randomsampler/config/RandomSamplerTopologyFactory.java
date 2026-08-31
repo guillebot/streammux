@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.randomsampler.config;
 
 import io.github.guillebot.streammux.contracts.config.RandomSamplerConfig;
+import io.github.guillebot.streammux.contracts.kafka.KafkaStreamsApplicationIds;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -34,11 +35,11 @@ public class RandomSamplerTopologyFactory {
         RandomSamplerConfig config = definition.randomSamplerConfig();
         Map<String, String> streamProperties = config.streamProperties() == null ? Map.of() : config.streamProperties();
         Properties properties = new Properties();
-        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, definition.jobId() + "-" + leaseEpoch);
         properties.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, streamProperties.getOrDefault(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092"));
         properties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.StringSerde.class);
         properties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class);
         properties.putAll(streamProperties);
+        properties.put(StreamsConfig.APPLICATION_ID_CONFIG, KafkaStreamsApplicationIds.applicationId(definition.jobId(), leaseEpoch));
         if (!properties.containsKey(StreamsConfig.NUM_STREAM_THREADS_CONFIG)) {
             properties.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG, Math.max(1, definition.parallelism()));
         }
