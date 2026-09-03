@@ -1,23 +1,29 @@
-import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-function readRepoVersion(): string | undefined {
-  for (const rel of ["../VERSION", "VERSION"]) {
+function resolveAppVersion(): string {
+  const fromEnv = process.env.VITE_APP_VERSION?.trim();
+  if (fromEnv) return fromEnv;
+
+  for (const cwd of [resolve(__dirname, ".."), __dirname]) {
     try {
-      const value = readFileSync(resolve(__dirname, rel), "utf8").trim();
-      if (value) return value;
+      const version = execSync("bash scripts/build-app-version.sh", {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (version) return version;
     } catch {
-      // try next path (local dev vs Docker build context)
+      // try next path (repo root vs flat Docker /app layout)
     }
   }
-  return undefined;
+
+  return "dev";
 }
 
-if (!process.env.VITE_APP_VERSION) {
-  process.env.VITE_APP_VERSION = readRepoVersion() ?? "dev";
-}
+process.env.VITE_APP_VERSION = resolveAppVersion();
 
 const apiTarget = process.env.VITE_DEV_API_PROXY ?? "http://127.0.0.1:8080";
 const catalogTarget = process.env.VITE_DEV_CATALOG_PROXY ?? "http://127.0.0.1:3000";
