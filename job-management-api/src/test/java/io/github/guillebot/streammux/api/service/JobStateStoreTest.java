@@ -73,7 +73,7 @@ class JobStateStoreTest {
             Instant.parse("2024-01-01T00:00:30Z"),
             new WorkerMetadata("worker-1", "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(1, 2, 3)
+            new LagMetrics(1, 2, 3, 4, 5)
         ));
         store.appendEvent(jobEvent("job-1", EventType.CREATED));
 

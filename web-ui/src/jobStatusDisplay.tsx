@@ -35,12 +35,18 @@ export function formatCount(n: number | null | undefined): string {
 
 export function formatRatePerSecond(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `${n.toLocaleString()} /s`;
+  return `${n.toLocaleString()}/s`;
 }
 
 export function hasTrafficMetrics(lag: LagMetrics | null | undefined): boolean {
   if (!lag) return false;
-  return lag.processedCount > 0 || lag.outputRatePerSecond > 0 || lag.inputLag > 0;
+  return (
+    lag.inputCount > 0 ||
+    lag.inputRatePerSecond > 0 ||
+    lag.outputCount > 0 ||
+    lag.outputRatePerSecond > 0 ||
+    lag.inputLag > 0
+  );
 }
 
 export function statusDisplayLabel(status: JobRuntimeStatus | null | undefined): string {
@@ -53,11 +59,25 @@ export function statusDisplayTitle(status: JobRuntimeStatus | null | undefined):
   return status?.failureReason ?? undefined;
 }
 
+function formatTrafficSide(
+  label: "in" | "out",
+  rate: number | null | undefined,
+  count: number | null | undefined,
+  includeLag: boolean,
+  lag: number | null | undefined,
+): string | null {
+  const parts: string[] = [];
+  if (rate != null && rate > 0) parts.push(formatRatePerSecond(rate));
+  if (count != null && count > 0) parts.push(formatCount(count));
+  if (includeLag && lag != null && lag > 0) parts.push(`lag ${formatCount(lag)}`);
+  if (parts.length === 0) return null;
+  return `${label}  ${parts.join(" · ")}`;
+}
+
 export function formatLagMetricsSummary(lag: LagMetrics | null | undefined): string {
   if (!lag) return "—";
-  const parts: string[] = [];
-  if (lag.outputRatePerSecond > 0) parts.push(formatRatePerSecond(lag.outputRatePerSecond));
-  if (lag.processedCount > 0) parts.push(`${formatCount(lag.processedCount)} since start`);
-  if (lag.inputLag > 0) parts.push(`lag ${formatCount(lag.inputLag)}`);
-  return parts.length > 0 ? parts.join(" · ") : "—";
+  const input = formatTrafficSide("in", lag.inputRatePerSecond, lag.inputCount, true, lag.inputLag);
+  const output = formatTrafficSide("out", lag.outputRatePerSecond, lag.outputCount, false, null);
+  const lines = [input, output].filter((line): line is string => line != null);
+  return lines.length > 0 ? lines.join("\n") : "—";
 }
