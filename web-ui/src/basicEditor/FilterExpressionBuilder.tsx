@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
 import {
   COMPARE_OPERATORS,
+  displayToRuleValue,
   emptyFilterGroup,
   FilterParseError,
   newRule,
   parseFilterExpression,
+  ruleValueToDisplay,
   serializeFilterExpression,
 } from "./filterExpression";
 import type {
@@ -246,8 +247,39 @@ function RuleEditor({ rule, onChange, onRemove }: RuleEditorProps) {
   const setField = <K extends keyof FilterRule>(key: K, next: FilterRule[K]) =>
     onChange({ ...rule, [key]: next });
 
-  const onValueChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setField("value", e.currentTarget.value);
+  // Local text for the quote-less value box. Kept separate from rule.value so
+  // typing (trailing commas, spaces) isn't normalized mid-edit; it re-derives
+  // only when the rule changes from outside our own edits or the operator changes.
+  const [valueText, setValueText] = useState<string>(() =>
+    ruleValueToDisplay(rule.operator, rule.value),
+  );
+  const lastEmittedValueRef = useRef<string>(rule.value);
+  const lastOperatorRef = useRef<CompareOperator>(rule.operator);
+
+  useEffect(() => {
+    const externalValueChange = rule.value !== lastEmittedValueRef.current;
+    const operatorChanged = rule.operator !== lastOperatorRef.current;
+    if (externalValueChange || operatorChanged) {
+      setValueText(ruleValueToDisplay(rule.operator, rule.value));
+      lastEmittedValueRef.current = rule.value;
+      lastOperatorRef.current = rule.operator;
+    }
+  }, [rule.value, rule.operator]);
+
+  const onValueTextChange = (input: string) => {
+    setValueText(input);
+    const encoded = displayToRuleValue(rule.operator, input);
+    lastEmittedValueRef.current = encoded;
+    setField("value", encoded);
+  };
+
+  const onOperatorChange = (nextOp: CompareOperator) => {
+    // Re-encode the current display text under the new operator so the stored
+    // value stays valid (e.g. == -> in turns `MAJOR` into `["MAJOR"]`).
+    const encoded = displayToRuleValue(nextOp, valueText);
+    lastEmittedValueRef.current = encoded;
+    lastOperatorRef.current = nextOp;
+    onChange({ ...rule, operator: nextOp, value: encoded });
   };
 
   const valueError = useMemo(() => {
@@ -296,7 +328,7 @@ function RuleEditor({ rule, onChange, onRemove }: RuleEditorProps) {
       <select
         className="select-inline filter-op-select"
         value={rule.operator}
-        onChange={(e) => setField("operator", e.currentTarget.value as CompareOperator)}
+        onChange={(e) => onOperatorChange(e.currentTarget.value as CompareOperator)}
         aria-label="Comparison operator"
       >
         {COMPARE_OPERATORS.map((op) => (
@@ -313,9 +345,9 @@ function RuleEditor({ rule, onChange, onRemove }: RuleEditorProps) {
         autoComplete="off"
         spellCheck={false}
         placeholder={valuePlaceholder(rule.operator)}
-        value={rule.value}
-        onChange={onValueChange}
-        aria-label="Comparison value (JSON literal)"
+        value={valueText}
+        onChange={(e) => onValueTextChange(e.currentTarget.value)}
+        aria-label="Comparison value"
         aria-invalid={valueError ? true : undefined}
         title={valueError ?? undefined}
       />
@@ -335,12 +367,12 @@ function valuePlaceholder(op: CompareOperator): string {
   switch (op) {
     case "in":
     case "not in":
-      return '["MAJOR","CRITICAL"]';
+      return "MAJOR, CRITICAL";
     case "=~":
     case "!~":
-      return '"^prefix.*"';
+      return "^prefix.*";
     default:
-      return '"value"';
+      return "value";
   }
 }
 

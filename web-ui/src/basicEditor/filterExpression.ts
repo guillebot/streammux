@@ -87,6 +87,58 @@ export function serializeFilterExpression(root: FilterGroup): string {
   return serializeNode(root, /*isRoot=*/ true);
 }
 
+// ---- Value display <-> storage --------------------------------------------
+//
+// The builder stores `FilterRule.value` as canonical JSON literal text (e.g.
+// `"alarm"`, `5`, `["a","b"]`). These helpers present that value without the
+// surrounding JSON quotes in the builder inputs and convert typed text back to
+// the stored literal. Scalars are always re-encoded as JSON strings; `in` /
+// `not in` values are edited as a comma-separated list.
+
+function isArrayOperator(operator: CompareOperator): boolean {
+  return operator === "in" || operator === "not in";
+}
+
+/** Convert a stored JSON literal to the quote-less text shown in the builder. */
+export function ruleValueToDisplay(operator: CompareOperator, value: string): string {
+  if (isArrayOperator(operator)) {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => scalarToDisplay(item)).join(", ");
+      }
+      // Non-array scalar (e.g. after an operator switch) shows as a single item.
+      return scalarToDisplay(parsed);
+    } catch {
+      return value;
+    }
+  }
+  try {
+    return scalarToDisplay(JSON.parse(value));
+  } catch {
+    // Bare token that isn't valid JSON — show as-is.
+    return value;
+  }
+}
+
+/** Convert quote-less builder text back to the stored JSON literal. */
+export function displayToRuleValue(operator: CompareOperator, input: string): string {
+  if (isArrayOperator(operator)) {
+    // Comma-separated list. A comma inside a single item is not supported.
+    const items = input
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    return JSON.stringify(items);
+  }
+  // Typed scalar text is always stored as a JSON string (quotes escaped).
+  return JSON.stringify(input);
+}
+
+function scalarToDisplay(parsed: unknown): string {
+  return typeof parsed === "string" ? parsed : String(parsed);
+}
+
 // ---- Normalization ---------------------------------------------------------
 
 function normalizeRoot(node: FilterNode): FilterGroup {

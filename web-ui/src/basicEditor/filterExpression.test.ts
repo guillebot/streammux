@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  displayToRuleValue,
   emptyFilterGroup,
   FilterParseError,
   parseFilterExpression,
+  ruleValueToDisplay,
   serializeFilterExpression,
 } from "./filterExpression";
 import type { FilterGroup } from "./filterExpression";
@@ -219,4 +221,65 @@ describe("round-trip parse ∘ serialize", () => {
       expect(second).toBe(first);
     });
   }
+});
+
+describe("ruleValueToDisplay", () => {
+  it("strips surrounding quotes from scalar strings", () => {
+    expect(ruleValueToDisplay("==", '"alarm"')).toBe("alarm");
+    expect(ruleValueToDisplay("!=", '"clear"')).toBe("clear");
+    expect(ruleValueToDisplay("=~", '"^ALARM_.*"')).toBe("^ALARM_.*");
+    expect(ruleValueToDisplay("!~", '"test"')).toBe("test");
+  });
+
+  it("decodes escaped quotes inside a string", () => {
+    expect(ruleValueToDisplay("==", '"he said \\"hi\\""')).toBe('he said "hi"');
+  });
+
+  it("shows numbers, booleans, and null raw", () => {
+    expect(ruleValueToDisplay("==", "5")).toBe("5");
+    expect(ruleValueToDisplay("==", "true")).toBe("true");
+    expect(ruleValueToDisplay("==", "null")).toBe("null");
+  });
+
+  it("renders in / not in arrays as a comma-separated list", () => {
+    expect(ruleValueToDisplay("in", '["MAJOR","CRITICAL"]')).toBe("MAJOR, CRITICAL");
+    expect(ruleValueToDisplay("not in", '["INFO"]')).toBe("INFO");
+    expect(ruleValueToDisplay("in", "[]")).toBe("");
+  });
+
+  it("falls back to the raw text when the literal isn't valid JSON", () => {
+    expect(ruleValueToDisplay("==", "bareToken")).toBe("bareToken");
+  });
+});
+
+describe("displayToRuleValue", () => {
+  it("wraps scalar input as a JSON string", () => {
+    expect(displayToRuleValue("==", "alarm")).toBe('"alarm"');
+    expect(displayToRuleValue("=~", "^ALARM_.*")).toBe('"^ALARM_.*"');
+  });
+
+  it("always stores scalars as strings, even numeric-looking input", () => {
+    expect(displayToRuleValue("==", "5")).toBe('"5"');
+    expect(displayToRuleValue("==", "true")).toBe('"true"');
+  });
+
+  it("escapes quotes typed into the value", () => {
+    expect(displayToRuleValue("==", 'he said "hi"')).toBe('"he said \\"hi\\""');
+  });
+
+  it("builds a JSON array from a comma-separated list for in / not in", () => {
+    expect(displayToRuleValue("in", "MAJOR, CRITICAL")).toBe('["MAJOR","CRITICAL"]');
+    expect(displayToRuleValue("in", "MAJOR,CRITICAL")).toBe('["MAJOR","CRITICAL"]');
+    expect(displayToRuleValue("not in", " INFO ")).toBe('["INFO"]');
+    expect(displayToRuleValue("in", "")).toBe("[]");
+  });
+
+  it("round-trips display -> value -> display for scalars and arrays", () => {
+    expect(ruleValueToDisplay("==", displayToRuleValue("==", 'he "said"'))).toBe(
+      'he "said"',
+    );
+    expect(ruleValueToDisplay("in", displayToRuleValue("in", "MAJOR, CRITICAL"))).toBe(
+      "MAJOR, CRITICAL",
+    );
+  });
 });
