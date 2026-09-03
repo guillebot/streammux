@@ -381,6 +381,11 @@ tr:last-child td {
   vertical-align: middle;
 }
 
+.job-table td.traffic-cell {
+  white-space: pre-line;
+  line-height: 1.35;
+}
+
 /*
  * Activity table (Logs page).
  *

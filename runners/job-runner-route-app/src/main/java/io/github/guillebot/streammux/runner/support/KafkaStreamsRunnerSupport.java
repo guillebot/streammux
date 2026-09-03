@@ -19,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class KafkaStreamsRunnerSupport {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStreamsRunnerSupport.class);
     private static final String CONSUMER_FETCH_MANAGER_METRICS = "consumer-fetch-manager-metrics";
+    private static final String STREAM_TOPIC_METRICS = "stream-topic-metrics";
+    private static final LagMetrics EMPTY_LAG_METRICS = new LagMetrics(0, 0, 0, 0, 0);
 
     private final Map<String, KafkaStreams> runningJobs = new ConcurrentHashMap<>();
     private final Map<String, KafkaStreams.State> streamStates = new ConcurrentHashMap<>();
@@ -63,7 +65,7 @@ public final class KafkaStreamsRunnerSupport {
                 Instant.now(),
                 new WorkerMetadata(jobId, topologyName, RuntimeState.STOPPED.name(), Map.of()),
                 failureReasons.get(jobId),
-                new LagMetrics(0, 0, 0)
+                EMPTY_LAG_METRICS
             );
         }
 
@@ -94,6 +96,8 @@ public final class KafkaStreamsRunnerSupport {
     static LagMetrics extractLagMetrics(Map<MetricName, ? extends Metric> metrics) {
         Map<String, Long> consumedTotalByClient = new HashMap<>();
         Map<String, Double> consumedRateByClient = new HashMap<>();
+        Map<String, Long> producedTotalBySink = new HashMap<>();
+        Map<String, Double> producedRateBySink = new HashMap<>();
         long maxLag = 0;
 
         for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
@@ -108,28 +112,53 @@ public final class KafkaStreamsRunnerSupport {
                 continue;
             }
 
-            if (!CONSUMER_FETCH_MANAGER_METRICS.equals(metricName.group())) {
+            if (CONSUMER_FETCH_MANAGER_METRICS.equals(metricName.group())) {
+                Map<String, String> tags = metricName.tags();
+                if (tags.containsKey("topic") || tags.containsKey("partition")) {
+                    continue;
+                }
+
+                String clientId = tags.getOrDefault("client-id", "");
+                switch (metricName.name()) {
+                    case "records-consumed-total" ->
+                        consumedTotalByClient.merge(clientId, number.longValue(), Math::max);
+                    case "records-consumed-rate" ->
+                        consumedRateByClient.merge(clientId, number.doubleValue(), Math::max);
+                    default -> { }
+                }
+                continue;
+            }
+
+            if (!STREAM_TOPIC_METRICS.equals(metricName.group())) {
                 continue;
             }
 
             Map<String, String> tags = metricName.tags();
-            if (tags.containsKey("topic") || tags.containsKey("partition")) {
+            if (!tags.containsKey("topic") || tags.containsKey("partition")) {
                 continue;
             }
 
-            String clientId = tags.getOrDefault("client-id", "");
+            String sinkKey = tags.getOrDefault("processor-node-id", "") + "|" + tags.get("topic");
             switch (metricName.name()) {
-                case "records-consumed-total" ->
-                    consumedTotalByClient.merge(clientId, number.longValue(), Math::max);
-                case "records-consumed-rate" ->
-                    consumedRateByClient.merge(clientId, number.doubleValue(), Math::max);
+                case "records-produced-total" ->
+                    producedTotalBySink.merge(sinkKey, number.longValue(), Math::max);
+                case "records-produced-rate" ->
+                    producedRateBySink.merge(sinkKey, number.doubleValue(), Math::max);
                 default -> { }
             }
         }
 
-        long processedCount = consumedTotalByClient.values().stream().mapToLong(Long::longValue).sum();
-        double processRate = consumedRateByClient.values().stream().mapToDouble(Double::doubleValue).sum();
-        return new LagMetrics(maxLag, Math.round(processRate), processedCount);
+        long inputCount = consumedTotalByClient.values().stream().mapToLong(Long::longValue).sum();
+        double inputRate = consumedRateByClient.values().stream().mapToDouble(Double::doubleValue).sum();
+        long outputCount = producedTotalBySink.values().stream().mapToLong(Long::longValue).sum();
+        double outputRate = producedRateBySink.values().stream().mapToDouble(Double::doubleValue).sum();
+        return new LagMetrics(
+            maxLag,
+            Math.round(inputRate),
+            inputCount,
+            Math.round(outputRate),
+            outputCount
+        );
     }
 
     private static RuntimeState mapRuntimeState(KafkaStreams.State kafkaState) {

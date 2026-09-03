@@ -1,3 +1,11 @@
 package io.github.guillebot.streammux.contracts.model;
 
-public record LagMetrics(long inputLag, long outputRatePerSecond, long processedCount) {}
+import com.fasterxml.jackson.annotation.JsonAlias;
+
+public record LagMetrics(
+    long inputLag,
+    long inputRatePerSecond,
+    @JsonAlias("processedCount") long inputCount,
+    long outputRatePerSecond,
+    long outputCount
+) {}

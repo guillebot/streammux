@@ -1272,11 +1272,19 @@
                         "type": "integer",
                         "format": "int64"
                     },
+                    "inputRatePerSecond": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "inputCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
                     "outputRatePerSecond": {
                         "type": "integer",
                         "format": "int64"
                     },
-                    "processedCount": {
+                    "outputCount": {
                         "type": "integer",
                         "format": "int64"
                     }

@@ -105,7 +105,7 @@ class JobManagementFlowIT extends KafkaIntegrationSupport {
             Instant.parse("2024-01-01T00:00:10Z"),
             new WorkerMetadata("worker-1", "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(0, 1, 1)
+            new LagMetrics(0, 1, 1, 0, 0)
         );
         kafkaTemplate.send(topics.jobStatus(), "job-1", status).get();
         projector.onJobStatus(pollSingleRecord(statusConsumer));

@@ -287,7 +287,10 @@ export function JobsList() {
                     <td className="mono" title={streamsState ?? undefined}>
                       {streamsState ?? "—"}
                     </td>
-                    <td className="mono" title={formatLagMetricsSummary(status?.lagMetrics ?? undefined)}>
+                    <td
+                      className="mono traffic-cell"
+                      title={formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
+                    >
                       {formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
                     </td>
                     <td className="mono" title={lastSeen.full}>

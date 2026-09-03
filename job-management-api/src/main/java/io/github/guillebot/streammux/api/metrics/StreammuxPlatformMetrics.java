@@ -40,9 +40,15 @@ public class StreammuxPlatformMetrics {
     private final AtomicInteger readModelStatuses = new AtomicInteger(0);
 
     private final Map<String, AtomicLong> jobInputLag = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> jobInputRate = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> jobInputCount = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> jobOutputRate = new ConcurrentHashMap<>();
+    private final Map<String, AtomicLong> jobOutputCount = new ConcurrentHashMap<>();
     private final Map<String, Gauge> jobLagGauges = new ConcurrentHashMap<>();
+    private final Map<String, Gauge> jobInputRateGauges = new ConcurrentHashMap<>();
+    private final Map<String, Gauge> jobInputCountGauges = new ConcurrentHashMap<>();
     private final Map<String, Gauge> jobRateGauges = new ConcurrentHashMap<>();
+    private final Map<String, Gauge> jobOutputCountGauges = new ConcurrentHashMap<>();
     private final Map<String, Gauge> leaseHolderGauges = new ConcurrentHashMap<>();
     private final Map<String, AtomicInteger> leaseHolderValues = new ConcurrentHashMap<>();
 
@@ -121,17 +127,35 @@ public class StreammuxPlatformMetrics {
                 definition.jobId(),
                 jobId -> registerJobLagGauge(jobId, definition.jobType())
             );
-            AtomicLong rateHolder = jobOutputRate.computeIfAbsent(
+            AtomicLong inputRateHolder = jobInputRate.computeIfAbsent(
                 definition.jobId(),
-                jobId -> registerJobOutputRateGauge(jobId)
+                jobId -> registerJobInputRateGauge(jobId, definition.jobType())
+            );
+            AtomicLong inputCountHolder = jobInputCount.computeIfAbsent(
+                definition.jobId(),
+                jobId -> registerJobInputCountGauge(jobId, definition.jobType())
+            );
+            AtomicLong outputRateHolder = jobOutputRate.computeIfAbsent(
+                definition.jobId(),
+                jobId -> registerJobOutputRateGauge(jobId, definition.jobType())
+            );
+            AtomicLong outputCountHolder = jobOutputCount.computeIfAbsent(
+                definition.jobId(),
+                jobId -> registerJobOutputCountGauge(jobId, definition.jobType())
             );
             LagMetrics lagMetrics = runtimeStatus.lagMetrics();
             if (lagMetrics != null) {
                 lagHolder.set(lagMetrics.inputLag());
-                rateHolder.set(lagMetrics.outputRatePerSecond());
+                inputRateHolder.set(lagMetrics.inputRatePerSecond());
+                inputCountHolder.set(lagMetrics.inputCount());
+                outputRateHolder.set(lagMetrics.outputRatePerSecond());
+                outputCountHolder.set(lagMetrics.outputCount());
             } else {
                 lagHolder.set(0L);
-                rateHolder.set(0L);
+                inputRateHolder.set(0L);
+                inputCountHolder.set(0L);
+                outputRateHolder.set(0L);
+                outputCountHolder.set(0L);
             }
         }
         removeStaleJobSeries(activeJobIds);
@@ -173,13 +197,43 @@ public class StreammuxPlatformMetrics {
         return holder;
     }
 
-    private AtomicLong registerJobOutputRateGauge(String jobId) {
+    private AtomicLong registerJobInputRateGauge(String jobId, JobType jobType) {
+        AtomicLong holder = new AtomicLong(0L);
+        Gauge gauge = Gauge.builder("streammux.job.input_rate", holder, AtomicLong::get)
+            .description("Observed input consumption rate for the job runner")
+            .tags("job_id", jobId, "job_type", jobType.name())
+            .register(registry);
+        jobInputRateGauges.put(jobId, gauge);
+        return holder;
+    }
+
+    private AtomicLong registerJobInputCountGauge(String jobId, JobType jobType) {
+        AtomicLong holder = new AtomicLong(0L);
+        Gauge gauge = Gauge.builder("streammux.job.input_count", holder, AtomicLong::get)
+            .description("Total input records consumed since the job runner started")
+            .tags("job_id", jobId, "job_type", jobType.name())
+            .register(registry);
+        jobInputCountGauges.put(jobId, gauge);
+        return holder;
+    }
+
+    private AtomicLong registerJobOutputRateGauge(String jobId, JobType jobType) {
         AtomicLong holder = new AtomicLong(0L);
         Gauge gauge = Gauge.builder("streammux.job.output_rate", holder, AtomicLong::get)
             .description("Observed output rate for the job runner")
-            .tags("job_id", jobId)
+            .tags("job_id", jobId, "job_type", jobType.name())
             .register(registry);
         jobRateGauges.put(jobId, gauge);
+        return holder;
+    }
+
+    private AtomicLong registerJobOutputCountGauge(String jobId, JobType jobType) {
+        AtomicLong holder = new AtomicLong(0L);
+        Gauge gauge = Gauge.builder("streammux.job.output_count", holder, AtomicLong::get)
+            .description("Total output records produced since the job runner started")
+            .tags("job_id", jobId, "job_type", jobType.name())
+            .register(registry);
+        jobOutputCountGauges.put(jobId, gauge);
         return holder;
     }
 
@@ -234,8 +288,14 @@ public class StreammuxPlatformMetrics {
                 return false;
             }
             removeGauge(jobLagGauges.remove(jobId));
+            jobInputRate.remove(jobId);
+            removeGauge(jobInputRateGauges.remove(jobId));
+            jobInputCount.remove(jobId);
+            removeGauge(jobInputCountGauges.remove(jobId));
             jobOutputRate.remove(jobId);
             removeGauge(jobRateGauges.remove(jobId));
+            jobOutputCount.remove(jobId);
+            removeGauge(jobOutputCountGauges.remove(jobId));
             return true;
         });
     }
