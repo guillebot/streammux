@@ -364,7 +364,7 @@ function TagsEditor({
             <span className="chip-label">{tag}</span>
             <button
               type="button"
-              className="chip-remove"
+              className="chip-remove danger"
               aria-label={`Remove tag ${tag}`}
               onClick={() => removeTag(tag)}
             >

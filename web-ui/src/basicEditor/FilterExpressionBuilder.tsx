@@ -353,7 +353,7 @@ function RuleEditor({ rule, onChange, onRemove }: RuleEditorProps) {
       />
       <button
         type="button"
-        className="filter-rule-remove"
+        className="filter-rule-remove danger"
         aria-label="Remove rule"
         onClick={onRemove}
       >

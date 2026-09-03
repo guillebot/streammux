@@ -152,7 +152,7 @@ export function StringMapEditor({
               />
               <button
                 type="button"
-                className="kv-remove"
+                className="kv-remove danger"
                 aria-label="Remove entry"
                 onClick={() => commit(rows.filter((r) => r.id !== row.id))}
               >
