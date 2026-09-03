@@ -13,12 +13,15 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class KafkaStreamsRunnerSupport {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStreamsRunnerSupport.class);
     private static final String CONSUMER_FETCH_MANAGER_METRICS = "consumer-fetch-manager-metrics";
+    private static final String PRODUCER_TOPIC_METRICS = "producer-topic-metrics";
     private static final String STREAM_TOPIC_METRICS = "stream-topic-metrics";
     private static final LagMetrics EMPTY_LAG_METRICS = new LagMetrics(0, 0, 0, 0, 0);
 
@@ -97,7 +100,8 @@ public final class KafkaStreamsRunnerSupport {
         Map<String, Long> consumedTotalByClient = new HashMap<>();
         Map<String, Double> consumedRateByClient = new HashMap<>();
         Map<String, Long> producedTotalBySink = new HashMap<>();
-        Map<String, Double> producedRateBySink = new HashMap<>();
+        Set<String> sinkTopics = new HashSet<>();
+        Map<String, Double> producedRateByClientTopic = new HashMap<>();
         long maxLag = 0;
 
         for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
@@ -138,20 +142,41 @@ public final class KafkaStreamsRunnerSupport {
                 continue;
             }
 
-            String sinkKey = tags.getOrDefault("processor-node-id", "") + "|" + tags.get("topic");
-            switch (metricName.name()) {
-                case "records-produced-total" ->
-                    producedTotalBySink.merge(sinkKey, number.longValue(), Math::max);
-                case "records-produced-rate" ->
-                    producedRateBySink.merge(sinkKey, number.doubleValue(), Math::max);
-                default -> { }
+            String topic = tags.get("topic");
+            String sinkKey = tags.getOrDefault("processor-node-id", "") + "|" + topic;
+            if ("records-produced-total".equals(metricName.name())) {
+                producedTotalBySink.merge(sinkKey, number.longValue(), Math::max);
+                sinkTopics.add(topic);
             }
+            continue;
+        }
+
+        for (Map.Entry<MetricName, ? extends Metric> entry : metrics.entrySet()) {
+            MetricName metricName = entry.getKey();
+            if (!PRODUCER_TOPIC_METRICS.equals(metricName.group())
+                || !"record-send-rate".equals(metricName.name())) {
+                continue;
+            }
+
+            Object value = entry.getValue().metricValue();
+            if (!(value instanceof Number number)) {
+                continue;
+            }
+
+            Map<String, String> tags = metricName.tags();
+            String topic = tags.get("topic");
+            if (topic == null || !sinkTopics.contains(topic)) {
+                continue;
+            }
+
+            String rateKey = tags.getOrDefault("client-id", "") + "|" + topic;
+            producedRateByClientTopic.merge(rateKey, number.doubleValue(), Math::max);
         }
 
         long inputCount = consumedTotalByClient.values().stream().mapToLong(Long::longValue).sum();
         double inputRate = consumedRateByClient.values().stream().mapToDouble(Double::doubleValue).sum();
         long outputCount = producedTotalBySink.values().stream().mapToLong(Long::longValue).sum();
-        double outputRate = producedRateBySink.values().stream().mapToDouble(Double::doubleValue).sum();
+        double outputRate = producedRateByClientTopic.values().stream().mapToDouble(Double::doubleValue).sum();
         return new LagMetrics(
             maxLag,
             Math.round(inputRate),
