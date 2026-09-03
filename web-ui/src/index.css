@@ -74,7 +74,9 @@ a:hover {
 
 .sidebar-logo {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: 3rem;
   height: auto;
   object-fit: contain;
   object-position: left center;
