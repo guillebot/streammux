@@ -189,7 +189,7 @@ class OrchestratorServiceTest {
             Instant.parse("2024-01-01T00:00:00Z"),
             new WorkerMetadata("worker-1", "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(0, 0, 0)
+            new LagMetrics(0, 0, 0, 0, 0)
         );
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
         when(jobRunner.status("job-1")).thenReturn(status);
@@ -211,7 +211,7 @@ class OrchestratorServiceTest {
             Instant.parse("2024-01-01T00:00:00Z"),
             new WorkerMetadata("worker-1", "route-app", "ERROR", Map.of()),
             "Kafka Streams entered ERROR",
-            new LagMetrics(0, 0, 0)
+            new LagMetrics(0, 0, 0, 0, 0)
         );
 
         when(leaseManager.decide(eq(definition), isNull(), any())).thenReturn(LeaseDecision.CLAIM);
@@ -279,7 +279,7 @@ class OrchestratorServiceTest {
             Instant.parse("2024-01-01T00:00:00Z"),
             new WorkerMetadata("worker-1", "route-app", "ERROR", Map.of()),
             "Kafka Streams entered ERROR",
-            new LagMetrics(0, 0, 0)
+            new LagMetrics(0, 0, 0, 0, 0)
         );
 
         when(leaseManager.decide(eq(definition), isNull(), any())).thenReturn(LeaseDecision.CLAIM);

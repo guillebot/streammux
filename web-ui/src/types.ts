@@ -85,8 +85,10 @@ export interface WorkerMetadata {
 
 export interface LagMetrics {
   inputLag: number;
+  inputRatePerSecond: number;
+  inputCount: number;
   outputRatePerSecond: number;
-  processedCount: number;
+  outputCount: number;
 }
 
 export interface JobRuntimeStatus {

@@ -243,7 +243,7 @@ class JobControllerTest {
             Instant.parse("2024-01-01T00:00:30Z"),
             new WorkerMetadata("worker-1", "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(0, 0, 1)
+            new LagMetrics(0, 0, 1, 0, 0)
         )));
         when(jobService.getEvents("job-1")).thenReturn(List.of(
             new JobEvent("evt-1", "job-1", 3, EventType.STARTED, Instant.parse("2024-01-01T00:00:20Z"), "site-a", "instance-a", "started", Map.of(), "orchestrator")

@@ -165,7 +165,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             Instant.parse("2024-01-01T00:00:00Z"),
             new WorkerMetadata(workerId, "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(0, 0, 0)
+            new LagMetrics(0, 0, 0, 0, 0)
         ));
         return runner;
     }

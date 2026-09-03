@@ -500,12 +500,16 @@ export function JobDetail() {
                       <>
                         <h3 className="panel-subhead">Traffic</h3>
                         <dl className="status-kv">
-                          <dt>Process rate</dt>
-                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
-                          <dt>Consumed since start</dt>
-                          <dd className="mono">{formatCount(status.lagMetrics?.processedCount)}</dd>
+                          <dt>Input rate</dt>
+                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.inputRatePerSecond)}</dd>
+                          <dt>Input since start</dt>
+                          <dd className="mono">{formatCount(status.lagMetrics?.inputCount)}</dd>
                           <dt>Input lag</dt>
                           <dd className="mono">{formatCount(status.lagMetrics?.inputLag)}</dd>
+                          <dt>Output rate</dt>
+                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
+                          <dt>Output since start</dt>
+                          <dd className="mono">{formatCount(status.lagMetrics?.outputCount)}</dd>
                         </dl>
                       </>
                     ) : (

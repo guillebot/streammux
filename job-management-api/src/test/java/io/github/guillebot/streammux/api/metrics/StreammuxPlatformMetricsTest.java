@@ -53,7 +53,7 @@ class StreammuxPlatformMetricsTest {
             now.minusSeconds(5),
             new WorkerMetadata("worker-a", "route-app", "RUNNING", Map.of()),
             null,
-            new LagMetrics(42, 7, 100)
+            new LagMetrics(42, 7, 100, 3, 50)
         ));
         stateStore.upsertLease(new JobLease(
             "job-a",
@@ -71,7 +71,10 @@ class StreammuxPlatformMetricsTest {
         assertEquals(1.0, registry.get("streammux.jobs.configured").tag("desired_state", "ACTIVE").tag("job_type", "ROUTE_APP").gauge().value());
         assertEquals(1.0, registry.get("streammux.jobs.runtime").tag("state", "RUNNING").tag("health", "HEALTHY").gauge().value());
         assertEquals(42.0, registry.get("streammux.job.input_lag").tag("job_id", "job-a").gauge().value());
-        assertEquals(7.0, registry.get("streammux.job.output_rate").tag("job_id", "job-a").gauge().value());
+        assertEquals(7.0, registry.get("streammux.job.input_rate").tag("job_id", "job-a").gauge().value());
+        assertEquals(100.0, registry.get("streammux.job.input_count").tag("job_id", "job-a").gauge().value());
+        assertEquals(3.0, registry.get("streammux.job.output_rate").tag("job_id", "job-a").gauge().value());
+        assertEquals(50.0, registry.get("streammux.job.output_count").tag("job_id", "job-a").gauge().value());
         assertEquals(1.0, registry.get("streammux.job.lease_holder")
             .tag("job_id", "job-a")
             .tag("site_id", "rednet")

@@ -107,9 +107,11 @@ class KafkaStreamsRunnerSupportTest {
 
         LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
 
-        assertEquals(1234, lag.processedCount());
-        assertEquals(43, lag.outputRatePerSecond());
+        assertEquals(1234, lag.inputCount());
+        assertEquals(43, lag.inputRatePerSecond());
         assertEquals(99, lag.inputLag());
+        assertEquals(0, lag.outputCount());
+        assertEquals(0, lag.outputRatePerSecond());
     }
 
     @Test
@@ -157,12 +159,101 @@ class KafkaStreamsRunnerSupportTest {
 
         LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
 
-        assertEquals(5476, lag.processedCount());
-        assertEquals(6, lag.outputRatePerSecond());
+        assertEquals(5476, lag.inputCount());
+        assertEquals(6, lag.inputRatePerSecond());
+    }
+
+    @Test
+    void extractLagMetricsAggregatesSinkProducedMetrics() {
+        Map<MetricName, Metric> metrics = new HashMap<>();
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-total",
+                Map.of("processor-node-id", "Sink-route-a", "topic", "net.optimum.output.a", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(1200.0)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-total",
+                Map.of("processor-node-id", "Sink-route-b", "topic", "net.optimum.output.b", "thread-id", "1", "task-id", "0_1")
+            ),
+            metricValue(800.0)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-rate",
+                Map.of("processor-node-id", "Sink-route-a", "topic", "net.optimum.output.a", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(12.4)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-rate",
+                Map.of("processor-node-id", "Sink-route-b", "topic", "net.optimum.output.b", "thread-id", "1", "task-id", "0_1")
+            ),
+            metricValue(8.1)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-total",
+                Map.of(
+                    "processor-node-id",
+                    "Sink-route-a",
+                    "topic",
+                    "net.optimum.output.a",
+                    "partition",
+                    "0",
+                    "thread-id",
+                    "1",
+                    "task-id",
+                    "0_0"
+                )
+            ),
+            metricValue(1200.0)
+        );
+
+        LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(2000, lag.outputCount());
+        assertEquals(21, lag.outputRatePerSecond());
+    }
+
+    @Test
+    void extractLagMetricsCombinesInputAndOutputForFilterJob() {
+        Map<MetricName, Metric> metrics = new HashMap<>();
+        String clientId = "onetrap-StreamThread-1-consumer";
+        metrics.put(fetchManagerMetric("records-consumed-total", Map.of("client-id", clientId)), metricValue(1_085_330.0));
+        metrics.put(fetchManagerMetric("records-consumed-rate", Map.of("client-id", clientId)), metricValue(975.2));
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-total",
+                Map.of("processor-node-id", "Sink-filtered", "topic", "net.optimum.filtered", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(50_629.0)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-rate",
+                Map.of("processor-node-id", "Sink-filtered", "topic", "net.optimum.filtered", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(44.6)
+        );
+
+        LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(1_085_330, lag.inputCount());
+        assertEquals(975, lag.inputRatePerSecond());
+        assertEquals(50_629, lag.outputCount());
+        assertEquals(45, lag.outputRatePerSecond());
     }
 
     private static MetricName fetchManagerMetric(String name, Map<String, String> tags) {
         return new MetricName(name, "consumer-fetch-manager-metrics", "", tags);
+    }
+
+    private static MetricName streamTopicMetric(String name, Map<String, String> tags) {
+        return new MetricName(name, "stream-topic-metrics", "", tags);
     }
 
     private static Metric metricValue(Object value) {
