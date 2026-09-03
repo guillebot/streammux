@@ -15,6 +15,7 @@ Thumbs.db
 
 web-ui/node_modules/
 web-ui/dist/
+web-ui/.vite/
 
 job-catalog-api/node_modules/
 job-catalog-api/data/
