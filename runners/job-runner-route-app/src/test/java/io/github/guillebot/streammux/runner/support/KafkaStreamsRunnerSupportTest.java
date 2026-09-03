@@ -188,6 +188,20 @@ class KafkaStreamsRunnerSupportTest {
             metricValue(12.4)
         );
         metrics.put(
+            producerTopicMetric(
+                "record-send-rate",
+                Map.of("client-id", "job-1-StreamThread-1-producer", "topic", "net.optimum.output.a")
+            ),
+            metricValue(12.4)
+        );
+        metrics.put(
+            producerTopicMetric(
+                "record-send-rate",
+                Map.of("client-id", "job-1-StreamThread-1-producer", "topic", "net.optimum.output.b")
+            ),
+            metricValue(8.1)
+        );
+        metrics.put(
             streamTopicMetric(
                 "records-produced-rate",
                 Map.of("processor-node-id", "Sink-route-b", "topic", "net.optimum.output.b", "thread-id", "1", "task-id", "0_1")
@@ -220,6 +234,43 @@ class KafkaStreamsRunnerSupportTest {
     }
 
     @Test
+    void extractLagMetricsUsesProducerTopicMetricsForOutputRate() {
+        Map<MetricName, Metric> metrics = new HashMap<>();
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-total",
+                Map.of("processor-node-id", "Sink-filtered", "topic", "net.optimum.filtered", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(50_629.0)
+        );
+        metrics.put(
+            streamTopicMetric(
+                "records-produced-rate",
+                Map.of("processor-node-id", "Sink-filtered", "topic", "net.optimum.filtered", "thread-id", "1", "task-id", "0_0")
+            ),
+            metricValue(44.6)
+        );
+
+        LagMetrics lagWithoutProducerRate = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(50_629, lagWithoutProducerRate.outputCount());
+        assertEquals(0, lagWithoutProducerRate.outputRatePerSecond());
+
+        metrics.put(
+            producerTopicMetric(
+                "record-send-rate",
+                Map.of("client-id", "onetrap-StreamThread-1-producer", "topic", "net.optimum.filtered")
+            ),
+            metricValue(44.6)
+        );
+
+        LagMetrics lag = KafkaStreamsRunnerSupport.extractLagMetrics(metrics);
+
+        assertEquals(50_629, lag.outputCount());
+        assertEquals(45, lag.outputRatePerSecond());
+    }
+
+    @Test
     void extractLagMetricsCombinesInputAndOutputForFilterJob() {
         Map<MetricName, Metric> metrics = new HashMap<>();
         String clientId = "onetrap-StreamThread-1-consumer";
@@ -231,6 +282,13 @@ class KafkaStreamsRunnerSupportTest {
                 Map.of("processor-node-id", "Sink-filtered", "topic", "net.optimum.filtered", "thread-id", "1", "task-id", "0_0")
             ),
             metricValue(50_629.0)
+        );
+        metrics.put(
+            producerTopicMetric(
+                "record-send-rate",
+                Map.of("client-id", "onetrap-StreamThread-1-producer", "topic", "net.optimum.filtered")
+            ),
+            metricValue(44.6)
         );
         metrics.put(
             streamTopicMetric(
@@ -254,6 +312,10 @@ class KafkaStreamsRunnerSupportTest {
 
     private static MetricName streamTopicMetric(String name, Map<String, String> tags) {
         return new MetricName(name, "stream-topic-metrics", "", tags);
+    }
+
+    private static MetricName producerTopicMetric(String name, Map<String, String> tags) {
+        return new MetricName(name, "producer-topic-metrics", "", tags);
     }
 
     private static Metric metricValue(Object value) {

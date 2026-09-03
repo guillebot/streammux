@@ -22,6 +22,7 @@ import { InlineSpinner } from "./InlineSpinner";
 import {
   JobHealthBadge,
   formatCount,
+  formatOutputCountWithPercent,
   formatRatePerSecond,
   hasTrafficMetrics,
   kafkaStreamsState,
@@ -31,13 +32,6 @@ import { JsonEditor } from "./JsonEditor";
 import { useJobDefinitionSchema } from "./useJobDefinitionSchema";
 import { extractPathFromMessage } from "./validationPathRange";
 import { newJobTemplate } from "./templates";
-import {
-  JobHealthBadge,
-  formatCount,
-  formatRatePerSecond,
-  hasTrafficMetrics,
-  kafkaStreamsState,
-} from "./jobStatusDisplay";
 import type { JobDefinition, JobEvent, JobLease, JobRuntimeStatus } from "./types";
 
 export function JobDetail() {
@@ -509,7 +503,12 @@ export function JobDetail() {
                           <dt>Output rate</dt>
                           <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
                           <dt>Output since start</dt>
-                          <dd className="mono">{formatCount(status.lagMetrics?.outputCount)}</dd>
+                          <dd className="mono">
+                            {formatOutputCountWithPercent(
+                              status.lagMetrics?.outputCount,
+                              status.lagMetrics?.inputCount,
+                            )}
+                          </dd>
                         </dl>
                       </>
                     ) : (
