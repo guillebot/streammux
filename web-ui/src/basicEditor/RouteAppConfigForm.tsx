@@ -19,8 +19,9 @@ const SCOPE = "routeAppConfig";
 
 /**
  * Basic-tab config panel for `ROUTE_APP` jobs. Renders the input topic, format
- * selectors, protobuf schema subject, the routes list, and the stream/serde
- * property maps. The filter expression is a plain textarea for now — the
+ * selectors, the protobuf schema subject (only when an input/output format is
+ * PROTOBUF), the routes list, and the stream/serde property maps. The filter
+ * expression is a plain textarea for now — the
  * nested-group builder replaces it in a follow-up commit.
  */
 export function RouteAppConfigForm({
@@ -46,39 +47,55 @@ export function RouteAppConfigForm({
     update("protobufSchemaSubject", raw.trim() === "" ? null : raw);
   };
 
+  const onFormatChange = (
+    key: "inputFormat" | "outputFormat",
+    next: PayloadFormat,
+  ) => {
+    const nextConfig = { ...value, [key]: next };
+    // Once neither format is PROTOBUF the schema subject is unused (and hidden),
+    // so clear it rather than persist a stale value.
+    if (
+      nextConfig.inputFormat !== "PROTOBUF" &&
+      nextConfig.outputFormat !== "PROTOBUF"
+    ) {
+      nextConfig.protobufSchemaSubject = null;
+    }
+    onChange(nextConfig);
+  };
+
   return (
     <section className="config-panel" aria-labelledby="route-app-config-heading">
       <h3 id="route-app-config-heading" className="config-panel-heading">
         ROUTE_APP config
       </h3>
 
-      <div className="form-row">
-        <div className="form-field">
-          <span className="form-label">
-            Input topic
-            {topicsLoading ? <span className="muted"> (loading…)</span> : null}
-          </span>
-          <TopicCombobox
-            id={`${SCOPE}-input-topic`}
-            ariaLabel="Input topic"
-            value={value.inputTopic}
-            onChange={(next) => update("inputTopic", next)}
-            options={inputTopics}
-            disabled={topicsLoading}
-            allowCustom
-            placeholder="Type to filter topics…"
-            invalid={isErrorOnField(errorPath, `${SCOPE}.inputTopic`)}
-            dataErrorPath={`${SCOPE}.inputTopic`}
-          />
-        </div>
+      <div className="form-field">
+        <span className="form-label">
+          Input topic
+          {topicsLoading ? <span className="muted"> (loading…)</span> : null}
+        </span>
+        <TopicCombobox
+          id={`${SCOPE}-input-topic`}
+          ariaLabel="Input topic"
+          value={value.inputTopic}
+          onChange={(next) => update("inputTopic", next)}
+          options={inputTopics}
+          disabled={topicsLoading}
+          allowCustom
+          placeholder="Type to filter topics…"
+          invalid={isErrorOnField(errorPath, `${SCOPE}.inputTopic`)}
+          dataErrorPath={`${SCOPE}.inputTopic`}
+        />
+      </div>
 
+      <div className="form-row">
         <label className="form-field">
           <span className="form-label">Input format</span>
           <select
             className="select-inline form-select"
             value={value.inputFormat}
             onChange={(e) =>
-              update("inputFormat", e.currentTarget.value as PayloadFormat)
+              onFormatChange("inputFormat", e.currentTarget.value as PayloadFormat)
             }
             aria-invalid={
               isErrorOnField(errorPath, `${SCOPE}.inputFormat`) || undefined
@@ -99,7 +116,7 @@ export function RouteAppConfigForm({
             className="select-inline form-select"
             value={value.outputFormat}
             onChange={(e) =>
-              update("outputFormat", e.currentTarget.value as PayloadFormat)
+              onFormatChange("outputFormat", e.currentTarget.value as PayloadFormat)
             }
             aria-invalid={
               isErrorOnField(errorPath, `${SCOPE}.outputFormat`) || undefined
@@ -115,27 +132,24 @@ export function RouteAppConfigForm({
         </label>
       </div>
 
-      <label className="form-field">
-        <span className="form-label">
-          Protobuf schema subject
-          {!protobufInUse ? (
-            <span className="form-hint"> (only used when a format is PROTOBUF)</span>
-          ) : null}
-        </span>
-        <input
-          className="text-input"
-          type="text"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="my-subject-value"
-          value={protobufSchemaSubject}
-          onChange={onSchemaSubjectChange}
-          aria-invalid={
-            isErrorOnField(errorPath, `${SCOPE}.protobufSchemaSubject`) || undefined
-          }
-          data-error-path={`${SCOPE}.protobufSchemaSubject`}
-        />
-      </label>
+      {protobufInUse ? (
+        <label className="form-field">
+          <span className="form-label">Protobuf schema subject</span>
+          <input
+            className="text-input"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="my-subject-value"
+            value={protobufSchemaSubject}
+            onChange={onSchemaSubjectChange}
+            aria-invalid={
+              isErrorOnField(errorPath, `${SCOPE}.protobufSchemaSubject`) || undefined
+            }
+            data-error-path={`${SCOPE}.protobufSchemaSubject`}
+          />
+        </label>
+      ) : null}
 
       <div className="form-field">
         <span className="form-label">Routes</span>
@@ -149,30 +163,28 @@ export function RouteAppConfigForm({
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-field">
-          <span className="form-label">Stream properties</span>
-          <StringMapEditor
-            value={value.streamProperties}
-            onChange={(next) => update("streamProperties", next)}
-            addLabel="+ Add stream property"
-            emptyLabel="No stream properties."
-            invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
-            errorScope={`${SCOPE}.streamProperties`}
-          />
-        </div>
+      <div className="form-field">
+        <span className="form-label">Stream properties</span>
+        <StringMapEditor
+          value={value.streamProperties}
+          onChange={(next) => update("streamProperties", next)}
+          addLabel="+ Add stream property"
+          emptyLabel="No stream properties."
+          invalid={isErrorUnderField(errorPath, `${SCOPE}.streamProperties`)}
+          errorScope={`${SCOPE}.streamProperties`}
+        />
+      </div>
 
-        <div className="form-field">
-          <span className="form-label">Serde properties</span>
-          <StringMapEditor
-            value={value.serdeProperties}
-            onChange={(next) => update("serdeProperties", next)}
-            addLabel="+ Add serde property"
-            emptyLabel="No serde properties."
-            invalid={isErrorUnderField(errorPath, `${SCOPE}.serdeProperties`)}
-            errorScope={`${SCOPE}.serdeProperties`}
-          />
-        </div>
+      <div className="form-field">
+        <span className="form-label">Serde properties</span>
+        <StringMapEditor
+          value={value.serdeProperties}
+          onChange={(next) => update("serdeProperties", next)}
+          addLabel="+ Add serde property"
+          emptyLabel="No serde properties."
+          invalid={isErrorUnderField(errorPath, `${SCOPE}.serdeProperties`)}
+          errorScope={`${SCOPE}.serdeProperties`}
+        />
       </div>
     </section>
   );

@@ -135,22 +135,6 @@ export function RouteListEditor({
                 />
               </label>
 
-              <div className="form-field">
-                <span className="form-label">Output topic</span>
-                <TopicCombobox
-                  id={`route-output-topic-${row.id}`}
-                  ariaLabel="Output topic"
-                  value={row.route.outputTopic}
-                  onChange={(next) => updateRow(row.id, { outputTopic: next })}
-                  options={outputTopicOptions}
-                  disabled={topicsLoading}
-                  allowCustom
-                  placeholder="Type to filter topics…"
-                  invalid={isErrorOnField(errorPath, outputTopicPath)}
-                  dataErrorPath={outputTopicPath}
-                />
-              </div>
-
               <div className="form-field form-row-end">
                 <button
                   type="button"
@@ -161,6 +145,22 @@ export function RouteListEditor({
                   Remove
                 </button>
               </div>
+            </div>
+
+            <div className="form-field">
+              <span className="form-label">Output topic</span>
+              <TopicCombobox
+                id={`route-output-topic-${row.id}`}
+                ariaLabel="Output topic"
+                value={row.route.outputTopic}
+                onChange={(next) => updateRow(row.id, { outputTopic: next })}
+                options={outputTopicOptions}
+                disabled={topicsLoading}
+                allowCustom
+                placeholder="Type to filter topics…"
+                invalid={isErrorOnField(errorPath, outputTopicPath)}
+                dataErrorPath={outputTopicPath}
+              />
             </div>
 
             <div className="form-field">

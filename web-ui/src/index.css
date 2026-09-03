@@ -1211,7 +1211,7 @@ tr:last-child td {
 
 select.form-select {
   width: 100%;
-  max-width: 28rem;
+  max-width: 32rem;
   min-width: 0;
 }
 
@@ -1746,6 +1746,7 @@ select.form-select {
 
 .filter-textarea {
   min-height: 3.2rem;
+  max-width: none;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   resize: vertical;
 }
