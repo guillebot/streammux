@@ -6,7 +6,7 @@ WORKDIR /app
 COPY web-ui/package.json web-ui/package-lock.json ./
 RUN npm ci
 
-COPY VERSION ./VERSION
+COPY scripts/build-app-version.sh scripts/next-release-tag.sh scripts/
 COPY docs/ /docs/
 COPY web-ui/ ./
 ARG VITE_APP_VERSION=
