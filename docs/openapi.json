@@ -379,6 +379,48 @@
                 }
             }
         },
+        "/jobs/validate": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Validate job",
+                "description": "Runs the same validator used by create/update/rename without persisting or publishing anything. Returns 200 with {\"valid\":true} when the definition passes and 400 VALIDATION_ERROR (matching a real save) when it does not.",
+                "operationId": "validate",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/JobDefinition"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Definition is valid",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidateJobResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Definition failed validation; body has the VALIDATION_ERROR envelope",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidateJobResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/activity/session": {
             "post": {
                 "tags": [
@@ -503,6 +545,28 @@
                 }
             }
         },
+        "/jobs/schema": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Job definition JSON Schema",
+                "description": "Returns the JSON Schema 2020-12 document that describes JobDefinition and every referenced type. The same schema is applied server-side before create/update/validate bind the payload, so the editor and the API agree on shape.",
+                "operationId": "schema",
+                "responses": {
+                    "200": {
+                        "description": "JSON Schema document",
+                        "content": {
+                            "application/schema+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JsonNode"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/jobs/meta/settings": {
             "get": {
                 "tags": [
@@ -618,6 +682,58 @@
                 }
             }
         },
+        "/actuator/prometheus": {
+            "get": {
+                "tags": [
+                    "Actuator"
+                ],
+                "summary": "Actuator web endpoint 'prometheus'",
+                "operationId": "scrape",
+                "parameters": [
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "CONTENT_TYPE_004",
+                                "CONTENT_TYPE_OPENMETRICS_100",
+                                "CONTENT_TYPE_PROTOBUF"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "includedNames",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "text/plain;version=0.0.4;charset=utf-8": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/openmetrics-text;version=1.0.0;charset=utf-8": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            },
+                            "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/actuator/info": {
             "get": {
                 "tags": [
@@ -714,7 +830,6 @@
                         "in": "query",
                         "description": "Filter by event type (may be repeated to select multiple; results include events matching any listed type)",
                         "required": false,
-                        "explode": true,
                         "schema": {
                             "type": "array",
                             "items": {
@@ -1041,6 +1156,17 @@
                     }
                 }
             },
+            "ValidateJobResponse": {
+                "type": "object",
+                "description": "Response body for POST /jobs/validate when the definition passes validation",
+                "properties": {
+                    "valid": {
+                        "type": "boolean",
+                        "description": "Always true; validation failures return HTTP 400 with a VALIDATION_ERROR envelope instead",
+                        "example": true
+                    }
+                }
+            },
             "JobEvent": {
                 "type": "object",
                 "properties": {
@@ -1214,6 +1340,7 @@
                     }
                 }
             },
+            "JsonNode": {},
             "ApiSettings": {
                 "type": "object",
                 "properties": {

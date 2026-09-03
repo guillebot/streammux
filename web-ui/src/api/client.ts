@@ -41,6 +41,12 @@ export async function getKafkaTopicCatalog(): Promise<KafkaTopicCatalog> {
   return (await res.json()) as KafkaTopicCatalog;
 }
 
+export async function getJobDefinitionSchema(): Promise<unknown> {
+  const res = await apiFetch(`${JOBS}/schema`);
+  if (!res.ok) await handleError(res);
+  return (await res.json()) as unknown;
+}
+
 export async function listJobs(): Promise<JobDefinition[]> {
   const res = await apiFetch(JOBS);
   if (!res.ok) await handleError(res);
@@ -51,6 +57,15 @@ export async function getJob(jobId: string): Promise<JobDefinition> {
   const res = await apiFetch(`${JOBS}/${encodeURIComponent(jobId)}`);
   if (!res.ok) await handleError(res);
   return (await res.json()) as JobDefinition;
+}
+
+export async function validateJob(definition: JobDefinition): Promise<void> {
+  const res = await apiFetch(`${JOBS}/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(definition),
+  });
+  if (!res.ok) await handleError(res);
 }
 
 export async function createJob(definition: JobDefinition): Promise<JobDefinition> {

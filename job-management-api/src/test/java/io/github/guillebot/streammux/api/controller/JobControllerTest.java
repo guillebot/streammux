@@ -1,6 +1,7 @@
 package io.github.guillebot.streammux.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -41,11 +43,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(JobDefinitionSchemaProvider.class)
 class JobControllerTest {
 
     @Autowired
@@ -107,6 +111,60 @@ class JobControllerTest {
         verify(jobService).issueCommand("job-1", CommandType.PAUSE);
         verify(jobService).issueCommand("job-1", CommandType.RESUME);
         verify(jobService).issueCommand("job-1", CommandType.RESTART);
+    }
+
+    @Test
+    void validateReturnsValidTrueForGoodDefinition() throws Exception {
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE);
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(definition)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.valid").value(true));
+
+        verify(jobService).validate(definition);
+    }
+
+    @Test
+    void validateBadPayloadReturnsBadRequestWithMessage() throws Exception {
+        JobDefinition definition = jobDefinition("job-1", 1, DesiredJobState.ACTIVE);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"))
+            .when(jobService).validate(definition);
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsBytes(definition)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message").value("routeAppConfig.routes[0].filterExpression invalid: expected comparison operator after path 'foo' at position 4"));
+    }
+
+    @Test
+    void validateBadTypeReturnsBadRequestBeforeService() throws Exception {
+        // A structurally malformed payload (jobId is an integer) should be rejected by the
+        // schema before JobService.validate is called at all.
+        String payload = "{\"jobId\": 42, \"jobType\": \"ROUTE_APP\"}";
+
+        mockMvc.perform(post("/jobs/validate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+            .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsStringIgnoringCase("jobId")));
+
+        org.mockito.Mockito.verify(jobService, org.mockito.Mockito.never()).validate(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void getSchemaReturnsJsonSchemaDocument() throws Exception {
+        mockMvc.perform(get("/jobs/schema"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith("application/schema+json"))
+            .andExpect(jsonPath("$.$schema").value("https://json-schema.org/draft/2020-12/schema"))
+            .andExpect(jsonPath("$.$ref").value("#/$defs/JobDefinition"))
+            .andExpect(jsonPath("$.$defs.JobDefinition").exists())
+            .andExpect(jsonPath("$.$defs.RouteAppConfig").exists());
     }
 
     @Test

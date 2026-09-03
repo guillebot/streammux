@@ -266,6 +266,7 @@ STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES=net.optimum.
 ```
 
 Topic restrictions are enforced by `job-management-api` during job create and update validation.
+The same validator is exposed as a dry-run at `POST /jobs/validate`, and its JSON Schema is served at `GET /jobs/schema` so the web UI editor and other clients can lint payloads against the same shape.
 Use comma-separated values for exact allowlists and prefix-based namespace restrictions:
 
 - `STREAMMUX_ALLOWED_INPUT_TOPICS`

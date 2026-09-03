@@ -1,5 +1,9 @@
 package io.github.guillebot.streammux.api.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
 import io.github.guillebot.streammux.contracts.model.CommandType;
@@ -8,10 +12,14 @@ import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,9 +38,17 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/jobs")
 public class JobController {
-    private final JobService jobService;
+    private static final String SCHEMA_MEDIA_TYPE = "application/schema+json";
 
-    public JobController(JobService jobService) { this.jobService = jobService; }
+    private final JobService jobService;
+    private final JobDefinitionSchemaProvider schemaProvider;
+    private final ObjectMapper objectMapper;
+
+    public JobController(JobService jobService, JobDefinitionSchemaProvider schemaProvider, ObjectMapper objectMapper) {
+        this.jobService = jobService;
+        this.schemaProvider = schemaProvider;
+        this.objectMapper = objectMapper;
+    }
 
     @Operation(summary = "Create job", description = "Registers a new job and publishes the definition to Kafka.")
     @ApiResponses({
@@ -41,11 +57,54 @@ public class JobController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public JobDefinition create(@RequestBody JobDefinition definition) { return jobService.createJob(definition); }
+    public JobDefinition create(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = @Content(schema = @Schema(implementation = JobDefinition.class))
+        )
+        @RequestBody JsonNode payload
+    ) {
+        return jobService.createJob(bindDefinition(payload));
+    }
 
     @Operation(summary = "List jobs")
     @GetMapping
     public Collection<JobDefinition> list() { return jobService.listJobs(); }
+
+    @Operation(
+        summary = "Job definition JSON Schema",
+        description = "Returns the JSON Schema 2020-12 document that describes JobDefinition and every referenced type. "
+            + "The same schema is applied server-side before create/update/validate bind the payload, so the editor and the API agree on shape."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "JSON Schema document")
+    })
+    @GetMapping(path = "/schema", produces = SCHEMA_MEDIA_TYPE)
+    public ResponseEntity<JsonNode> schema() {
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(SCHEMA_MEDIA_TYPE))
+            .body(schemaProvider.getSchemaJson());
+    }
+
+    @Operation(
+        summary = "Validate job",
+        description = "Runs the same validator used by create/update/rename without persisting or publishing anything. Returns 200 with {\"valid\":true} when the definition passes and 400 VALIDATION_ERROR (matching a real save) when it does not."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Definition is valid"),
+        @ApiResponse(responseCode = "400", description = "Definition failed validation; body has the VALIDATION_ERROR envelope")
+    })
+    @PostMapping("/validate")
+    public ValidateJobResponse validate(
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = @Content(schema = @Schema(implementation = JobDefinition.class))
+        )
+        @RequestBody JsonNode payload
+    ) {
+        jobService.validate(bindDefinition(payload));
+        return new ValidateJobResponse(true);
+    }
 
     @Operation(summary = "Get job")
     @ApiResponses({
@@ -63,8 +122,12 @@ public class JobController {
     @PutMapping("/{jobId}")
     public JobDefinition update(
         @Parameter(description = "Job identifier") @PathVariable("jobId") String jobId,
-        @RequestBody JobDefinition definition
-    ) { return jobService.updateJob(jobId, definition); }
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = @Content(schema = @Schema(implementation = JobDefinition.class))
+        )
+        @RequestBody JsonNode payload
+    ) { return jobService.updateJob(jobId, bindDefinition(payload)); }
 
     @Operation(summary = "Pause job")
     @ApiResponses({
@@ -135,4 +198,19 @@ public class JobController {
     @Operation(summary = "Job events", description = "Audit-style events for the job from the read model (may be empty).")
     @GetMapping("/{jobId}/events")
     public List<JobEvent> events(@Parameter(description = "Job identifier") @PathVariable("jobId") String jobId) { return jobService.getEvents(jobId); }
+
+    /**
+     * Runs schema validation on the raw payload, then binds it into a {@link JobDefinition}
+     * record. Schema failures (wrong types, bad enums, unknown fields) and binding failures both
+     * bubble up as {@link IllegalArgumentException}, which the shared exception handler maps to
+     * a {@code 400 VALIDATION_ERROR}. Semantic checks run afterwards in the service layer.
+     */
+    private JobDefinition bindDefinition(JsonNode payload) {
+        schemaProvider.validate(payload);
+        try {
+            return objectMapper.treeToValue(payload, JobDefinition.class);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("Failed to parse JobDefinition: " + ex.getOriginalMessage(), ex);
+        }
+    }
 }

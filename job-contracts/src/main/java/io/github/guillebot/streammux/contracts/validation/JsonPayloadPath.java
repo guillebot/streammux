@@ -1,12 +1,12 @@
-package io.github.guillebot.streammux.routeapp.config;
+package io.github.guillebot.streammux.contracts.validation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-final class JsonPayloadPath {
+public final class JsonPayloadPath {
 
     private JsonPayloadPath() {}
 
-    static JsonNode resolve(JsonNode payload, String path) {
+    public static JsonNode resolve(JsonNode payload, String path) {
         if (path.startsWith("/")) {
             return payload.at(path);
         }

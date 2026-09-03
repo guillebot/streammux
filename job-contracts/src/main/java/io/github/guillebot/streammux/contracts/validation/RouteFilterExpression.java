@@ -1,4 +1,4 @@
-package io.github.guillebot.streammux.routeapp.config;
+package io.github.guillebot.streammux.contracts.validation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,13 +21,13 @@ import java.util.regex.PatternSyntaxException;
  * Returns {@link ParseResult#parsed()} when the expression is valid filter syntax;
  * callers may fall back to legacy substring matching when {@link ParseResult#parsed()} is false.
  */
-final class RouteFilterExpression {
+public final class RouteFilterExpression {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private RouteFilterExpression() {}
 
-    static ParseResult tryEvaluate(JsonNode payload, String filterExpression) {
+    public static ParseResult tryEvaluate(JsonNode payload, String filterExpression) {
         if (filterExpression == null || filterExpression.isBlank()) {
             return ParseResult.notParsed(false);
         }
@@ -41,7 +41,26 @@ final class RouteFilterExpression {
         }
     }
 
-    record ParseResult(boolean parsed, boolean matches) {
+    /**
+     * Parses {@code filterExpression} without evaluating it against a payload, throwing
+     * {@link IllegalArgumentException} when the expression is not valid filter syntax.
+     * A {@code null} or blank expression is considered invalid here — callers that want
+     * to permit blanks must check that separately.
+     */
+    public static void validateSyntax(String filterExpression) {
+        if (filterExpression == null || filterExpression.isBlank()) {
+            throw new IllegalArgumentException("filterExpression must not be blank");
+        }
+        try {
+            Parser parser = new Parser(filterExpression);
+            Node ignored = parser.parseExpression();
+            parser.expectEnd();
+        } catch (ParseException ex) {
+            throw new IllegalArgumentException(ex.getMessage());
+        }
+    }
+
+    public record ParseResult(boolean parsed, boolean matches) {
         static ParseResult parsed(boolean matches) {
             return new ParseResult(true, matches);
         }
