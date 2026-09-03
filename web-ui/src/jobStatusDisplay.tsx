@@ -38,6 +38,25 @@ export function formatRatePerSecond(n: number | null | undefined): string {
   return `${n.toLocaleString()}/s`;
 }
 
+export function formatOutputCountWithPercent(
+  outputCount: number | null | undefined,
+  inputCount: number | null | undefined,
+): string {
+  const countStr = formatCount(outputCount);
+  if (countStr === "—") return countStr;
+  if (
+    outputCount != null &&
+    outputCount > 0 &&
+    inputCount != null &&
+    Number.isFinite(inputCount) &&
+    inputCount > 0
+  ) {
+    const pct = Math.round((outputCount / inputCount) * 100);
+    return `${countStr}(${pct}%)`;
+  }
+  return countStr;
+}
+
 export function hasTrafficMetrics(lag: LagMetrics | null | undefined): boolean {
   if (!lag) return false;
   return (
@@ -65,10 +84,17 @@ function formatTrafficSide(
   count: number | null | undefined,
   includeLag: boolean,
   lag: number | null | undefined,
+  inputCountForPercent?: number | null | undefined,
 ): string | null {
   const parts: string[] = [];
   if (rate != null && rate > 0) parts.push(formatRatePerSecond(rate));
-  if (count != null && count > 0) parts.push(formatCount(count));
+  if (count != null && count > 0) {
+    parts.push(
+      label === "out"
+        ? formatOutputCountWithPercent(count, inputCountForPercent)
+        : formatCount(count),
+    );
+  }
   if (includeLag && lag != null && lag > 0) parts.push(`lag ${formatCount(lag)}`);
   if (parts.length === 0) return null;
   return `${label}  ${parts.join(" · ")}`;
@@ -77,7 +103,14 @@ function formatTrafficSide(
 export function formatLagMetricsSummary(lag: LagMetrics | null | undefined): string {
   if (!lag) return "—";
   const input = formatTrafficSide("in", lag.inputRatePerSecond, lag.inputCount, true, lag.inputLag);
-  const output = formatTrafficSide("out", lag.outputRatePerSecond, lag.outputCount, false, null);
+  const output = formatTrafficSide(
+    "out",
+    lag.outputRatePerSecond,
+    lag.outputCount,
+    false,
+    null,
+    lag.inputCount,
+  );
   const lines = [input, output].filter((line): line is string => line != null);
   return lines.length > 0 ? lines.join("\n") : "—";
 }
