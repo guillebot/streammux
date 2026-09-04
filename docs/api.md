@@ -324,6 +324,8 @@ Duplicate create returns **`409 Conflict`**. Missing jobs return **`404 Not Foun
 
 No step requires shell access to orchestrator machines. Monitoring uses the management API read model plus unauthenticated `/actuator/health` and `/actuator/prometheus` on **job-management-api** and **site-orchestrator** (scraped by otelcol on kstreams hosts). See [observability.md](observability.md).
 
+**MCP:** AI clients can call the same operations via the Streammux MCP server — see [mcp.md](mcp.md) (`validate_job`, `get_job_schema`, `list_activity`, job lifecycle tools).
+
 ## Related documentation
 
 - [usage.md](usage.md) — quick index, helper scripts, health endpoints

@@ -7,6 +7,8 @@ import { InlineSpinner } from "./InlineSpinner";
 import {
   JobHealthBadge,
   formatLagMetricsSummary,
+  isHighLag,
+  isUnhealthyJob,
   kafkaStreamsState,
   statusDisplayLabel,
   statusDisplayTitle,
@@ -239,8 +241,10 @@ export function JobsList() {
                 const status = statuses[j.jobId];
                 const lastSeen = formatLastSeen(status?.lastHeartbeatAt);
                 const streamsState = kafkaStreamsState(status);
+                const highLag = isHighLag(status?.lagMetrics);
+                const rowClass = isUnhealthyJob(status) ? "job-row--unhealthy" : undefined;
                 return (
-                  <tr key={j.jobId}>
+                  <tr key={j.jobId} className={rowClass}>
                     <td className="table-actions col-actions">
                       <div className="icon-btn-group" role="group" aria-label={`Actions for job ${j.jobId}`}>
                         <button
@@ -288,7 +292,7 @@ export function JobsList() {
                       {streamsState ?? "—"}
                     </td>
                     <td
-                      className="mono traffic-cell"
+                      className={`mono traffic-cell${highLag ? " traffic-cell--warn" : ""}`}
                       title={formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
                     >
                       {formatLagMetricsSummary(status?.lagMetrics ?? undefined)}

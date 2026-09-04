@@ -13,6 +13,7 @@ This folder complements the [root README](../README.md) with structured guides f
 | [api.md](api.md) | Operators, integrators, automation | **100% API-managed** control plane, complete OpenAPI reference, curl examples |
 | [web-console.md](web-console.md) | Operators | Web UI pages: jobs, builder, catalog, health, settings |
 | [deployment.md](deployment.md) | DevOps, platform | Images, Compose files, environment variables, building and publishing |
+| [DEPLOY.md](DEPLOY.md) | DevOps, release managers | Release tagging (`YYYYMMDD-NN`), CI `release:tag`, Ansible promotion |
 | [mcp.md](mcp.md) | Operators, AI clients | MCP server, tokens, tool catalog, multi-backend token storage |
 | [usage.md](usage.md) | Operators, API users | Quick API index, scripts, health endpoints (see [api.md](api.md) for full reference) |
 | [observability.md](observability.md) | DevOps, SRE | Metrics, logs, otelcol, Grafana dashboards, verification |

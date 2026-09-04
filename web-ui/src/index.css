@@ -2,26 +2,51 @@
   color-scheme: light dark;
   --bg: #0f1419;
   --surface: #1a2332;
+  --surface-elevated: #243044;
   --border: #2d3a4d;
   --text: #e7ecf3;
+  --fg: var(--text);
   --muted: #8b9cb3;
   --accent: #5b9fd4;
   --danger: #e07070;
+  --warn: #e0b060;
   --ok: #6bc98a;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
   line-height: 1.5;
   font-size: 15px;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f6f9;
+  --surface: #fff;
+  --surface-elevated: #f8fafc;
+  --border: #cfd8e3;
+  --text: #1a2332;
+  --fg: var(--text);
+  --muted: #5a6b80;
+  --accent: #2563eb;
+  --danger: #b91c1c;
+  --warn: #b45309;
+  --ok: #15803d;
+}
+
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #f4f6f9;
     --surface: #fff;
+    --surface-elevated: #f8fafc;
     --border: #cfd8e3;
     --text: #1a2332;
+    --fg: var(--text);
     --muted: #5a6b80;
     --accent: #2563eb;
     --danger: #b91c1c;
+    --warn: #b45309;
     --ok: #15803d;
   }
 }
@@ -132,7 +157,376 @@ a:hover {
 .layout-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.layout-content {
+  flex: 1;
   padding: 1.25rem 1.5rem 3rem;
+  min-width: 0;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.top-bar-spacer {
+  flex: 1;
+}
+
+.top-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.sidebar-brand-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.sidebar-brand-link:hover {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.sidebar-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.sidebar-brand-wordmark {
+  line-height: 1.2;
+}
+
+.shell-chrome-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.shell-chrome-btn:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.shell-chrome-version {
+  font-variant-numeric: tabular-nums;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem 0.2rem 0.2rem;
+  background: var(--surface-elevated);
+}
+
+.user-avatar-img,
+.user-avatar-fallback {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--accent) 25%, var(--surface));
+  color: var(--text);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.user-menu-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.user-menu-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-menu-role {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.health-bell-wrap {
+  position: relative;
+}
+
+.health-bell-btn {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.health-bell-btn--bad {
+  border-color: color-mix(in srgb, var(--danger) 50%, var(--border));
+}
+
+.health-bell-btn--warn {
+  border-color: color-mix(in srgb, var(--warn) 50%, var(--border));
+}
+
+.health-bell-badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1rem;
+}
+
+.health-bell-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  width: min(22rem, 90vw);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bg) 65%, transparent);
+  z-index: 30;
+  padding: 0.75rem;
+}
+
+.health-bell-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.health-bell-link {
+  font-size: 0.82rem;
+}
+
+.health-bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.health-bell-item {
+  border-left: 3px solid var(--border);
+  padding-left: 0.5rem;
+}
+
+.health-bell-item--critical {
+  border-left-color: var(--danger);
+}
+
+.health-bell-item--warning {
+  border-left-color: var(--warn);
+}
+
+.health-bell-item--info {
+  border-left-color: var(--accent);
+}
+
+.health-bell-item-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.health-bell-item-detail {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+
+.health-bell-empty {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal-panel {
+  width: min(28rem, 100%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 1rem 1.1rem;
+}
+
+.modal-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.about-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.88rem;
+  margin: 1rem 0;
+}
+
+.filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mcp-tokens-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.mcp-tokens-table th,
+.mcp-tokens-table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.mcp-tokens-scopes {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 14rem;
+}
+
+.mcp-tokens-mono {
+  word-break: break-all;
+}
+
+.traffic-cell--warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.job-row--unhealthy td {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.lag-banner {
+  margin-bottom: 1rem;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  position: relative;
+}
+
+.login-top-bar {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.login-panel {
+  width: min(24rem, 100%);
+}
+
+.login-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+}
+
+.login-env {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.login-form {
+  margin-top: 1rem;
+}
+
+.login-entra-btn {
+  display: inline-flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  text-decoration: none;
 }
 
 .page {

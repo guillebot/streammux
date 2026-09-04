@@ -2,6 +2,7 @@ package io.github.guillebot.streammux.api.controller;
 
 import io.github.guillebot.streammux.api.service.KafkaTopicCatalogService;
 import io.github.guillebot.streammux.api.service.KafkaTopicCatalogService.KafkaTopicCatalog;
+import io.github.guillebot.streammux.api.service.PlatformHealthIssuesService;
 import io.github.guillebot.streammux.api.service.PlatformHealthService;
 import io.github.guillebot.streammux.api.service.PlatformHealthService.KafkaHealth;
 import io.github.guillebot.streammux.api.service.PlatformHealthService.ModuleHealth;
@@ -42,6 +43,9 @@ class JobMetaControllerTest {
 
     @MockBean
     private PlatformHealthService platformHealthService;
+
+    @MockBean
+    private PlatformHealthIssuesService platformHealthIssuesService;
 
     @MockBean
     private PlatformSettingsService platformSettingsService;

@@ -2,7 +2,7 @@
 
 The **web UI** (`web-ui`) is a React management console served on port **8088** by default (`STREAMMUX_WEB_PORT`). It proxies API calls to **job-management-api** (`/jobs`) and **job-catalog-api** (`/catalog`) through nginx inside the container.
 
-Production deployments (for example OneLab) typically expose the UI at `streammux.onelab.alticeusa.net` with Authelia SSO. Swagger UI and raw OpenAPI docs are routed to the management API on the same host (`/swagger-ui`, `/v3/api-docs`).
+Production deployments (for example OneLab) typically expose the UI at `streammux.onelab.alticeusa.net`. When `STREAMMUX_AUTH_ENABLED=true`, sign-in uses in-app Entra OIDC and break-glass local auth (see [auth.md](auth.md)); otherwise legacy Authelia/proxy headers may still apply. Swagger UI and raw OpenAPI docs are routed to the management API on the same host (`/swagger-ui`, `/v3/api-docs`).
 
 ## Navigation
 
@@ -10,8 +10,9 @@ Production deployments (for example OneLab) typically expose the UI at `streammu
 | ---- | ----- | ------- |
 | Job management | `/` | List live jobs from the Kafka-backed read model |
 | Job catalog | `/catalog` | Browse reusable job definition templates |
+| Config Studio | `/config-studio` | GitLab backup/sync for job JSON (when enabled) |
 | Job Builder | `/job/builder` | Visual wizard for common job types |
-| Health | `/health` | Platform and catalog health snapshots |
+| Health | `/health` | Platform health, job pipeline issues, catalog health |
 | Logs | `/logs` | Global activity feed (user actions, orchestrator lifecycle) |
 | Settings | `/settings` | Non-secret runtime configuration |
 | Documentation | `/docs` | In-app guides (this documentation set) |
@@ -28,9 +29,9 @@ The home page lists all jobs returned by `GET /jobs`. Each row links to the job 
 - **Job builder** — opens the visual builder for `ROUTE_APP` or `RANDOM_SAMPLER` jobs.
 - **New job** — opens a blank job editor (`/job/new`) where you can paste or edit the full JSON definition.
 
-The job detail page (`/job/:jobId`) shows definition, status, lease, and an **events timeline** (API and orchestrator entries). Use it to create, update, pause, resume, restart, or delete jobs. Pause/resume update `desiredState` via `PUT /jobs/{id}` so orchestrators react consistently. Validation errors from the API (for example topic allowlist violations) appear inline.
+The job detail page (`/job/:jobId`) shows definition, status, lease, and an **events timeline** (API and orchestrator entries). When the runner is active, **traffic metrics** from `status.lagMetrics` appear in the status panel: input lag, input/output rates (records/s), cumulative input/output counts, and output as a percentage of input when both counts are non-zero. Use it to create, update, pause, resume, restart, or delete jobs. Pause/resume update `desiredState` via `PUT /jobs/{id}` so orchestrators react consistently. Validation errors from the API (for example topic allowlist violations) appear inline.
 
-The **Logs** page (`/logs`) lists recent activity across all jobs with filters for job id (case-insensitive substring), event type (multi-select), and user (case-insensitive substring), plus a client-side free-text search over the message and user columns. On OneLab, the user column shows your Authelia identity when the edge proxy forwards `Remote-User` headers. See [observability.md](observability.md) for retention limits and the OTLP roadmap.
+The **Logs** page (`/logs`) lists recent activity across all jobs with filters for job id (case-insensitive substring), event type (multi-select), and user (case-insensitive substring), plus a client-side free-text search over the message and user columns. Event types include orchestrator lifecycle entries and `LAG_ALERT` / `LAG_RECOVERED` from the lag monitor. See [observability.md](observability.md) for retention limits and the OTLP roadmap.
 
 ## Job Builder
 

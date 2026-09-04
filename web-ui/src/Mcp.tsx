@@ -32,6 +32,12 @@ export function McpPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [created, setCreated] = useState<McpTokenCreateResult | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
+  const [showRevoked, setShowRevoked] = useState(false);
+
+  const visibleTokens = useMemo(
+    () => (showRevoked ? tokens : tokens.filter((t) => !t.revoked_at)),
+    [tokens, showRevoked],
+  );
 
   const loadTokens = useCallback(async () => {
     setLoadingTokens(true);
@@ -152,10 +158,20 @@ export function McpPage() {
 
         {tokensError ? <div className="banner error">{tokensError}</div> : null}
 
+        <label className="filter-inline" style={{ marginTop: "0.75rem" }}>
+          <input
+            type="checkbox"
+            checked={showRevoked}
+            onChange={(e) => setShowRevoked(e.target.checked)}
+          />
+          <span>Show revoked tokens</span>
+        </label>
+
         {loadingTokens ? (
           <p className="muted">Loading tokens…</p>
         ) : (
-          <table className="job-table" style={{ marginTop: "1rem" }}>
+          <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
+            <table className="mcp-tokens-table">
             <thead>
               <tr>
                 <th>ID</th>
@@ -169,19 +185,19 @@ export function McpPage() {
               </tr>
             </thead>
             <tbody>
-              {tokens.length === 0 ? (
+              {visibleTokens.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="muted">
                     No tokens yet.
                   </td>
                 </tr>
               ) : (
-                tokens.map((t) => (
+                visibleTokens.map((t) => (
                   <tr key={t.id}>
                     <td>{t.id}</td>
-                    <td className="mono">{t.display_prefix}</td>
+                    <td className="mono mcp-tokens-mono">{t.display_prefix}</td>
                     <td>{t.name}</td>
-                    <td className="mono">{t.scopes.join(", ")}</td>
+                    <td className="mono mcp-tokens-scopes">{t.scopes.join(", ")}</td>
                     <td>{formatWhen(t.created_at)}</td>
                     <td>{formatWhen(t.last_used_at)}</td>
                     <td>{t.revoked_at ? "Revoked" : "Active"}</td>
@@ -201,6 +217,7 @@ export function McpPage() {
               )}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 

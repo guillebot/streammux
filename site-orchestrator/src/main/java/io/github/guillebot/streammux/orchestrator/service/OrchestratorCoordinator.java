@@ -3,6 +3,7 @@ package io.github.guillebot.streammux.orchestrator.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
+import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.time.Instant;
 
 @Component
 public class OrchestratorCoordinator implements ConsumerSeekAware {
@@ -33,6 +35,7 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     private final KafkaOrchestratorPublisher publisher;
     private final StreammuxOrchestratorMetrics orchestratorMetrics;
     private final Set<TopicPartition> bootstrappedPartitions = ConcurrentHashMap.newKeySet();
+    private final Map<String, Instant> lastUnhealthyWarnAt = new ConcurrentHashMap<>();
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
@@ -141,6 +144,21 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
             }
 
             JobRuntimeStatus status = orchestratorService.status(definition.jobId(), definition);
+            if (status != null && status.health() == HealthState.UNHEALTHY
+                && leaseForStatus != null && leaseManager.ownsLease(leaseForStatus)) {
+                Instant now = Instant.now();
+                Instant lastWarn = lastUnhealthyWarnAt.get(jobId);
+                if (lastWarn == null || now.isAfter(lastWarn.plusSeconds(60))) {
+                    LOGGER.warn(
+                        "Job {} remains UNHEALTHY on this instance: {}",
+                        jobId,
+                        status.failureReason() != null ? status.failureReason() : "no failure reason"
+                    );
+                    lastUnhealthyWarnAt.put(jobId, now);
+                }
+            } else {
+                lastUnhealthyWarnAt.remove(jobId);
+            }
             if (status != null && shouldPublishRuntimeStatus(leaseForStatus)) {
                 publisher.publishStatus(status);
             }

@@ -118,6 +118,20 @@ Registered in `StreammuxPlatformMetrics`; refreshed on a schedule from the read 
 | `streammux.job.output_rate` | `streammux_job_output_rate` | `job_id` | Observed output rate |
 | `streammux.job.lease_holder` | `streammux_job_lease_holder` | `job_id`, `site_id`, `instance_id` | 1 for current lease owner |
 
+### Runtime status (`GET /jobs/{jobId}/status`)
+
+Orchestrators publish `JobRuntimeStatus` to the compacted `jobstatus` topic. The API exposes the latest snapshot per job. When the runner reports consumer/producer metrics, `lagMetrics` includes:
+
+| Field | Meaning |
+| ----- | ------- |
+| `inputLag` | Max consumer lag (records) on the job input topic |
+| `inputRatePerSecond` | Observed input throughput |
+| `inputCount` | Cumulative records consumed (alias `processedCount` in older payloads) |
+| `outputRatePerSecond` | Observed output throughput |
+| `outputCount` | Cumulative records produced |
+
+The web UI job detail page and list rows surface these fields; Prometheus rollups above (`streammux_job_input_lag`, `streammux_job_output_rate`) are refreshed from the same read model on a schedule.
+
 ### Custom Micrometer metrics (site-orchestrator)
 
 Registered in `StreammuxOrchestratorMetrics`.
@@ -193,9 +207,9 @@ Until phase 3 lands, use the **Logs** page and per-job **Events** timeline for o
 
 ## CI image tags
 
-GitLab CI pushes **8-character** commit SHAs (e.g. `ca1de651`), not 7-char `git rev-parse --short` values. Pin `streammux_image_tag` in Ansible to the CI SHA from the merge request pipeline.
+Production images are tagged with immutable **`YYYYMMDD-NN`** release IDs (UTC date + daily counter), not floating `:latest` or ad-hoc branch SHAs. Cut a release from GitLab **`main`** with the manual **`release:tag`** job; **`release:images`** pushes all five images (`job-management-api`, `site-orchestrator`, `web-ui`, `job-catalog-api`, `mcp`) with that tag only. Pin `streammux_image_tag` in Ansible to the release ID — see [DEPLOY.md](DEPLOY.md).
 
-Branch pushes alone may not run CI when an open MR exists; build from the MR pipeline or merge to `main`.
+MR pipelines may still build branch images for validation; promote the **release tag** through OneLab before production kstreams.
 
 ## Related docs
 

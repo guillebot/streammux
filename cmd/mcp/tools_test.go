@@ -95,3 +95,52 @@ func TestToolListIncludesRenameJob(t *testing.T) {
 	}
 	t.Fatal("toolList() missing rename_job")
 }
+
+func TestReadProxyPathGetJobSchema(t *testing.T) {
+	path, err := readProxyPath(toolsCallParams{Name: "get_job_schema"})
+	if err != nil {
+		t.Fatalf("readProxyPath() error = %v", err)
+	}
+	if path != "/jobs/schema" {
+		t.Fatalf("unexpected path: %q", path)
+	}
+}
+
+func TestReadProxyPathCatalogMeta(t *testing.T) {
+	health, err := readProxyPath(toolsCallParams{Name: "get_catalog_health"})
+	if err != nil {
+		t.Fatalf("get_catalog_health: %v", err)
+	}
+	if health != "catalog:/catalog/health" {
+		t.Fatalf("unexpected health path: %q", health)
+	}
+	settings, err := readProxyPath(toolsCallParams{Name: "get_catalog_settings"})
+	if err != nil {
+		t.Fatalf("get_catalog_settings: %v", err)
+	}
+	if settings != "catalog:/catalog/settings" {
+		t.Fatalf("unexpected settings path: %q", settings)
+	}
+}
+
+func TestIsWriteToolExcludesValidateJob(t *testing.T) {
+	if isWriteTool("validate_job") {
+		t.Fatal("validate_job should be read-only")
+	}
+}
+
+func TestToolListIncludesNewReadTools(t *testing.T) {
+	want := []string{"get_job_schema", "validate_job", "get_catalog_health", "get_catalog_settings"}
+	tools := toolList()
+	seen := map[string]bool{}
+	for _, tool := range tools {
+		if name, ok := tool["name"].(string); ok {
+			seen[name] = true
+		}
+	}
+	for _, name := range want {
+		if !seen[name] {
+			t.Fatalf("toolList() missing %s", name)
+		}
+	}
+}

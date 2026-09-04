@@ -1,0 +1,287 @@
+/*
+ * (c) Optimum 2026
+ * Guillermo Schimmel
+ */
+
+package io.github.guillebot.streammux.api.security;
+
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@Repository
+public class UserRepository {
+
+    private final JdbcTemplate jdbc;
+
+    public UserRepository(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    /**
+     * Per-user "last login" derived from {@code auth_audit}. Backed by the
+     * partial index in {@code V8__auth_audit_login_index.sql}, so a LEFT JOIN
+     * on {@code (username) WHERE event_type='LOGIN_SUCCESS'} stays fast even
+     * with millions of audit rows. Kept inline here (vs. a view) so the
+     * subquery can be inlined verbatim into both list and lookup queries
+     * without coordinating across modules.
+     */
+    private static final String LAST_LOGIN_JOIN = """
+              LEFT JOIN (
+                  SELECT username, MAX(ts) AS last_login_at
+                    FROM auth_audit
+                   WHERE event_type = 'LOGIN_SUCCESS'
+                   GROUP BY username
+              ) ll ON ll.username = u.username
+            """;
+
+    public Optional<UserAccount> findByUsername(String username) {
+        try {
+            UserAccount base = jdbc.queryForObject("""
+                    SELECT u.user_id, u.username, u.email, u.auth_type, u.password_hash, u.enabled,
+                           u.failed_attempts, u.locked_until, u.avatar_url, ll.last_login_at
+                      FROM users u
+                    """ + LAST_LOGIN_JOIN + """
+                     WHERE u.username = ?
+                    """, baseMapper(), username);
+            return Optional.ofNullable(base).map(this::withRoles);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
+    }
+
+    public List<UserAccount> findAll() {
+        List<UserAccount> base = jdbc.query("""
+                SELECT u.user_id, u.username, u.email, u.auth_type, u.password_hash, u.enabled,
+                       u.failed_attempts, u.locked_until, u.avatar_url, ll.last_login_at
+                  FROM users u
+                """ + LAST_LOGIN_JOIN + """
+                 ORDER BY u.username
+                """, baseMapper());
+        return base.stream().map(this::withRoles).toList();
+    }
+
+    public boolean hasAdminUser() {
+        Integer count = jdbc.queryForObject("""
+                SELECT COUNT(*)
+                  FROM users u
+                  JOIN user_roles r ON r.user_id = u.user_id
+                 WHERE u.enabled = true AND r.role = 'admin'
+                """, Integer.class);
+        return count != null && count > 0;
+    }
+
+    public long createLocalUser(String username, String email, String bcryptHash, List<String> roles) {
+        Long id = jdbc.queryForObject("""
+                INSERT INTO users (username, email, auth_type, password_hash, enabled, created_at, updated_at)
+                VALUES (?, ?, 'LOCAL', ?, true, NOW(), NOW())
+                RETURNING user_id
+                """, Long.class, username, email, bcryptHash);
+        if (id == null) {
+            throw new IllegalStateException("Failed to insert user");
+        }
+        replaceRoles(id, roles);
+        return id;
+    }
+
+    public long upsertOidcUser(String username, String email, List<String> roles) {
+        Long id = jdbc.queryForObject("""
+                INSERT INTO users (username, email, auth_type, enabled, created_at, updated_at)
+                VALUES (?, ?, 'OIDC', true, NOW(), NOW())
+                ON CONFLICT (username) DO UPDATE SET email = EXCLUDED.email, updated_at = NOW()
+                RETURNING user_id
+                """, Long.class, username, email);
+        if (id == null) {
+            throw new IllegalStateException("Failed to upsert OIDC user");
+        }
+        if (roles != null) {
+            replaceRoles(id, roles);
+        }
+        return id;
+    }
+
+    public void registerLoginFailure(String username, int lockoutThreshold, java.time.Duration lockoutDuration) {
+        jdbc.update("""
+                UPDATE users SET failed_attempts = failed_attempts + 1,
+                                 locked_until = CASE WHEN failed_attempts + 1 >= ?
+                                                     THEN NOW() + ?::interval ELSE NULL END,
+                                 updated_at = NOW()
+                 WHERE username = ?
+                """, lockoutThreshold,
+                lockoutDuration.toSeconds() + " seconds", username);
+    }
+
+    public void registerLoginSuccess(String username) {
+        jdbc.update("""
+                UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = NOW()
+                 WHERE username = ?
+                """, username);
+    }
+
+    public void setEnabled(long userId, boolean enabled) {
+        jdbc.update("UPDATE users SET enabled = ?, updated_at = NOW() WHERE user_id = ?",
+                enabled, userId);
+    }
+
+    public void updateEmail(long userId, String email) {
+        jdbc.update("UPDATE users SET email = ?, updated_at = NOW() WHERE user_id = ?",
+                email, userId);
+    }
+
+    /**
+     * Persist a cached Entra profile photo as a data URL. Only called when
+     * Graph returns a fresh image; existing values are kept on fetch miss.
+     */
+    public void updateAvatarUrl(long userId, String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            return;
+        }
+        jdbc.update("UPDATE users SET avatar_url = ?, updated_at = NOW() WHERE user_id = ?",
+                avatarUrl, userId);
+    }
+
+    /**
+     * Set a new BCrypt password hash on a {@code LOCAL} user and clear any
+     * lockout state. Throws on OIDC users — those have no local password.
+     */
+    public void updatePasswordHash(long userId, String bcryptHash) {
+        int n = jdbc.update("""
+                UPDATE users
+                   SET password_hash   = ?,
+                       failed_attempts = 0,
+                       locked_until    = NULL,
+                       updated_at      = NOW()
+                 WHERE user_id = ? AND auth_type = 'LOCAL'
+                """, bcryptHash, userId);
+        if (n == 0) {
+            throw new IllegalStateException("user not found or not LOCAL: " + userId);
+        }
+    }
+
+    public void clearLockout(long userId) {
+        jdbc.update("""
+                UPDATE users
+                   SET failed_attempts = 0, locked_until = NULL, updated_at = NOW()
+                 WHERE user_id = ?
+                """, userId);
+    }
+
+    /**
+     * Hard-delete every Spring Session JDBC row owned by {@code username}.
+     * Returns the number of sessions removed.
+     *
+     * <p>The Spring Session schema (see
+     * {@code incident-projector/.../V2__auth.sql}) cascades the delete to
+     * {@code spring_session_attributes} via the FK so we don't need to
+     * delete attributes separately. The {@code PRINCIPAL_NAME} index on
+     * {@code spring_session} makes this O(matching sessions).
+     *
+     * <p>Used by the F-05 fix from the 2026-05 review: an admin-initiated
+     * password reset should immediately log every other client out.
+     */
+    public int revokeAllSessions(String username) {
+        if (username == null || username.isBlank()) return 0;
+        return jdbc.update(
+                "DELETE FROM spring_session WHERE principal_name = ?",
+                username);
+    }
+
+    /**
+     * Like {@link #revokeAllSessions(String)} but preserves a single
+     * session id — used by the self-service password-change flow so that
+     * the user changing their own password keeps the tab they're on
+     * authenticated, while every other client is logged out.
+     *
+     * <p>{@code keepSessionId} is the {@code SPRING_SESSION.SESSION_ID}
+     * value (i.e. {@code httpReq.getSession().getId()}, which Spring
+     * Session JDBC writes verbatim into the cookie). Pass {@code null} to
+     * fall through to {@link #revokeAllSessions(String)}.
+     */
+    public int revokeSessionsExcept(String username, String keepSessionId) {
+        if (username == null || username.isBlank()) return 0;
+        if (keepSessionId == null || keepSessionId.isBlank()) {
+            return revokeAllSessions(username);
+        }
+        return jdbc.update(
+                "DELETE FROM spring_session WHERE principal_name = ? AND session_id <> ?",
+                username, keepSessionId);
+    }
+
+    public boolean deleteUser(long userId) {
+        return jdbc.update("DELETE FROM users WHERE user_id = ?", userId) > 0;
+    }
+
+    public void replaceRoles(long userId, List<String> roles) {
+        jdbc.update("DELETE FROM user_roles WHERE user_id = ?", userId);
+        if (roles == null || roles.isEmpty()) return;
+        for (String r : roles) {
+            jdbc.update("INSERT INTO user_roles (user_id, role) VALUES (?, ?)", userId, r);
+        }
+    }
+
+    /**
+     * Direct {@code user_audit} insert. New callers should prefer
+     * {@code AuthAuditService#record(...)} which also
+     * emits the structured {@code io.onealarm.audit} log line. Kept for
+     * back-compat with a handful of historical callers (the OIDC auth-
+     * success/failure {@code ApplicationListener}s in
+     * {@link SecurityConfig} use this path because there is no
+     * {@code HttpServletRequest} available at listener time).
+     */
+    public void recordAudit(String username, String eventType, String ip, String userAgent, Map<String, Object> detail) {
+        try {
+            // Post-V11 the `action` column is NOT NULL. Mirror event_type
+            // into it so legacy callers keep working unchanged.
+            jdbc.update("""
+                    INSERT INTO auth_audit ( username, event_type, ip, user_agent, detail)
+                    VALUES ( ?, ?, ?, ?, ?::jsonb)
+                    """, username, eventType, ip, userAgent,
+                    detail == null ? "{}" : new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(detail));
+        } catch (Exception ignore) {
+            // audit must never block auth flow
+        }
+    }
+
+    private UserAccount withRoles(UserAccount u) {
+        List<String> roles = jdbc.queryForList(
+                "SELECT role FROM user_roles WHERE user_id = ? ORDER BY role",
+                String.class, u.userId());
+        return new UserAccount(u.userId(), u.username(), u.email(), u.authType(), u.passwordHash(),
+                u.enabled(), u.failedAttempts(), u.lockedUntil(), u.lastLoginAt(), roles, u.avatarUrl());
+    }
+
+    private RowMapper<UserAccount> baseMapper() {
+        return (ResultSet rs, int n) -> new UserAccount(
+                rs.getLong("user_id"),
+                rs.getString("username"),
+                rs.getString("email"),
+                UserAccount.AuthType.valueOf(rs.getString("auth_type")),
+                rs.getString("password_hash"),
+                rs.getBoolean("enabled"),
+                rs.getInt("failed_attempts"),
+                ts(rs, "locked_until"),
+                ts(rs, "last_login_at"),
+                List.of(),
+                rs.getString("avatar_url")
+        );
+    }
+
+    private static Instant ts(ResultSet rs, String col) throws SQLException {
+        java.sql.Timestamp t = rs.getTimestamp(col);
+        return t == null ? null : t.toInstant();
+    }
+
+    @SuppressWarnings("unused")
+    private static List<String> safeList(List<String> in) {
+        return in == null ? List.of() : new ArrayList<>(in);
+    }
+}

@@ -104,8 +104,8 @@ Every token must include scope **`mcp`**. Additional scopes gate tool tiers:
 
 | Scope | Tools |
 | ----- | ----- |
-| `docs` | `list_docs`, `get_doc`, `search_docs`, `get_schema`, `get_openapi` |
-| `read` | Job and catalog reads, `get_health`, `get_settings`, `list_kafka_topics` |
+| `docs` | `list_docs`, `get_doc`, `search_docs`, `get_schema`, `get_job_schema`, `get_openapi` |
+| `read` | Job and catalog reads, `validate_job`, `get_health`, `get_settings`, `list_kafka_topics` |
 | `write` | Job lifecycle and catalog mutations (`apply=true`) |
 | `admin` | `session`, `token_create`, `token_list`, `token_revoke` |
 
@@ -121,6 +121,7 @@ All successful MCP sessions report **`username: admin`** and **`role: ADMIN`** �
 | `get_doc` | Full Markdown for a path (e.g. `docs/overview.md`) |
 | `search_docs` | Full-text search with snippets |
 | `get_schema` | OpenAPI component schema (`JobDefinition`, …) |
+| `get_job_schema` | JSON Schema (2020-12) from `GET /jobs/schema` — same document the server validator and web UI editor use |
 | `get_openapi` | Full OpenAPI JSON |
 
 Docs are also available as MCP resources under the `streammux://` URI scheme.
@@ -134,6 +135,8 @@ Docs are also available as MCP resources under the `streammux://` URI scheme.
 | `get_job_status` | Runtime status |
 | `get_job_lease` | Current lease holder |
 | `get_job_events` | Audit events |
+| `list_activity` | Global audit feed (`GET /activity`; filters: `limit`, `job_id`, `event_type`, `actor`) |
+| `validate_job` | Dry-run validation (`POST /jobs/validate`) without persisting |
 | `get_health` | Platform health |
 | `get_settings` | Non-secret settings |
 | `list_kafka_topics` | Allowlisted broker topics |
@@ -149,6 +152,8 @@ Docs are also available as MCP resources under the `streammux://` URI scheme.
 | ---- | ----------- |
 | `list_catalog_entries` | Template list |
 | `get_catalog_entry` | One template |
+| `get_catalog_health` | Catalog API health and entry count |
+| `get_catalog_settings` | Non-secret catalog configuration |
 | `create_catalog_entry` / `update_catalog_entry` / `delete_catalog_entry` | CRUD (`apply=true`) |
 | `duplicate_catalog_entry` | Clone template (`apply=true`) |
 | `push_catalog_entry` | Deploy template to live jobs (`apply=true`) |
@@ -165,9 +170,10 @@ Docs are also available as MCP resources under the `streammux://` URI scheme.
 ## Suggested agent workflow
 
 1. `list_docs` → `get_doc(docs/overview.md)` and `get_doc(docs/job-types.md)`
-2. `get_schema(JobDefinition)` before creating jobs
-3. `list_jobs` / `get_job` / `get_job_status` for live state
-4. `list_catalog_entries` for templates; `push_catalog_entry` to deploy
+2. `get_job_schema` (or `get_schema(JobDefinition)`) before creating jobs
+3. `validate_job` before `create_job` / `update_job` with `apply=true`
+4. `list_jobs` / `get_job` / `get_job_status` for live state; `list_activity` for the global audit feed
+5. `list_catalog_entries` for templates; `push_catalog_entry` to deploy
 
 ## Related
 

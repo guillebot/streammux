@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: job-management-api
+  datasource:
+    url: ${STREAMMUX_DATABASE_URL:}
+    username: ${STREAMMUX_DATABASE_USERNAME:streammux}
+    password: ${STREAMMUX_DATABASE_PASSWORD:streammux}
+  flyway:
+    enabled: ${STREAMMUX_FLYWAY_ENABLED:false}
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
   security:
     user:
       name: ${STREAMMUX_API_USERNAME:streammux}
@@ -41,8 +51,36 @@ springdoc:
     tagsSorter: alpha
 
 streammux:
+  auth:
+    enabled: ${STREAMMUX_AUTH_ENABLED:false}
+  security:
+    oidc-enabled: ${OIDC_ENABLED:false}
+    local-enabled: ${LOCAL_AUTH_ENABLED:true}
+    lockout-threshold: 5
+    lockout-duration: 15m
+    session-timeout: ${STREAMMUX_SESSION_TIMEOUT:8h}
+    remember-me-duration: ${STREAMMUX_REMEMBER_ME_DURATION:30d}
+    oidc-default-roles:
+      - viewer
+  ui:
+    url: ${STREAMMUX_UI_URL:}
   actor:
     trusted-proxy-headers-enabled: ${STREAMMUX_TRUSTED_PROXY_HEADERS:true}
+  health:
+    lag-warn-threshold: ${STREAMMUX_LAG_WARN_THRESHOLD:10000}
+    heartbeat-stale-seconds: ${STREAMMUX_HEARTBEAT_STALE_SECONDS:300}
+    lag-check-interval-ms: ${STREAMMUX_LAG_CHECK_INTERVAL_MS:30000}
+  config-studio:
+    enabled: ${CONFIG_STUDIO_ENABLED:false}
+    gitlab-base-url: ${CONFIG_STUDIO_GITLAB_BASE_URL:https://gitlab.com}
+    gitlab-project-id: ${CONFIG_STUDIO_GITLAB_PROJECT_ID:}
+    gitlab-token: ${CONFIG_STUDIO_GITLAB_TOKEN:}
+    default-branch: ${CONFIG_STUDIO_DEFAULT_BRANCH:main}
+    default-environment: ${CONFIG_STUDIO_DEFAULT_ENVIRONMENT:}
+    allowed-environments:
+      - onelab
+      - stage
+      - prod
   topics:
     job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
     job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}

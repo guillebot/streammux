@@ -1,4 +1,5 @@
 import type { HealthState, JobRuntimeStatus, LagMetrics } from "./types";
+import { DEFAULT_LAG_WARN_THRESHOLD } from "./api/healthClient";
 
 export function jobHealthBadgeTone(
   health: HealthState | null | undefined,
@@ -113,4 +114,15 @@ export function formatLagMetricsSummary(lag: LagMetrics | null | undefined): str
   );
   const lines = [input, output].filter((line): line is string => line != null);
   return lines.length > 0 ? lines.join("\n") : "—";
+}
+
+export function isHighLag(
+  lag: LagMetrics | null | undefined,
+  threshold: number = DEFAULT_LAG_WARN_THRESHOLD,
+): boolean {
+  return lag != null && Number.isFinite(lag.inputLag) && lag.inputLag >= threshold;
+}
+
+export function isUnhealthyJob(status: JobRuntimeStatus | null | undefined): boolean {
+  return status?.health === "UNHEALTHY" || status?.state === "FAILED";
 }
