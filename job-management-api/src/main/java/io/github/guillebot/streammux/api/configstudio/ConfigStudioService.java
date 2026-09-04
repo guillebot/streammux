@@ -71,6 +71,7 @@ public class ConfigStudioService {
         return Map.of(
             "enabled", props.enabled(),
             "ready", props.ready(),
+            "configurationIssues", props.configurationIssues(),
             "allowedEnvironments", props.allowedEnvironments(),
             "defaultEnvironment", props.resolvedDefaultEnvironment(deploymentLabel),
             "gitlabProjectUrl", props.gitlabProjectUrl(),

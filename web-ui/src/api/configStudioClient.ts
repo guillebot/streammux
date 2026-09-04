@@ -3,6 +3,7 @@ import { apiFetch } from "./http";
 export type ConfigStudioStatus = {
   enabled: boolean;
   ready: boolean;
+  configurationIssues: string[];
   allowedEnvironments: string[];
   defaultEnvironment: string;
   gitlabProjectUrl: string;
@@ -10,12 +11,34 @@ export type ConfigStudioStatus = {
   lastSyncByEnv: Record<string, { gitSha: string; syncedAt: string | null }>;
 };
 
+const DISABLED_STATUS: ConfigStudioStatus = {
+  enabled: false,
+  ready: false,
+  configurationIssues: [
+    "Config Studio is not available on this deployment (older API without a status endpoint).",
+  ],
+  allowedEnvironments: [],
+  defaultEnvironment: "",
+  gitlabProjectUrl: "",
+  gitHeadSha: "",
+  lastSyncByEnv: {},
+};
+
 export async function getConfigStudioStatus(): Promise<ConfigStudioStatus> {
   const res = await apiFetch("/api/config-studio/status");
+  if (res.status === 404) {
+    return DISABLED_STATUS;
+  }
   if (!res.ok) {
     throw new Error(`Config Studio status failed (${res.status})`);
   }
-  return res.json() as Promise<ConfigStudioStatus>;
+  const data = (await res.json()) as ConfigStudioStatus;
+  return {
+    ...data,
+    configurationIssues: data.configurationIssues ?? [],
+    allowedEnvironments: data.allowedEnvironments ?? [],
+    lastSyncByEnv: data.lastSyncByEnv ?? {},
+  };
 }
 
 export async function validateConfigStudio(environment: string, ref?: string) {

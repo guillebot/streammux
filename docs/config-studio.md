@@ -12,7 +12,7 @@ Dedicated GitLab project: **streammux-configs** (layout: `<env>/jobs/<jobId>.jso
 CONFIG_STUDIO_ENABLED=true
 CONFIG_STUDIO_GITLAB_PROJECT_ID=<numeric id or group/project>
 CONFIG_STUDIO_GITLAB_TOKEN=<gitlab PAT with api scope>
-CONFIG_STUDIO_DEFAULT_ENVIRONMENT=onelab
+CONFIG_STUDIO_DEFAULT_ENVIRONMENT=prod
 ```
 
 Requires `STREAMMUX_AUTH_ENABLED=true` and Postgres (Flyway migration `V2__config_studio.sql`).
@@ -41,3 +41,4 @@ Sidebar → **Config Studio** — overview, validate, dry-run sync, live sync, e
 - **Submit:** serializes in-memory jobs to `env/jobs/*.json` on a branch + MR.
 - **Sync:** reads Git at ref, validates each file, upserts/deletes jobs in Kafka to match Git.
 - **Drift:** compare Git HEAD SHA vs `config_studio_sync_state.last_git_sha` per environment.
+- **Status:** `GET /api/config-studio/status` is always available (even when disabled) and returns `configurationIssues` when GitLab is not wired.
