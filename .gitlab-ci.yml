@@ -317,6 +317,8 @@ release:images:
 release:images:retag:
   extends: .docker-base
   stage: release
+  needs: []
+  interruptible: false
   parallel: !reference [.images-matrix, parallel]
   variables:
     RELEASE_TAG: $CI_COMMIT_TAG

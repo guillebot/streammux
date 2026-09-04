@@ -47,6 +47,23 @@ scripts/next-release-tag.sh              # prints e.g. 20260825-01
 scripts/release-tag.sh --dry-run         # shows tag + commit, no git changes
 ```
 
+### Required setup (automatic `release:tag`)
+
+Automatic tagging on every `main` merge **requires** git push permission from CI.
+Without it, `release:tag` fails with *403 forbidden*, `release:images` is skipped,
+and no `YYYYMMDD-NN` images are published.
+
+Configure **one** of:
+
+1. **GitLab project** → **Settings** → **CI/CD** → **Job token permissions** →
+   enable **Allow Git push requests to the repository** (for `CI_JOB_TOKEN`), or
+2. Add masked CI variable **`RELEASE_GIT_PUSH_TOKEN`** — project access token
+   with `write_repository` scope.
+
+Verify after merge: main pipeline **release** stage shows `release:tag` and
+`release:images` **success**; git tag and registry image exist for the same
+`YYYYMMDD-NN`.
+
 ### CI variable for tag push
 
 Tag push uses `CI_JOB_TOKEN` by default. If push fails with *403 forbidden*,
