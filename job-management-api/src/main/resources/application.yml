@@ -91,12 +91,15 @@ streammux:
       allowed-output-topic-prefixes: ${STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES:}
 
 ---
-# In-app auth needs Postgres (users, sessions, Flyway). Do not activate this
-# document unless STREAMMUX_AUTH_ENABLED=true and STREAMMUX_DATABASE_URL is set.
+# JDBC is profile-gated. Spring Boot 3.5 only honors on-profile / on-cloud-platform
+# (not on-property). Extra documents without a valid activator are always merged,
+# which crash-loops production (auth off, no Postgres) with
+# "'url' must start with jdbc". AuthProfileEnvironmentPostProcessor adds profile
+# "auth" when STREAMMUX_AUTH_ENABLED=true.
 spring:
   config:
     activate:
-      on-property: streammux.auth.enabled=true
+      on-profile: auth
   datasource:
     url: ${STREAMMUX_DATABASE_URL}
     username: ${STREAMMUX_DATABASE_USERNAME:streammux}
@@ -107,23 +110,6 @@ spring:
     store-type: jdbc
     jdbc:
       initialize-schema: never
-management:
-  health:
-    db:
-      enabled: true
-
----
-# Config Studio uses the same Postgres when enabled without in-app auth.
-spring:
-  config:
-    activate:
-      on-property: streammux.config-studio.enabled=true
-  datasource:
-    url: ${STREAMMUX_DATABASE_URL}
-    username: ${STREAMMUX_DATABASE_USERNAME:streammux}
-    password: ${STREAMMUX_DATABASE_PASSWORD:streammux}
-  flyway:
-    enabled: ${STREAMMUX_FLYWAY_ENABLED:true}
 management:
   health:
     db:
