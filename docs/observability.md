@@ -207,7 +207,7 @@ Until phase 3 lands, use the **Logs** page and per-job **Events** timeline for o
 
 ## CI image tags
 
-Production images are tagged with immutable **`YYYYMMDD-NN`** release IDs (UTC date + daily counter), not floating `:latest` or ad-hoc branch SHAs. Cut a release from GitLab **`main`** with the manual **`release:tag`** job; **`release:images`** pushes all five images (`job-management-api`, `site-orchestrator`, `web-ui`, `job-catalog-api`, `mcp`) with that tag only. Pin `streammux_image_tag` in Ansible to the release ID — see [DEPLOY.md](DEPLOY.md).
+Production images are tagged with immutable **`YYYYMMDD-NN`** release IDs (UTC date + daily counter), not floating `:latest` or ad-hoc branch SHAs. Every merge to GitLab **`main`** runs **`release:tag`** automatically (after tests), then **`release:images`** pushes all five images (`job-management-api`, `site-orchestrator`, `web-ui`, `job-catalog-api`, `mcp`) with that tag only. Pin `streammux_image_tag` in Ansible to the release ID — see [DEPLOY.md](DEPLOY.md).
 
 MR pipelines may still build branch images for validation; promote the **release tag** through OneLab before production kstreams.
 

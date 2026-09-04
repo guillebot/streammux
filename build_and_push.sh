@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build Streammux Docker images and push to GitLab Container Registry.
 #
-# Primary release path: GitLab CI manual release:tag + release:images (YYYYMMDD-NN).
+# Primary release path: GitLab CI automatic release:tag + release:images (YYYYMMDD-NN).
 # See docs/DEPLOY.md. Use this script for local/emergency builds only.
 #
 # Base image sources (DOCKER_HUB_PROXY build-arg prefix in Dockerfiles):
