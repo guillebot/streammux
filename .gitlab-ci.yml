@@ -85,7 +85,6 @@ test:java:unit:
 test:java:integration:
   extends: .maven-job
   stage: test
-  allow_failure: true
   services:
     - name: "${DIND_TAG}@${DIND_DIGEST}"
       alias: docker
@@ -270,7 +269,6 @@ release:tag:
   needs:
     - job: test:java:unit
     - job: test:java:integration
-      optional: true
     - job: test:web-ui
     - job: test:go
     - job: test:job-catalog-api
@@ -331,7 +329,6 @@ images:build:
   needs:
     - job: test:java:unit
     - job: test:java:integration
-      optional: true
     - job: test:web-ui
     - job: test:go
     - job: test:job-catalog-api

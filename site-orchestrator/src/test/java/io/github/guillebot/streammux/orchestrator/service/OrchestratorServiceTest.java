@@ -80,6 +80,27 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    void renewBeforeConfirmedStartDoesNotSkipRunnerStart() {
+        JobDefinition definition = jobDefinition();
+        JobLease claimedLease = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.CLAIMED, Instant.parse("2024-01-01T00:01:00Z"), Instant.parse("2024-01-01T00:00:00Z"));
+        JobLease renewedLease = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:01:30Z"), Instant.parse("2024-01-01T00:01:00Z"));
+        when(leaseManager.decide(eq(definition), isNull(), any())).thenReturn(LeaseDecision.CLAIM);
+        when(leaseManager.claim(eq(definition), isNull(), eq(0L), any())).thenReturn(claimedLease);
+        when(leaseManager.decide(eq(definition), eq(claimedLease), any())).thenReturn(LeaseDecision.RENEW);
+        when(leaseManager.renew(eq(definition), eq(claimedLease), any())).thenReturn(renewedLease);
+        when(leaseManager.ownsLease(eq(renewedLease))).thenReturn(true);
+        when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
+
+        OrchestratorService service = newService();
+        service.reconcile(definition, null);
+        service.reconcile(definition, claimedLease);
+        service.maybeStartConfirmedRunner(definition, renewedLease);
+
+        verify(jobRunner).start(definition, 3);
+        verify(eventPublisher).publishForDefinition(eq(definition), eq(EventType.STARTED), eq("Runner started"), anyMap());
+    }
+
+    @Test
     void confirmedClaimStartsRunner() {
         JobDefinition definition = jobDefinition();
         JobLease claimedLease = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.CLAIMED, Instant.parse("2024-01-01T00:01:00Z"), Instant.parse("2024-01-01T00:00:00Z"));

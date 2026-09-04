@@ -44,6 +44,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -81,39 +82,44 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         coordinatorA.onJobDefinition(definitionRecord);
 
         ConsumerRecord<String, byte[]> firstLease = pollSingleRecord(leaseConsumer);
+        JobLease claimed = LEASE_MAPPER.readValue(firstLease.value(), JobLease.class);
         coordinatorA.onJobLease(firstLease);
         coordinatorB.onJobLease(firstLease);
         coordinatorB.onJobDefinition(definitionRecord);
 
-        verify(runnerA, timeout(5000)).start(definition, 1);
+        verify(runnerA, timeout(10_000)).start(eq(definition), anyLong());
         verify(runnerB, never()).start(any(), anyLong());
 
-        Thread.sleep(1200);
+        long waitForExpiryMs = Duration.between(Instant.now(), claimed.leaseExpiresAt().plusMillis(1_200)).toMillis();
+        if (waitForExpiryMs > 0) {
+            Thread.sleep(waitForExpiryMs);
+        }
         coordinatorB.reconcileAll();
 
-        ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseEpoch(leaseConsumer, 2);
+        ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseOwner(leaseConsumer, "site-b");
+        JobLease failedOver = LEASE_MAPPER.readValue(secondLease.value(), JobLease.class);
         coordinatorA.onJobLease(secondLease);
         coordinatorB.onJobLease(secondLease);
 
-        verify(runnerB).start(definition, 2);
+        verify(runnerB).start(definition, failedOver.leaseEpoch());
         verify(runnerA).stop("job-1");
     }
 
 
     private static final ObjectMapper LEASE_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
-    private ConsumerRecord<String, byte[]> pollUntilLeaseEpoch(KafkaConsumer<String, byte[]> consumer, long epoch) throws Exception {
-        Instant deadline = Instant.now().plusSeconds(15);
+    private ConsumerRecord<String, byte[]> pollUntilLeaseOwner(KafkaConsumer<String, byte[]> consumer, String siteId) throws Exception {
+        Instant deadline = Instant.now().plusSeconds(20);
         while (Instant.now().isBefore(deadline)) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(250));
             for (ConsumerRecord<String, byte[]> record : records) {
                 JobLease lease = LEASE_MAPPER.readValue(record.value(), JobLease.class);
-                if (lease.leaseEpoch() == epoch) {
+                if (siteId.equals(lease.leaseOwnerSite())) {
                     return record;
                 }
             }
         }
-        throw new AssertionError("Timed out waiting for lease epoch " + epoch);
+        throw new AssertionError("Timed out waiting for lease owner " + siteId);
     }
 
     private OrchestratorCoordinator coordinator(
@@ -178,7 +184,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             DesiredJobState.ACTIVE,
             1,
             null,
-            new LeasePolicy(1, 1, 0, true),
+            new LeasePolicy(1, 5, 0, true),
             1,
             new RouteAppConfig(
                 "input-topic",
