@@ -7,6 +7,7 @@ package io.github.guillebot.streammux.api.configstudio;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -80,9 +81,28 @@ public record ConfigStudioProperties(
     }
 
     public boolean ready() {
-        return enabled
-                && gitlabProjectId != null && !gitlabProjectId.isBlank()
-                && gitlabToken != null && !gitlabToken.isBlank();
+        return enabled && configurationIssues().isEmpty();
+    }
+
+    /**
+     * Human-readable gaps when {@link #enabled()} is true but GitLab is not wired.
+     */
+    public List<String> configurationIssues() {
+        if (!enabled) {
+            return List.of();
+        }
+        List<String> issues = new ArrayList<>();
+        if (gitlabProjectId == null || gitlabProjectId.isBlank()) {
+            issues.add(
+                    "Set CONFIG_STUDIO_GITLAB_PROJECT_ID to the streammux-configs GitLab project "
+                            + "(path or numeric id).");
+        }
+        if (gitlabToken == null || gitlabToken.isBlank()) {
+            issues.add(
+                    "Set CONFIG_STUDIO_GITLAB_TOKEN — a GitLab PAT with api scope on streammux-configs "
+                            + "(Ansible: streammux_config_studio_gitlab_token in group vault).");
+        }
+        return List.copyOf(issues);
     }
 
     public boolean requiresApproval(String environment) {
