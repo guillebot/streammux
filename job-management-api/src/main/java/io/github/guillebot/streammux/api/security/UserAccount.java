@@ -13,7 +13,9 @@ public record UserAccount(
     int failedAttempts,
     Instant lockedUntil,
     List<String> roles,
-    String avatarUrl
+    String avatarUrl,
+    Instant lastLoginAt,
+    boolean entraRolesOverridden
 ) {
     public enum AuthType {
         LOCAL,

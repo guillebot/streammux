@@ -123,9 +123,27 @@ export async function redirectIfUnauthenticated(response: Response): Promise<voi
   redirectToAutheliaLogin(location);
 }
 
+function csrfToken(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 /** fetch() that redirects to Authelia when the session has expired. */
 export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const response = init === undefined ? await fetch(input) : await fetch(input, init);
+  const headers = new Headers(init?.headers);
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    const token = csrfToken();
+    if (token && !headers.has("X-XSRF-TOKEN")) {
+      headers.set("X-XSRF-TOKEN", token);
+    }
+  }
+  const response = await fetch(input, {
+    ...init,
+    headers,
+    credentials: init?.credentials ?? "same-origin",
+  });
   await redirectIfUnauthenticated(response);
   return response;
 }

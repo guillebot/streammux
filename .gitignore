@@ -1,4 +1,5 @@
 .env
+*breakglass.credentials
 target/
 
 # IDE files

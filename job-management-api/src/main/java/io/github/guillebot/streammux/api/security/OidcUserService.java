@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service("streammuxOidcUserService")
@@ -31,12 +32,21 @@ public class OidcUserService extends org.springframework.security.oauth2.client.
         OidcUser delegate = super.loadUser(request);
         String username = pickUsername(delegate);
         String email = delegate.getEmail();
+        Optional<UserAccount> existing = repo.findByUsername(username);
         List<String> mappedRoles = mapRolesFromClaim(delegate);
-        List<String> rolesToPersist = mappedRoles.isEmpty() ? props.oidcDefaultRoles() : mappedRoles;
-        repo.upsertOidcUser(username, email, rolesToPersist);
+        List<String> sessionRoles = OidcRoleSync.sessionRoles(existing, mappedRoles, props.oidcDefaultRoles());
+        if (OidcRoleSync.shouldPersistMappedRoles(existing)) {
+            repo.upsertOidcUser(username, email, sessionRoles);
+        } else {
+            repo.upsertOidcUser(username, email, null);
+        }
 
         Set<GrantedAuthority> authorities = new HashSet<>(delegate.getAuthorities());
-        for (String role : rolesToPersist) {
+        authorities.removeIf(a -> {
+            String name = a.getAuthority();
+            return "ROLE_VIEWER".equals(name) || "ROLE_OPERATOR".equals(name) || "ROLE_ADMIN".equals(name);
+        });
+        for (String role : sessionRoles) {
             authorities.add(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
         }
 

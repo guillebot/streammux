@@ -3,8 +3,16 @@ import { apiFetch } from "./http";
 export interface SessionInfo {
   username: string;
   role: string;
+  roles?: string[];
   authType: string;
   avatarUrl?: string | null;
+}
+
+/** True when in-app auth is on and the session includes the admin role. */
+export function sessionHasAdmin(session: SessionInfo): boolean {
+  if (session.authType === "PROXY") return false;
+  if (session.role === "admin") return true;
+  return (session.roles ?? []).includes("admin");
 }
 
 export async function getSession(): Promise<SessionInfo> {
@@ -14,6 +22,7 @@ export async function getSession(): Promise<SessionInfo> {
     return {
       username: body.username,
       role: body.role ?? body.roles?.[body.roles.length - 1] ?? "viewer",
+      roles: body.roles,
       authType: body.authType,
       avatarUrl: body.avatarUrl,
     };

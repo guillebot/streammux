@@ -1,9 +1,9 @@
 package io.github.guillebot.streammux.api.security;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
@@ -16,6 +16,22 @@ import java.util.Optional;
 @Repository
 @ConditionalOnProperty(name = "streammux.auth.enabled", havingValue = "true")
 public class UserRepository {
+    private static final String LAST_LOGIN_JOIN = """
+              LEFT JOIN (
+                  SELECT username, MAX(ts) AS last_login_at
+                    FROM auth_audit
+                   WHERE event_type = 'LOGIN_SUCCESS'
+                   GROUP BY username
+              ) ll ON ll.username = u.username
+            """;
+
+    private static final String USER_COLUMNS = """
+            SELECT u.user_id, u.username, u.email, u.auth_type, u.password_hash, u.enabled,
+                   u.failed_attempts, u.locked_until, u.avatar_url, u.entra_roles_overridden,
+                   ll.last_login_at
+              FROM users u
+            """;
+
     private final JdbcTemplate jdbc;
 
     public UserRepository(JdbcTemplate jdbc) {
@@ -25,12 +41,7 @@ public class UserRepository {
     public Optional<UserAccount> findByUsername(String username) {
         try {
             UserAccount base = jdbc.queryForObject(
-                """
-                    SELECT user_id, username, email, auth_type, password_hash, enabled,
-                           failed_attempts, locked_until, avatar_url
-                      FROM users
-                     WHERE username = ?
-                    """,
+                USER_COLUMNS + LAST_LOGIN_JOIN + " WHERE u.username = ?",
                 baseMapper(),
                 username
             );
@@ -38,6 +49,27 @@ public class UserRepository {
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
+    }
+
+    public List<UserAccount> findAll() {
+        List<UserAccount> base = jdbc.query(
+            USER_COLUMNS + LAST_LOGIN_JOIN + " ORDER BY u.username",
+            baseMapper()
+        );
+        return base.stream().map(this::withRoles).toList();
+    }
+
+    public int countEnabledAdmins() {
+        Integer count = jdbc.queryForObject(
+            """
+                SELECT COUNT(*)
+                  FROM users u
+                  JOIN user_roles r ON r.user_id = u.user_id
+                 WHERE u.enabled = true AND r.role = 'admin'
+                """,
+            Integer.class
+        );
+        return count == null ? 0 : count;
     }
 
     public long createLocalUser(String username, String email, String bcryptHash, List<String> roles) {
@@ -106,6 +138,29 @@ public class UserRepository {
         jdbc.update("UPDATE users SET enabled = ?, updated_at = NOW() WHERE user_id = ?", enabled, userId);
     }
 
+    public void updateEmail(long userId, String email) {
+        jdbc.update("UPDATE users SET email = ?, updated_at = NOW() WHERE user_id = ?", email, userId);
+    }
+
+    public void setEntraRolesOverridden(long userId, boolean overridden) {
+        jdbc.update(
+            "UPDATE users SET entra_roles_overridden = ?, updated_at = NOW() WHERE user_id = ?",
+            overridden,
+            userId
+        );
+    }
+
+    public void clearLockout(long userId) {
+        jdbc.update(
+            """
+                UPDATE users
+                   SET failed_attempts = 0, locked_until = NULL, updated_at = NOW()
+                 WHERE user_id = ?
+                """,
+            userId
+        );
+    }
+
     public void updatePasswordHash(long userId, String bcryptHash) {
         int n = jdbc.update(
             """
@@ -126,6 +181,10 @@ public class UserRepository {
             return;
         }
         jdbc.update("UPDATE users SET avatar_url = ?, updated_at = NOW() WHERE user_id = ?", avatarUrl, userId);
+    }
+
+    public boolean deleteUser(long userId) {
+        return jdbc.update("DELETE FROM users WHERE user_id = ?", userId) > 0;
     }
 
     public int revokeAllSessions(String username) {
@@ -175,7 +234,9 @@ public class UserRepository {
             user.failedAttempts(),
             user.lockedUntil(),
             roles,
-            user.avatarUrl()
+            user.avatarUrl(),
+            user.lastLoginAt(),
+            user.entraRolesOverridden()
         );
     }
 
@@ -190,7 +251,9 @@ public class UserRepository {
             rs.getInt("failed_attempts"),
             ts(rs, "locked_until"),
             List.of(),
-            rs.getString("avatar_url")
+            rs.getString("avatar_url"),
+            ts(rs, "last_login_at"),
+            rs.getBoolean("entra_roles_overridden")
         );
     }
 

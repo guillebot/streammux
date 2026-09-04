@@ -36,6 +36,18 @@ export default defineConfig({
       allow: [repoRoot],
     },
     proxy: {
+      "/api": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
+      "/oauth2": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
+      "/login/oauth2": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
       "/jobs": {
         target: apiTarget,
         changeOrigin: true,
