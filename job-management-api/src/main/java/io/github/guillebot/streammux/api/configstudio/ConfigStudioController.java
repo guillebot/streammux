@@ -20,11 +20,6 @@ public class ConfigStudioController {
         this.service = service;
     }
 
-    @GetMapping("/status")
-    public Map<String, Object> status() {
-        return service.status();
-    }
-
     @PostMapping("/validate")
     public Map<String, Object> validate(@RequestBody Map<String, String> body) {
         return service.validate(body.get("environment"), body.get("ref"));
