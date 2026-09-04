@@ -21,7 +21,8 @@ func toolList() []map[string]any {
 		tool("list_docs", "List embedded Streammux documentation pages (path + title). Start here to understand the system.", nil, nil),
 		tool("get_doc", "Return full Markdown for a doc path, e.g. docs/overview.md (leading docs/ is optional).", map[string]any{"path": str}, []string{"path"}),
 		tool("search_docs", "Full-text search across embedded docs; returns ranked path + snippet hits.", map[string]any{"query": str}, []string{"query"}),
-		tool("get_schema", "Return an OpenAPI component schema by name (e.g. JobDefinition, JobRuntimeStatus, JobLease). Omit name to list available schema names.", map[string]any{"name": str}, nil),
+		tool("get_schema", "Return an OpenAPI component schema by name (e.g. JobDefinition, JobRuntimeStatus, JobLease). Omit name to list available schema names. For the JSON Schema used by create/update validation, use get_job_schema.", map[string]any{"name": str}, nil),
+		tool("get_job_schema", "Return the JSON Schema (2020-12) for JobDefinition used by the server validator and web UI editor (GET /jobs/schema).", nil, nil),
 		tool("get_openapi", "Return the full Streammux job-management-api OpenAPI document.", nil, nil),
 
 		tool("list_jobs", "List all job definitions from the read model.", nil, nil),
@@ -35,6 +36,7 @@ func toolList() []map[string]any {
 			"event_type": map[string]any{"oneOf": []any{str, strArr}},
 			"actor":      str,
 		}, nil),
+		tool("validate_job", "Dry-run job validation (POST /jobs/validate): same rules as create/update without persisting. Requires job object.", map[string]any{"job": freeObj}, []string{"job"}),
 		tool("get_health", "Platform health (Kafka + read model).", nil, nil),
 		tool("get_settings", "Non-secret platform settings (topics, allowlists, site id).", nil, nil),
 		tool("list_kafka_topics", "Broker topics filtered by configured input/output allowlists.", nil, nil),
@@ -49,6 +51,8 @@ func toolList() []map[string]any {
 
 		tool("list_catalog_entries", "List job catalog templates.", nil, nil),
 		tool("get_catalog_entry", "Get one catalog entry by id.", map[string]any{"id": str}, []string{"id"}),
+		tool("get_catalog_health", "Catalog API health and entry count.", nil, nil),
+		tool("get_catalog_settings", "Non-secret catalog configuration.", nil, nil),
 		tool("create_catalog_entry", "Create a catalog entry. Requires entry object and apply=true.", map[string]any{"entry": freeObj, "apply": boolg}, []string{"entry", "apply"}),
 		tool("update_catalog_entry", "Update a catalog entry. Requires id, entry object, and apply=true.", map[string]any{"id": str, "entry": freeObj, "apply": boolg}, []string{"id", "entry", "apply"}),
 		tool("delete_catalog_entry", "Delete a catalog entry. Requires id and apply=true.", map[string]any{"id": str, "apply": boolg}, []string{"id", "apply"}),
@@ -186,6 +190,24 @@ func (s *mcpServer) handleToolCall(ctx context.Context, p toolsCallParams, authz
 			return "", err
 		}
 		return `{"ok":true}`, nil
+	}
+
+	// Job read tools (POST without apply)
+	switch p.Name {
+	case "validate_job":
+		job, err := argObject(p.Arguments, "job")
+		if err != nil {
+			return "", err
+		}
+		body, err := mustJSON(job)
+		if err != nil {
+			return "", err
+		}
+		out, err := s.jobsPost(ctx, "/jobs/validate", body, mcpWriteHeaders(p.Name))
+		if err != nil {
+			return "", err
+		}
+		return prettyJSON(out), nil
 	}
 
 	// Job write tools
@@ -434,6 +456,8 @@ func readProxyPath(p toolsCallParams) (string, error) {
 		return "/jobs/meta/settings", nil
 	case "list_kafka_topics":
 		return "/jobs/meta/kafka-topics", nil
+	case "get_job_schema":
+		return "/jobs/schema", nil
 	case "list_catalog_entries":
 		return "catalog:/catalog/entries", nil
 	case "get_catalog_entry":
@@ -442,6 +466,10 @@ func readProxyPath(p toolsCallParams) (string, error) {
 			return "", errors.New("id is required")
 		}
 		return "catalog:/catalog/entries/" + url.PathEscape(id), nil
+	case "get_catalog_health":
+		return "catalog:/catalog/health", nil
+	case "get_catalog_settings":
+		return "catalog:/catalog/settings", nil
 	default:
 		return "", fmt.Errorf("unknown tool: %s", p.Name)
 	}

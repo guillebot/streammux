@@ -111,3 +111,49 @@ export function worstStatus(...statuses: HealthStatus[]): HealthStatus {
   if (statuses.some((s) => s === "DEGRADED")) return "DEGRADED";
   return "UP";
 }
+
+export type IssueSeverity = "critical" | "warning" | "info";
+
+export interface HealthSummary {
+  checkedAt: string;
+  critical: number;
+  warning: number;
+  info: number;
+  prometheusReachable: boolean;
+}
+
+export interface HealthIssue {
+  id: string;
+  severity: IssueSeverity;
+  title: string;
+  detail: string | null;
+}
+
+export interface HealthIssuesResponse {
+  checkedAt: string;
+  issues: HealthIssue[];
+}
+
+export async function getHealthSummary(): Promise<HealthSummary> {
+  const res = await apiFetch("/jobs/meta/health/summary");
+  if (!res.ok) await handleError(res);
+  return readJson<HealthSummary>(res);
+}
+
+export async function getHealthIssues(): Promise<HealthIssuesResponse> {
+  const res = await apiFetch("/jobs/meta/health/issues");
+  if (!res.ok) await handleError(res);
+  const raw = await readJson<{
+    checkedAt: string;
+    issues: Array<{ id: string; severity: string; title: string; detail: string | null }>;
+  }>(res);
+  return {
+    checkedAt: raw.checkedAt,
+    issues: raw.issues.map((issue) => ({
+      ...issue,
+      severity: issue.severity.toLowerCase() as IssueSeverity,
+    })),
+  };
+}
+
+export const DEFAULT_LAG_WARN_THRESHOLD = 10_000;

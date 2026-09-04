@@ -90,7 +90,10 @@ func TestIsWriteToolTable(t *testing.T) {
 			t.Fatalf("%s should be a write tool", name)
 		}
 	}
-	reads := []string{"list_jobs", "get_job", "list_docs", "get_health", "session", "token_list"}
+	reads := []string{
+		"list_jobs", "get_job", "list_docs", "get_health", "session", "token_list",
+		"list_activity", "validate_job", "get_job_schema", "get_catalog_health", "get_catalog_settings",
+	}
 	for _, name := range reads {
 		if isWriteTool(name) {
 			t.Fatalf("%s should not be a write tool", name)

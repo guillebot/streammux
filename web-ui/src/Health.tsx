@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getCatalogHealth,
+  getHealthIssues,
   getMcpHealth,
   getPlatformHealth,
   worstStatus,
   type CatalogHealth,
+  type HealthIssue,
   type HealthStatus,
   type McpHealth,
   type PlatformHealth,
@@ -38,6 +40,8 @@ export function Health() {
   const [platformError, setPlatformError] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [mcpError, setMcpError] = useState<string | null>(null);
+  const [issues, setIssues] = useState<HealthIssue[]>([]);
+  const [issuesError, setIssuesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -45,11 +49,13 @@ export function Health() {
     setPlatformError(null);
     setCatalogError(null);
     setMcpError(null);
+    setIssuesError(null);
 
-    const [platformResult, catalogResult, mcpResult] = await Promise.allSettled([
+    const [platformResult, catalogResult, mcpResult, issuesResult] = await Promise.allSettled([
       getPlatformHealth(),
       getCatalogHealth(),
       getMcpHealth(),
+      getHealthIssues(),
     ]);
 
     if (platformResult.status === "fulfilled") {
@@ -74,7 +80,18 @@ export function Health() {
       setMcp(mcpResult.value);
     } else {
       setMcp(null);
-      setMcpError(mcpResult.reason instanceof Error ? mcpResult.reason.message : String(mcpResult.reason));
+      setMcpError(
+        mcpResult.reason instanceof Error ? mcpResult.reason.message : String(mcpResult.reason),
+      );
+    }
+
+    if (issuesResult.status === "fulfilled") {
+      setIssues(issuesResult.value.issues);
+    } else {
+      setIssues([]);
+      setIssuesError(
+        issuesResult.reason instanceof Error ? issuesResult.reason.message : String(issuesResult.reason),
+      );
     }
 
     setLoading(false);
@@ -155,6 +172,35 @@ export function Health() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Job pipeline issues</h2>
+        {issuesError ? <div className="banner error">{issuesError}</div> : null}
+        {issues.length === 0 ? (
+          <p className="muted">No active job or platform issues detected.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="activity-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Issue</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {issues.map((issue) => (
+                  <tr key={issue.id}>
+                    <td>{issue.severity}</td>
+                    <td>{issue.title}</td>
+                    <td className="muted">{issue.detail ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="panel">

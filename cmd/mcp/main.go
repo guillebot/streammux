@@ -28,15 +28,15 @@ This MCP server exposes embedded documentation and proxies the job-management-ap
 
 Start here:
 1. list_docs then get_doc(docs/overview.md) and get_doc(docs/job-types.md)
-2. get_schema(JobDefinition) for the job JSON shape
-3. list_jobs / get_job to inspect live jobs; get_job_status and get_job_lease for runtime state
-4. list_catalog_entries for reusable job templates; push_catalog_entry deploys a template to the cluster
+2. get_job_schema for the JSON Schema used by validation; get_schema(JobDefinition) for OpenAPI components
+3. validate_job before create_job/update_job; list_jobs / get_job for live definitions; get_job_status for runtime state (includes lagMetrics)
+4. list_activity for the global audit feed; list_catalog_entries for templates; push_catalog_entry deploys a template
 
 Tool tiers (Bearer stm_ token scopes):
-- docs: list_docs, get_doc, search_docs, get_schema, get_openapi
-- read: list_jobs, get_job, get_job_status, get_job_lease, get_job_events, get_health, get_settings, list_kafka_topics, catalog reads
-- write: create_job, update_job, delete_job, pause_job, resume_job, restart_job, catalog mutations (apply=true)
-- admin: token_create, token_list, token_revoke (apply=true for create/revoke)
+- docs: list_docs, get_doc, search_docs, get_schema, get_job_schema, get_openapi
+- read: list_jobs, get_job, get_job_status, get_job_lease, get_job_events, list_activity, validate_job, get_health, get_settings, list_kafka_topics, catalog reads (incl. get_catalog_health, get_catalog_settings)
+- write: create_job, update_job, rename_job, delete_job, pause_job, resume_job, restart_job, catalog mutations (apply=true)
+- admin: session, token_create, token_list, token_revoke (apply=true for create/revoke)
 
 All mutating tools require apply=true. Resources are available under the streammux:// URI scheme.`
 

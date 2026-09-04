@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class KafkaStreamsRunnerSupport {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStreamsRunnerSupport.class);
+    private static final long LAG_WARN_THRESHOLD = parseLagThreshold();
     private static final String CONSUMER_FETCH_MANAGER_METRICS = "consumer-fetch-manager-metrics";
     private static final String PRODUCER_TOPIC_METRICS = "producer-topic-metrics";
     private static final String STREAM_TOPIC_METRICS = "stream-topic-metrics";
@@ -28,6 +29,7 @@ public final class KafkaStreamsRunnerSupport {
     private final Map<String, KafkaStreams> runningJobs = new ConcurrentHashMap<>();
     private final Map<String, KafkaStreams.State> streamStates = new ConcurrentHashMap<>();
     private final Map<String, String> failureReasons = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> lagAlertState = new ConcurrentHashMap<>();
 
     public void register(String jobId, KafkaStreams streams) {
         stop(jobId);
@@ -48,6 +50,7 @@ public final class KafkaStreamsRunnerSupport {
         KafkaStreams streams = runningJobs.remove(jobId);
         streamStates.remove(jobId);
         failureReasons.remove(jobId);
+        lagAlertState.remove(jobId);
         if (streams != null) {
             streams.close();
         }
@@ -80,6 +83,9 @@ public final class KafkaStreamsRunnerSupport {
             failureReason = "Kafka Streams state: " + kafkaState;
         }
 
+        LagMetrics lagMetrics = extractLagMetrics(streams);
+        recordLagTransition(jobId, lagMetrics);
+
         return new JobRuntimeStatus(
             jobId,
             0,
@@ -88,8 +94,34 @@ public final class KafkaStreamsRunnerSupport {
             Instant.now(),
             new WorkerMetadata(jobId, topologyName, kafkaState.name(), Map.of("kafkaStreamsState", kafkaState.name())),
             failureReason,
-            extractLagMetrics(streams)
+            lagMetrics
         );
+    }
+
+    private void recordLagTransition(String jobId, LagMetrics lagMetrics) {
+        if (lagMetrics == null) {
+            return;
+        }
+        long lag = lagMetrics.inputLag();
+        boolean high = lag >= LAG_WARN_THRESHOLD;
+        Boolean wasHigh = lagAlertState.put(jobId, high);
+        if (high && !Boolean.TRUE.equals(wasHigh)) {
+            LOGGER.warn("Job {} input lag {} exceeds threshold {}", jobId, lag, LAG_WARN_THRESHOLD);
+        } else if (!high && Boolean.TRUE.equals(wasHigh)) {
+            LOGGER.info("Job {} input lag recovered to {}", jobId, lag);
+        }
+    }
+
+    private static long parseLagThreshold() {
+        String raw = System.getenv("STREAMMUX_LAG_WARN_THRESHOLD");
+        if (raw == null || raw.isBlank()) {
+            return 10_000L;
+        }
+        try {
+            return Long.parseLong(raw.trim());
+        } catch (NumberFormatException ex) {
+            return 10_000L;
+        }
     }
 
     static LagMetrics extractLagMetrics(KafkaStreams streams) {

@@ -25,6 +25,8 @@ import {
   formatOutputCountWithPercent,
   formatRatePerSecond,
   hasTrafficMetrics,
+  isHighLag,
+  isUnhealthyJob,
   kafkaStreamsState,
 } from "./jobStatusDisplay";
 import { takeStashedJobDefinition } from "./jobBuilderStash";
@@ -353,6 +355,17 @@ export function JobDetail() {
       {loading ? <p className="muted">Loading…</p> : null}
       {error ? <div className="banner error">{error}</div> : null}
       {notice ? <div className="banner success">{notice}</div> : null}
+      {!isNew && isUnhealthyJob(status) ? (
+        <div className="banner error lag-banner">
+          Job is unhealthy{status?.failureReason ? `: ${status.failureReason}` : "."}
+        </div>
+      ) : null}
+      {!isNew && isHighLag(status?.lagMetrics) ? (
+        <div className="banner warn lag-banner">
+          High input lag detected ({status?.lagMetrics?.inputLag?.toLocaleString()} records). Check consumer
+          throughput and downstream sinks.
+        </div>
+      ) : null}
 
       {!loading || isNew ? (
         <>

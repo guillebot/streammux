@@ -226,6 +226,7 @@ public class OrchestratorService {
                 ex.getMessage() != null ? ex.getMessage() : "Runner start failed",
                 Map.of("leaseEpoch", leaseEpoch, "error", ex.getClass().getSimpleName())
             );
+            LOGGER.warn("Runner start failed for job {} at epoch {}: {}", definition.jobId(), leaseEpoch, ex.getMessage());
             LOGGER.error("Failed to start job {} at epoch {}", definition.jobId(), leaseEpoch, ex);
             orchestratorMetrics.recordRunnerStartFailure(definition.jobId(), definition.jobType());
             throw ex;
