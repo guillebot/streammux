@@ -10,7 +10,7 @@ Streammux supports **session-first** authentication on `job-management-api`, wit
 | `OIDC_ENABLED` | `false` | Microsoft Entra ID (OIDC) |
 | `LOCAL_AUTH_ENABLED` | `true` | Break-glass username/password form login |
 
-When auth is disabled, the legacy HTTP Basic filter (`SecurityConfiguration`) applies and the UI uses proxy headers (`Remote-User`) via `GET /jobs/meta/session`.
+When auth is disabled, the legacy HTTP Basic filter (`SecurityConfiguration`) applies and the UI uses proxy headers (`Remote-User`) via `GET /jobs/meta/session`. JDBC/Flyway/session store stay **off** unless `STREAMMUX_AUTH_ENABLED=true` (or Config Studio is enabled) **and** `STREAMMUX_DATABASE_URL` is set. An empty database URL must not be present — that combination crash-loops `job-management-api` in production.
 
 ## Entra OIDC
 

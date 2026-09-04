@@ -4,16 +4,6 @@ server:
 spring:
   application:
     name: job-management-api
-  datasource:
-    url: ${STREAMMUX_DATABASE_URL:}
-    username: ${STREAMMUX_DATABASE_USERNAME:streammux}
-    password: ${STREAMMUX_DATABASE_PASSWORD:streammux}
-  flyway:
-    enabled: ${STREAMMUX_FLYWAY_ENABLED:false}
-  session:
-    store-type: jdbc
-    jdbc:
-      initialize-schema: never
   security:
     user:
       name: ${STREAMMUX_API_USERNAME:streammux}
@@ -34,11 +24,17 @@ spring:
       properties:
         spring.json.add.type.headers: false
 
+  flyway:
+    enabled: false
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
+  health:
+    db:
+      enabled: false
 
 springdoc:
   show-actuator: true
@@ -93,3 +89,43 @@ streammux:
       allowed-input-topic-prefixes: ${STREAMMUX_ALLOWED_INPUT_TOPIC_PREFIXES:}
       allowed-output-topics: ${STREAMMUX_ALLOWED_OUTPUT_TOPICS:}
       allowed-output-topic-prefixes: ${STREAMMUX_ALLOWED_OUTPUT_TOPIC_PREFIXES:}
+
+---
+# In-app auth needs Postgres (users, sessions, Flyway). Do not activate this
+# document unless STREAMMUX_AUTH_ENABLED=true and STREAMMUX_DATABASE_URL is set.
+spring:
+  config:
+    activate:
+      on-property: streammux.auth.enabled=true
+  datasource:
+    url: ${STREAMMUX_DATABASE_URL}
+    username: ${STREAMMUX_DATABASE_USERNAME:streammux}
+    password: ${STREAMMUX_DATABASE_PASSWORD:streammux}
+  flyway:
+    enabled: ${STREAMMUX_FLYWAY_ENABLED:true}
+  session:
+    store-type: jdbc
+    jdbc:
+      initialize-schema: never
+management:
+  health:
+    db:
+      enabled: true
+
+---
+# Config Studio uses the same Postgres when enabled without in-app auth.
+spring:
+  config:
+    activate:
+      on-property: streammux.config-studio.enabled=true
+  datasource:
+    url: ${STREAMMUX_DATABASE_URL}
+    username: ${STREAMMUX_DATABASE_USERNAME:streammux}
+    password: ${STREAMMUX_DATABASE_PASSWORD:streammux}
+  flyway:
+    enabled: ${STREAMMUX_FLYWAY_ENABLED:true}
+management:
+  health:
+    db:
+      enabled: true
+
