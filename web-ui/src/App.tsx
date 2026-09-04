@@ -12,6 +12,7 @@ import { ManagementHome } from "./ManagementHome";
 import { McpPage } from "./Mcp";
 import { ConfigStudioPage } from "./pages/ConfigStudioPage";
 import { LoginPage } from "./pages/LoginPage";
+import { UsersPage } from "./pages/UsersPage";
 import { Settings } from "./Settings";
 
 export function App() {
@@ -36,6 +37,7 @@ export function App() {
           <Route path="/logs" element={<Logs />} />
           <Route path="/docs/*" element={<DocsRoutes />} />
           <Route path="/mcp" element={<McpPage />} />
+          <Route path="/users" element={<UsersPage />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

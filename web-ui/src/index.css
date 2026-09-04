@@ -1407,22 +1407,59 @@ select.form-select {
   margin-bottom: 0.35rem;
 }
 
-.config-studio-unavailable h2 {
-  margin-top: 0;
-  font-size: 1.1rem;
+.users-toolbar {
+  margin: 0.75rem 0 1rem;
 }
 
-.config-studio-unavailable p {
-  margin: 0.5rem 0 0;
-  line-height: 1.5;
+.users-toolbar .text-input {
+  max-width: 24rem;
 }
 
-.config-studio-issues {
-  margin: 0.85rem 0 0;
-  padding-left: 1.25rem;
-  line-height: 1.55;
+.users-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
-.config-studio-issues li {
-  margin-bottom: 0.35rem;
+.users-role-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  white-space: nowrap;
+}
+
+.users-role-toggles label {
+  font-size: 0.85rem;
+}
+
+.users-entra,
+.users-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.users-actions button {
+  font-size: 0.8rem;
+}
+
+.users-row-disabled {
+  opacity: 0.72;
+}
+
+.users-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+}
+
+.users-field .text-input {
+  max-width: none;
+}
+
+.users-field legend {
+  font-size: 0.85rem;
+  padding: 0;
 }

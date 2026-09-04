@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { recordSession } from "./api/activityClient";
-import { getSession, type SessionInfo } from "./api/sessionClient";
+import { getSession, sessionHasAdmin, type SessionInfo } from "./api/sessionClient";
 import { BrandWordmark } from "./components/BrandWordmark";
 import { HealthBell } from "./components/HealthBell";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -61,6 +61,11 @@ export function AppLayout() {
           <NavLink className="sidebar-link" to="/mcp">
             MCP
           </NavLink>
+          {sessionHasAdmin(session) ? (
+            <NavLink className="sidebar-link" to="/users">
+              Users
+            </NavLink>
+          ) : null}
           <NavLink className="sidebar-link" to="/settings">
             Settings
           </NavLink>

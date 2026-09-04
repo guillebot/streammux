@@ -164,4 +164,28 @@ describe("http auth redirect helpers", () => {
     await expect(apiFetch("/jobs")).rejects.toBeInstanceOf(AuthRedirectError);
     expect(assign).toHaveBeenCalled();
   });
+
+  it("adds X-XSRF-TOKEN on mutating requests when the cookie is set", async () => {
+    document.cookie = "XSRF-TOKEN=" + encodeURIComponent("a/b+c=");
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse({ status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/admin/users", { method: "POST", body: "{}" });
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(init.headers);
+    expect(headers.get("X-XSRF-TOKEN")).toBe("a/b+c=");
+  });
+
+  it("does not add X-XSRF-TOKEN on GET", async () => {
+    document.cookie = "XSRF-TOKEN=should-not-leak-on-get";
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse({ status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiFetch("/api/admin/users");
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const headers = new Headers(init.headers);
+    expect(headers.get("X-XSRF-TOKEN")).toBeNull();
+  });
 });

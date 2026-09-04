@@ -115,6 +115,21 @@ Comma-separated lists. If **both** exact and prefix lists are empty for a catego
 
 Copy [.env.example](../.env.example) to `.env` and edit. Helper scripts [create-job.sh](../create-job.sh), [list-jobs.sh](../list-jobs.sh), and [remove-job.sh](../remove-job.sh) source `.env` when present.
 
+### In-app authentication (API + web-ui)
+
+Default **off**. See [auth.md](auth.md) and [BREAK_GLASS.md](../BREAK_GLASS.md). Do not enable in production without an operator request.
+
+| Variable | Default | Meaning |
+| -------- | ------- | ------- |
+| `STREAMMUX_AUTH_ENABLED` | `false` | Postgres session auth (Flyway `V1`–`V3`) |
+| `STREAMMUX_FLYWAY_ENABLED` | `false` | Required when auth is on |
+| `OIDC_ENABLED` | `false` | Entra OIDC |
+| `LOCAL_AUTH_ENABLED` | `true` | Local form login |
+| `STREAMMUX_BOOTSTRAP_ADMIN_USERNAME` | `breakglass` | Break-glass local admin |
+| `STREAMMUX_BOOTSTRAP_ADMIN_PASSWORD` | empty | If set, create/reset that user on boot; if empty, generate once and write the password file |
+| `STREAMMUX_BOOTSTRAP_ADMIN_PASSWORD_FILE` | `$TMPDIR/streammux-breakglass.credentials` | 0600 file for the generated password (never logged) |
+| `STREAMMUX_BOOTSTRAP_ADMIN_FALLBACK_USERNAME` | empty | Local username if the primary name already exists as OIDC |
+
 ### Optional API consumer group
 
 - `STREAMMUX_API_CONSUMER_GROUP` — Kafka consumer group for the API read model (default includes a random suffix per process).

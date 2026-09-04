@@ -16,7 +16,7 @@ describe("activityClient", () => {
     );
 
     await expect(getCurrentActor()).resolves.toBe("jsolarin");
-    expect(fetch).toHaveBeenCalledWith("/activity/me");
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/activity/me");
   });
 
   it("recordSession posts to session endpoint", async () => {
@@ -29,7 +29,8 @@ describe("activityClient", () => {
     );
 
     await recordSession();
-    expect(fetch).toHaveBeenCalledWith("/activity/session", { method: "POST" });
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/activity/session");
+    expect((vi.mocked(fetch).mock.calls[0][1] as RequestInit).method).toBe("POST");
   });
 
   it("listActivity builds query string", async () => {
@@ -42,7 +43,9 @@ describe("activityClient", () => {
     );
 
     await listActivity({ limit: 25, jobId: "job-1", eventTypes: ["PAUSED"], actor: "operator" });
-    expect(fetch).toHaveBeenCalledWith("/activity?limit=25&jobId=job-1&eventType=PAUSED&actor=operator");
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+      "/activity?limit=25&jobId=job-1&eventType=PAUSED&actor=operator",
+    );
   });
 
   it("listActivity repeats eventType for each selected value", async () => {
@@ -55,7 +58,7 @@ describe("activityClient", () => {
     );
 
     await listActivity({ eventTypes: ["PAUSED", "STARTED"] });
-    expect(fetch).toHaveBeenCalledWith("/activity?eventType=PAUSED&eventType=STARTED");
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/activity?eventType=PAUSED&eventType=STARTED");
   });
 
   it("listActivity omits eventType when list is empty", async () => {
@@ -68,6 +71,6 @@ describe("activityClient", () => {
     );
 
     await listActivity({ eventTypes: [] });
-    expect(fetch).toHaveBeenCalledWith("/activity");
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("/activity");
   });
 });

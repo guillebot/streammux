@@ -14,9 +14,10 @@ Production deployments (for example OneLab) typically expose the UI at `streammu
 | Job Builder | `/job/builder` | Visual wizard for common job types |
 | Health | `/health` | Platform health, job pipeline issues, catalog health |
 | Logs | `/logs` | Global activity feed (user actions, orchestrator lifecycle) |
-| Settings | `/settings` | Non-secret runtime configuration |
 | Documentation | `/docs` | In-app guides (this documentation set) |
 | MCP | `/mcp` | MCP endpoint, tool catalog, token management |
+| Users | `/users` | Local users and Entra-registered accounts (admin only; requires in-app auth) |
+| Settings | `/settings` | Non-secret runtime configuration |
 
 Routes use **hash-based** URLs (`/#/jobs`, `/#/docs/overview`, etc.) so the static nginx host can serve the SPA without server-side routing rules.
 
@@ -88,4 +89,8 @@ npm install
 npm run dev
 ```
 
-Vite dev server proxies `/jobs` and `/catalog` to local backends. Optional `VITE_EXAMPLE_KAFKA_BOOTSTRAP` seeds builder templates when the topic catalog endpoint is unavailable.
+Vite dev server proxies `/jobs`, `/api`, `/oauth2`, and `/catalog` to local backends. Optional `VITE_EXAMPLE_KAFKA_BOOTSTRAP` seeds builder templates when the topic catalog endpoint is unavailable.
+
+## Users
+
+When `STREAMMUX_AUTH_ENABLED=true`, admins get a **Users** page (`/#/users`) to manage local accounts and Entra-registered users. Entra logins auto-register; role checkboxes override IdP groups until **Sync from Entra**. See [auth.md](auth.md) and [BREAK_GLASS.md](../BREAK_GLASS.md).

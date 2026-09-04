@@ -1,5 +1,6 @@
 import apiMd from "../../docs/api.md?raw";
 import architectureMd from "../../docs/architecture.md?raw";
+import authMd from "../../docs/auth.md?raw";
 import deploymentMd from "../../docs/deployment.md?raw";
 import jobTypesMd from "../../docs/job-types.md?raw";
 import overviewMd from "../../docs/overview.md?raw";
@@ -26,6 +27,12 @@ export const DOC_PAGES: DocPage[] = [
     title: "Architecture",
     description: "Control plane, Kafka topics, and lease model",
     content: architectureMd,
+  },
+  {
+    slug: "auth",
+    title: "Authentication",
+    description: "Entra SSO, local users, break-glass, and the Users page",
+    content: authMd,
   },
   {
     slug: "job-types",
