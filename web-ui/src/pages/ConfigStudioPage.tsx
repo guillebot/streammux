@@ -7,6 +7,58 @@ import {
   type ConfigStudioStatus,
 } from "../api/configStudioClient";
 
+function ConfigStudioUnavailable({
+  title,
+  intro,
+  issues,
+  gitlabProjectUrl,
+  onRetry,
+}: {
+  title: string;
+  intro: string;
+  issues: string[];
+  gitlabProjectUrl?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="page config-studio-page">
+      <header className="page-header">
+        <h1>Config Studio</h1>
+        <p className="muted">
+          Export live jobs to GitLab and reconcile Git → Kafka. Kafka remains the runtime source of truth.
+        </p>
+      </header>
+
+      <section className="card config-studio-unavailable">
+        <h2>{title}</h2>
+        <p>{intro}</p>
+        {issues.length > 0 ? (
+          <ul className="config-studio-issues">
+            {issues.map((issue) => (
+              <li key={issue}>{issue}</li>
+            ))}
+          </ul>
+        ) : null}
+        {gitlabProjectUrl ? (
+          <p className="muted" style={{ marginTop: "1rem" }}>
+            GitLab project:{" "}
+            <a href={gitlabProjectUrl} target="_blank" rel="noreferrer">
+              {gitlabProjectUrl}
+            </a>
+          </p>
+        ) : null}
+        {onRetry ? (
+          <div className="button-row" style={{ marginTop: "1rem" }}>
+            <button type="button" className="btn" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        ) : null}
+      </section>
+    </div>
+  );
+}
+
 export function ConfigStudioPage() {
   const [status, setStatus] = useState<ConfigStudioStatus | null>(null);
   const [environment, setEnvironment] = useState("");
@@ -62,31 +114,38 @@ export function ConfigStudioPage() {
 
   if (error && !status) {
     return (
-      <div className="page">
-        <h1>Config Studio</h1>
-        <p className="error-text">{error}</p>
-        <button type="button" className="btn" onClick={() => void load()}>
-          Retry
-        </button>
-      </div>
+      <ConfigStudioUnavailable
+        title="Could not reach Config Studio"
+        intro="The status endpoint did not respond. This is usually a network or authentication problem, not a missing GitLab token."
+        issues={[error]}
+        onRetry={() => void load()}
+      />
     );
   }
 
   if (!status?.enabled) {
     return (
-      <div className="page">
-        <h1>Config Studio</h1>
-        <p className="muted">Config Studio is disabled on this deployment.</p>
-      </div>
+      <ConfigStudioUnavailable
+        title="Config Studio is turned off"
+        intro="This deployment is not configured to use Git-backed job definitions yet. Operators enable it after in-app auth and Postgres are live."
+        issues={status?.configurationIssues ?? []}
+      />
     );
   }
 
   if (!status.ready) {
     return (
-      <div className="page">
-        <h1>Config Studio</h1>
-        <p className="muted">Config Studio is enabled but GitLab integration is not configured.</p>
-      </div>
+      <ConfigStudioUnavailable
+        title="GitLab integration is incomplete"
+        intro="Config Studio is enabled, but the API cannot talk to GitLab yet. Fix the items below and redeploy job-management-api."
+        issues={
+          status.configurationIssues.length > 0
+            ? status.configurationIssues
+            : ["GitLab project id or token is missing from deployment configuration."]
+        }
+        gitlabProjectUrl={status.gitlabProjectUrl || undefined}
+        onRetry={() => void load()}
+      />
     );
   }
 
