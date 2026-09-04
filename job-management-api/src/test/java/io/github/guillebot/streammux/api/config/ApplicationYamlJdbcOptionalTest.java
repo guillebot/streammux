@@ -9,9 +9,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Production (auth off, no Postgres) must not bind an empty datasource URL or
@@ -30,21 +28,14 @@ class ApplicationYamlJdbcOptionalTest {
     }
 
     @Test
-    void jdbcDocumentsActivateOnlyWhenAuthOrConfigStudioIsOn() throws IOException {
+    void jdbcDocumentActivatesOnlyOnAuthProfile() throws IOException {
         List<PropertySource<?>> docs = documents();
-        assertTrue(docs.size() >= 3);
+        assertEquals(2, docs.size());
 
         PropertySource<?> auth = docs.get(1);
-        assertEquals("streammux.auth.enabled=true",
-            auth.getProperty("spring.config.activate.on-property"));
+        assertEquals("auth", auth.getProperty("spring.config.activate.on-profile"));
         assertEquals("${STREAMMUX_DATABASE_URL}", auth.getProperty("spring.datasource.url"));
         assertEquals("jdbc", auth.getProperty("spring.session.store-type"));
-
-        PropertySource<?> studio = docs.get(2);
-        assertEquals("streammux.config-studio.enabled=true",
-            studio.getProperty("spring.config.activate.on-property"));
-        assertEquals("${STREAMMUX_DATABASE_URL}", studio.getProperty("spring.datasource.url"));
-        assertNotNull(studio.getProperty("spring.flyway.enabled"));
     }
 
     private static List<PropertySource<?>> documents() throws IOException {
