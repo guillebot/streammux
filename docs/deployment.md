@@ -145,7 +145,7 @@ Production telemetry is deployed by Ansible (`playbooks/kstreams/streammux/deplo
 
 ## Building and publishing images
 
-Release and deploy workflow: **[DEPLOY.md](DEPLOY.md)** (manual `release:tag` → `YYYYMMDD-NN` → Ansible pin).
+Release and deploy workflow: **[DEPLOY.md](DEPLOY.md)** (automatic `release:tag` on `main` → `YYYYMMDD-NN` → Ansible pin).
 
 ### GitLab CI (primary)
 
@@ -163,7 +163,7 @@ On every push to a branch or merge request, CI runs tests then **`images:build`*
 
 Dev tags per commit: `<short-sha>`, `<branch-slug>-<short-sha>`, `<branch-slug>`. On `main`, `:latest` is also pushed.
 
-**Production releases** use manual **`release:tag`** on `main`, which creates git tag `YYYYMMDD-NN` and runs **`release:images`** (immutable registry tag only). Deploy via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to that release ID.
+**Production releases** use automatic **`release:tag`** on `main` (after tests pass), which creates git tag `YYYYMMDD-NN` and runs **`release:images`** (immutable registry tag only). Deploy via Ansible (`roles/kstreams/streammux`); set `streammux_image_tag` to that release ID.
 
 ### Manual local builds
 

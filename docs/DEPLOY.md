@@ -11,8 +11,9 @@ For build / test / image-push, see [`.gitlab-ci.yml`](../.gitlab-ci.yml).
 
 ## Release tags (`release:tag`) — GitLab CI, not Ansible
 
-**`release:tag` is a manual GitLab CI job**, not an Ansible playbook. Ansible
-only deploys whatever tag you pin in inventory (`streammux_image_tag`).
+**`release:tag` is an automatic GitLab CI job on `main`**, not an Ansible
+playbook. Ansible only deploys whatever tag you pin in inventory
+(`streammux_image_tag`).
 
 ### What it does
 
@@ -27,16 +28,17 @@ only deploys whatever tag you pin in inventory (`streammux_image_tag`).
 Images: `job-management-api`, `site-orchestrator`, `web-ui`, `job-catalog-api`,
 `mcp`.
 
-### How to run it
+### How it runs
 
-1. Merge your changes to **`main`** and wait for lint/tests to pass (optional
-   but recommended).
-2. GitLab → **Streammux project** → **Build** → **Pipelines**.
-3. Open the latest **`main`** pipeline (or **Run pipeline** on branch `main`).
-4. Find the manual job **`release:tag`** in the **release** stage and click
-   **Play** (▶).
-5. When `release:tag` succeeds, **`release:images`** runs automatically and
-   pushes `:YYYYMMDD-NN` to the Container Registry.
+1. Merge your changes to **`main`**.
+2. The **`main`** pipeline runs tests, then **`release:tag`** automatically
+   (no manual Play step).
+3. When `release:tag` succeeds, **`release:images`** runs and pushes
+   `:YYYYMMDD-NN` to the Container Registry.
+
+To inspect a release: GitLab → **Streammux project** → **Build** →
+**Pipelines** → open the latest **`main`** pipeline and check the **release**
+stage.
 
 Dry-run locally (no push):
 
@@ -83,14 +85,14 @@ images were deleted but the git tag still exists.
 
 ```
 push to main  ->  test  ->  package (SHA builds on every pipeline)
-                    release (manual release:tag)
+                    release (automatic release:tag after tests)
                          ->  release:images (YYYYMMDD-NN only)
 tag YYYYMMDD-NN  ->  release:images:retag (rebuild registry from tag)
 ```
 
 | Job | Stage | Trigger | Notes |
 |-----|-------|---------|-------|
-| `release:tag` | `release` | Manual on `main` only | Git tag + dotenv |
+| `release:tag` | `release` | Automatic on `main` after tests | Git tag + dotenv |
 | `release:images` | `release` | After `release:tag` succeeds | Five images, one tag |
 | `release:images:retag` | `release` | Tag pipeline `^\d{8}-\d{2}$` | Rebuild without new tag |
 | `images:build` | `package` | Branch/MR pipelines | SHA/branch/latest; skips release tags |
