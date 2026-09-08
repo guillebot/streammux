@@ -14,6 +14,7 @@ import {
   statusDisplayTitle,
 } from "./jobStatusDisplay";
 import type { JobDefinition, JobLease, JobRuntimeStatus } from "./types";
+import { formatIsoTooltip, formatRelativeAgo } from "./lib/formatRelative";
 
 const REFRESH_STORAGE_KEY = "streammux.jobList.refreshIntervalMs";
 
@@ -61,14 +62,10 @@ function orchestratorTitle(lease: JobLease | null | undefined): string | undefin
   return parts.join(" · ");
 }
 
-/** Display instant to second precision (UTC), no fractional part. */
+/** Relative heartbeat time with full ISO in tooltip. */
 function formatLastSeen(iso: string | null | undefined): { label: string; full?: string } {
   if (iso == null || iso === "") return { label: "—" };
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return { label: "—" };
-  const d = new Date(t);
-  const label = `${d.toISOString().slice(0, 19)}Z`;
-  return { label, full: iso };
+  return { label: formatRelativeAgo(iso), full: formatIsoTooltip(iso) };
 }
 
 export function JobsList() {
@@ -297,7 +294,7 @@ export function JobsList() {
                     >
                       {formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
                     </td>
-                    <td className="mono" title={lastSeen.full}>
+                    <td title={lastSeen.full}>
                       {lastSeen.label}
                     </td>
                     <td className="mono" title={orchestratorTitle(lease ?? undefined)}>

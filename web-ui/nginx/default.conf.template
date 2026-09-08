@@ -47,6 +47,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        #__STREAMMUX_JOBS_AUTH__
     }
 
     location /api/admin {
@@ -56,6 +57,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        #__STREAMMUX_JOBS_AUTH__
     }
 
     location /oauth2 {
@@ -65,6 +67,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        #__STREAMMUX_JOBS_AUTH__
     }
 
     location /login/oauth2 {
@@ -74,6 +77,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        #__STREAMMUX_JOBS_AUTH__
     }
 
     location /api/config-studio {
@@ -83,6 +87,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        #__STREAMMUX_JOBS_AUTH__
     }
 
     location /swagger-ui {

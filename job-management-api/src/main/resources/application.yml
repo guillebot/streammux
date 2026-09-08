@@ -26,6 +26,11 @@ spring:
 
   flyway:
     enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration
 
 management:
   endpoints:
@@ -100,6 +105,8 @@ spring:
   config:
     activate:
       on-profile: auth
+  autoconfigure:
+    exclude: []
   datasource:
     url: ${STREAMMUX_DATABASE_URL}
     username: ${STREAMMUX_DATABASE_USERNAME:streammux}

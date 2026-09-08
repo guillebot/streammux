@@ -6,12 +6,12 @@ import {
   type HealthIssue,
   type HealthSummary,
 } from "../api/healthClient";
+import { IconBell, IconBellOff } from "./HealthIcons";
 
 function bellTone(summary: HealthSummary | null): "ok" | "warn" | "bad" | "neutral" {
-  if (!summary) return "neutral";
+  if (!summary || summary.prometheusReachable === false) return "neutral";
   if (summary.critical > 0) return "bad";
   if (summary.warning > 0) return "warn";
-  if (summary.info > 0) return "ok";
   return "ok";
 }
 
@@ -57,20 +57,27 @@ export function HealthBell() {
 
   const total = (summary?.critical ?? 0) + (summary?.warning ?? 0) + (summary?.info ?? 0);
   const tone = bellTone(summary);
+  const unreachable = summary && summary.prometheusReachable === false;
 
   return (
     <div className="health-bell-wrap" ref={panelRef}>
       <button
         type="button"
         className={`health-bell-btn health-bell-btn--${tone}`}
-        aria-label={total > 0 ? `${total} active issues` : "No active issues"}
+        aria-label={
+          unreachable
+            ? "Health monitoring unavailable"
+            : total > 0
+              ? `${total} active issues`
+              : "No active issues"
+        }
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="health-bell-icon" aria-hidden>
-          {summary && summary.prometheusReachable === false ? "🔕" : "🔔"}
+          {unreachable ? <IconBellOff /> : <IconBell />}
         </span>
-        {total > 0 ? <span className="health-bell-badge">{total}</span> : null}
+        {total > 0 && !unreachable ? <span className="health-bell-badge">{total > 99 ? "99+" : total}</span> : null}
       </button>
       {open ? (
         <div className="health-bell-popover" role="dialog" aria-label="Health issues">

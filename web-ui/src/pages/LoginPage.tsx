@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BrandWordmark } from "../components/BrandWordmark";
+import { BrandIcon } from "../components/BrandIcon";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { apiFetch } from "../api/http";
 
@@ -70,7 +71,10 @@ export function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="login-panel panel">
-        <h1 className="login-title">
+        <h1 className="login-title login-title-brand">
+          <span className="login-brand-icon" aria-hidden>
+            <BrandIcon />
+          </span>
           <BrandWordmark />
         </h1>
         {deploymentLabel ? <p className="login-env muted">{deploymentLabel}</p> : null}
