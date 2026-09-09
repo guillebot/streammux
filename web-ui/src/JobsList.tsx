@@ -236,7 +236,7 @@ export function JobsList() {
                 <th>Traffic</th>
                 <th>Uptime</th>
                 <th>Last seen</th>
-                <th>Orchestrator</th>
+                <th>Running on</th>
                 <th>Site affinity</th>
               </tr>
             </thead>
