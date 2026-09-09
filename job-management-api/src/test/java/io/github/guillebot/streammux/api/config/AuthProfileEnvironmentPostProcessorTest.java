@@ -28,6 +28,14 @@ class AuthProfileEnvironmentPostProcessorTest {
     }
 
     @Test
+    void addsAuthProfileWhenConfigStudioIsEnabled() {
+        MockEnvironment env = new MockEnvironment();
+        env.setProperty("CONFIG_STUDIO_ENABLED", "true");
+        processor.postProcessEnvironment(env, new SpringApplication());
+        assertArrayEquals(new String[] {"auth"}, env.getActiveProfiles());
+    }
+
+    @Test
     void doesNotDuplicateAuthProfile() {
         MockEnvironment env = new MockEnvironment();
         env.setActiveProfiles("auth", "prod");
