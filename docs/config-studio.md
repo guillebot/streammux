@@ -17,6 +17,13 @@ CONFIG_STUDIO_DEFAULT_ENVIRONMENT=prod
 
 Requires `STREAMMUX_AUTH_ENABLED=true` and Postgres (Flyway migration `V2__config_studio.sql`).
 
+Ansible (`roles/kstreams/streammux`): set `streammux_config_studio_enabled` / `streammux_auth_enabled` in group_vars. GitLab project id is non-secret; the PAT is `streammux_config_studio_gitlab_token` in `inventory/group_vars/<group>/vault.yml`. Dedicated repo: [streammux-configs](https://gitlab.com/dmr4013905/techarchitecture/techarchitecture/streammux-configs) (`<env>/jobs/<jobId>.json`).
+
+| Direction | UI / API | Effect |
+| --------- | -------- | ------ |
+| Kafka → GitLab | **Export to GitLab MR** / `POST /api/config-studio/submit` | Branch `config-studio/<env>/<timestamp>` + merge request |
+| GitLab → Kafka | **Sync live** / `POST /api/config-studio/sync?dryRun=false` | Upsert/delete jobs to match Git (admin). Dry-run first. |
+
 ## API
 
 | Method | Path | Description |

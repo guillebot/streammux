@@ -78,10 +78,7 @@ streammux:
     gitlab-token: ${CONFIG_STUDIO_GITLAB_TOKEN:}
     default-branch: ${CONFIG_STUDIO_DEFAULT_BRANCH:main}
     default-environment: ${CONFIG_STUDIO_DEFAULT_ENVIRONMENT:}
-    allowed-environments:
-      - onelab
-      - stage
-      - prod
+    allowed-environments: ${CONFIG_STUDIO_ALLOWED_ENVIRONMENTS:onelab,stage,prod}
   topics:
     job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
     job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}
@@ -100,7 +97,7 @@ streammux:
 # (not on-property). Extra documents without a valid activator are always merged,
 # which crash-loops production (auth off, no Postgres) with
 # "'url' must start with jdbc". AuthProfileEnvironmentPostProcessor adds profile
-# "auth" when STREAMMUX_AUTH_ENABLED=true.
+# "auth" when STREAMMUX_AUTH_ENABLED or CONFIG_STUDIO_ENABLED is true.
 spring:
   config:
     activate:

@@ -44,7 +44,7 @@ public record ConfigStudioProperties(
             defaultEnvironment = null;
         }
         if (allowedEnvironments == null || allowedEnvironments.isEmpty()) {
-            allowedEnvironments = List.of("dev", "stage");
+            allowedEnvironments = List.of("onelab", "stage", "prod");
         } else {
             allowedEnvironments = List.copyOf(allowedEnvironments);
         }
@@ -63,8 +63,8 @@ public record ConfigStudioProperties(
 
     /**
      * Preferred Config Studio environment for this deployment. Explicit
-     * {@link #defaultEnvironment()} wins; otherwise maps {@code ONEALARM_DEPLOYMENT_LABEL}
-     * (e.g. {@code STAGE} → {@code stage}) when that name is allowed; finally the first
+     * {@link #defaultEnvironment()} wins; otherwise maps {@code STREAMMUX_DEPLOYMENT_LABEL}
+     * (e.g. {@code PROD} → {@code prod}) when that name is allowed; finally the first
      * entry in {@link #allowedEnvironments()}.
      */
     public String resolvedDefaultEnvironment(String deploymentLabel) {
