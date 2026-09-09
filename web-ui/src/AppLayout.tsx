@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { recordSession } from "./api/activityClient";
 import { getSession, sessionHasAdmin, type SessionInfo } from "./api/sessionClient";
 import { BrandWordmark } from "./components/BrandWordmark";
+import { BrandIcon } from "./components/BrandIcon";
 import { HealthBell } from "./components/HealthBell";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { UserMenu, VersionAbout } from "./components/ShellChrome";
@@ -31,7 +32,7 @@ export function AppLayout() {
         <div className="sidebar-header">
           <NavLink className="sidebar-brand-link" to="/" title="streammux home">
             <span className="sidebar-brand-icon" aria-hidden>
-              ⎈
+              <BrandIcon />
             </span>
             <BrandWordmark className="sidebar-brand-wordmark" />
           </NavLink>

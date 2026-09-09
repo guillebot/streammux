@@ -14,6 +14,7 @@ import {
   statusDisplayTitle,
 } from "./jobStatusDisplay";
 import type { JobDefinition, JobLease, JobRuntimeStatus } from "./types";
+import { formatDurationSince, formatIsoTooltip, formatRelativeAgo } from "./lib/formatRelative";
 
 const REFRESH_STORAGE_KEY = "streammux.jobList.refreshIntervalMs";
 
@@ -61,14 +62,22 @@ function orchestratorTitle(lease: JobLease | null | undefined): string | undefin
   return parts.join(" · ");
 }
 
-/** Display instant to second precision (UTC), no fractional part. */
+/** Relative heartbeat time with full ISO in tooltip. */
 function formatLastSeen(iso: string | null | undefined): { label: string; full?: string } {
   if (iso == null || iso === "") return { label: "—" };
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return { label: "—" };
-  const d = new Date(t);
-  const label = `${d.toISOString().slice(0, 19)}Z`;
-  return { label, full: iso };
+  return { label: formatRelativeAgo(iso), full: formatIsoTooltip(iso) };
+}
+
+function runnerStartedAt(status: JobRuntimeStatus | null | undefined): string | undefined {
+  const value = status?.workerMetadata?.attributes?.startedAt;
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+function formatUptime(iso: string | undefined): { label: string; full: string } {
+  if (iso == null) {
+    return { label: "—", full: "No runner start time reported" };
+  }
+  return { label: formatDurationSince(iso), full: `Runner started ${formatIsoTooltip(iso)}` };
 }
 
 export function JobsList() {
@@ -225,8 +234,9 @@ export function JobsList() {
                 <th>Health</th>
                 <th>Kafka Streams</th>
                 <th>Traffic</th>
+                <th>Uptime</th>
                 <th>Last seen</th>
-                <th>Orchestrator</th>
+                <th>Running on</th>
                 <th>Site affinity</th>
               </tr>
             </thead>
@@ -240,6 +250,7 @@ export function JobsList() {
                 const lease = leases[j.jobId];
                 const status = statuses[j.jobId];
                 const lastSeen = formatLastSeen(status?.lastHeartbeatAt);
+                const uptime = formatUptime(runnerStartedAt(status));
                 const streamsState = kafkaStreamsState(status);
                 const highLag = isHighLag(status?.lagMetrics);
                 const rowClass = isUnhealthyJob(status) ? "job-row--unhealthy" : undefined;
@@ -295,9 +306,12 @@ export function JobsList() {
                       className={`mono traffic-cell${highLag ? " traffic-cell--warn" : ""}`}
                       title={formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
                     >
-                      {formatLagMetricsSummary(status?.lagMetrics ?? undefined)}
+                      {formatLagMetricsSummary(status?.lagMetrics ?? undefined, true)}
                     </td>
-                    <td className="mono" title={lastSeen.full}>
+                    <td className="mono" title={uptime.full}>
+                      {uptime.label}
+                    </td>
+                    <td title={lastSeen.full}>
                       {lastSeen.label}
                     </td>
                     <td className="mono" title={orchestratorTitle(lease ?? undefined)}>

@@ -90,8 +90,6 @@ async function responseLooksLikeLogin(response: Response): Promise<boolean> {
   const location = headerGet(response, "Location") ?? headerGet(response, "location");
   if (location && isAutheliaUrl(location)) return true;
 
-  if (response.status === 401) return true;
-
   const contentType = headerGet(response, "content-type") ?? "";
   const isHtml = contentType.includes("text/html") || contentType.includes("application/xhtml");
   // Only inspect bodies that are HTML or non-JSON error statuses that Authelia

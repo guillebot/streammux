@@ -549,7 +549,7 @@ export function JobDetail() {
                 {events === undefined ? (
                   <p className="muted">Loading…</p>
                 ) : (
-                  <JobEventTimeline events={events} />
+                  <JobEventTimeline events={events ?? []} />
                 )}
               </div>
             </>

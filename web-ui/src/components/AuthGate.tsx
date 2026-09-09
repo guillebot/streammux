@@ -15,7 +15,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
           setStatus("authed");
           return;
         }
-        if (res.status === 404) {
+        // Auth endpoints are absent when streammux.auth.enabled=false (404) or still
+        // behind legacy Spring httpBasic without nginx upstream injection (401).
+        if (res.status === 404 || res.status === 401) {
           setStatus("legacy");
           return;
         }

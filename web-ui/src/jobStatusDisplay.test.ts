@@ -1,8 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCompactCount,
   formatLagMetricsSummary,
   formatOutputCountWithPercent,
 } from "./jobStatusDisplay";
+
+describe("formatCompactCount", () => {
+  it("leaves values below a thousand alone", () => {
+    expect(formatCompactCount(0)).toBe("0");
+    expect(formatCompactCount(842)).toBe("842");
+    expect(formatCompactCount(999)).toBe("999");
+  });
+
+  it("abbreviates thousands", () => {
+    expect(formatCompactCount(1234)).toBe("1.2k");
+    expect(formatCompactCount(30041)).toBe("30k");
+    expect(formatCompactCount(196127)).toBe("196k");
+    expect(formatCompactCount(196829)).toBe("197k");
+  });
+
+  it("abbreviates millions and billions", () => {
+    expect(formatCompactCount(11608739)).toBe("11.6M");
+    expect(formatCompactCount(5514664)).toBe("5.5M");
+    expect(formatCompactCount(2400000000)).toBe("2.4B");
+  });
+
+  it("returns em dash for missing values", () => {
+    expect(formatCompactCount(null)).toBe("—");
+    expect(formatCompactCount(undefined)).toBe("—");
+  });
+});
 
 describe("formatOutputCountWithPercent", () => {
   it("appends integer percent when both counts are positive", () => {
@@ -67,5 +94,20 @@ describe("formatLagMetricsSummary", () => {
     });
 
     expect(summary).toBe("in  10/s\nout  5/s · 100");
+  });
+
+  it("abbreviates every number when compact is requested", () => {
+    const summary = formatLagMetricsSummary(
+      {
+        inputLag: 12500,
+        inputRatePerSecond: 845,
+        inputCount: 11608739,
+        outputRatePerSecond: 62,
+        outputCount: 267176,
+      },
+      true,
+    );
+
+    expect(summary).toBe("in  845/s · 11.6M · lag 12.5k\nout  62/s · 267k(2%)");
   });
 });
