@@ -44,7 +44,11 @@ public class PlatformHealthIssuesService {
     }
 
     public HealthSummary summary() {
-        HealthIssuesSnapshot snapshot = issues();
+        return summaryFromSnapshot(issues());
+    }
+
+    /** Shared by summary and issues endpoints so HealthBell can call one API when needed. */
+    public HealthSummary summaryFromSnapshot(HealthIssuesSnapshot snapshot) {
         int critical = 0;
         int warning = 0;
         int info = 0;

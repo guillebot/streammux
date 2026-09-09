@@ -8,14 +8,17 @@ import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
-import org.apache.kafka.clients.admin.ListTopicsOptions;
+import org.apache.kafka.clients.admin.DescribeTopicsResult;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,10 +29,12 @@ import java.util.concurrent.ExecutionException;
 @Service
 public class PlatformHealthService {
     private static final String CLEANUP_POLICY = "cleanup.policy";
+    private static final Duration KAFKA_PROBE_CACHE_TTL = Duration.ofSeconds(60);
 
     private final String bootstrapServers;
     private final KafkaTopicProperties topicProperties;
     private final JobStateStore stateStore;
+    private volatile CachedKafkaProbe kafkaProbeCache;
 
     public PlatformHealthService(
         @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers,
@@ -56,14 +61,20 @@ public class PlatformHealthService {
     }
 
     private KafkaHealth probeKafka() {
+        Instant now = Instant.now();
+        CachedKafkaProbe cached = kafkaProbeCache;
+        if (cached != null && cached.validUntil.isAfter(now)) {
+            return cached.kafka;
+        }
+
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         try (AdminClient admin = AdminClient.create(props)) {
             DescribeClusterResult cluster = admin.describeCluster();
             String clusterId = cluster.clusterId().get();
             int brokerCount = cluster.nodes().get().size();
-            ListTopicsOptions options = new ListTopicsOptions().listInternal(false);
-            Set<String> brokerTopics = admin.listTopics(options).names().get();
+            List<String> controlPlaneTopics = controlPlaneTopicNames();
+            Set<String> brokerTopics = describeControlPlaneTopics(admin, controlPlaneTopics);
             Map<String, String> cleanupPolicies = fetchCleanupPolicies(admin, brokerTopics);
             List<TopicPresence> topics = buildTopicPresence(brokerTopics, cleanupPolicies);
             boolean allOk = topics.stream().allMatch(TopicPresence::ok);
@@ -71,7 +82,9 @@ public class PlatformHealthService {
             if (brokerCount == 0) {
                 status = "DOWN";
             }
-            return new KafkaHealth(status, bootstrapServers, clusterId, brokerCount, topics);
+            KafkaHealth kafka = new KafkaHealth(status, bootstrapServers, clusterId, brokerCount, topics);
+            kafkaProbeCache = new CachedKafkaProbe(kafka, now.plus(KAFKA_PROBE_CACHE_TTL));
+            return kafka;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return kafkaDown("Interrupted while probing Kafka");
@@ -82,9 +95,35 @@ public class PlatformHealthService {
         }
     }
 
-    private Map<String, String> fetchCleanupPolicies(AdminClient admin, Set<String> brokerTopics)
+    private List<String> controlPlaneTopicNames() {
+        List<String> names = new ArrayList<>(5);
+        addTopicName(names, topicProperties.jobDefinitions());
+        addTopicName(names, topicProperties.jobLeases());
+        addTopicName(names, topicProperties.jobStatus());
+        addTopicName(names, topicProperties.jobEvents());
+        addTopicName(names, topicProperties.jobCommands());
+        return List.copyOf(names);
+    }
+
+    private static void addTopicName(List<String> names, String topicName) {
+        if (topicName != null && !topicName.isBlank() && !names.contains(topicName)) {
+            names.add(topicName);
+        }
+    }
+
+    private static Set<String> describeControlPlaneTopics(AdminClient admin, List<String> topicNames)
         throws ExecutionException, InterruptedException {
-        List<ConfigResource> resources = brokerTopics.stream()
+        if (topicNames.isEmpty()) {
+            return Set.of();
+        }
+        DescribeTopicsResult result = admin.describeTopics(new HashSet<>(topicNames));
+        Map<String, TopicDescription> described = result.allTopicNames().get();
+        return Set.copyOf(described.keySet());
+    }
+
+    private Map<String, String> fetchCleanupPolicies(AdminClient admin, Set<String> topicNames)
+        throws ExecutionException, InterruptedException {
+        List<ConfigResource> resources = topicNames.stream()
             .map(name -> new ConfigResource(ConfigResource.Type.TOPIC, name))
             .toList();
         if (resources.isEmpty()) {
@@ -193,4 +232,6 @@ public class PlatformHealthService {
     ) {}
 
     public record ReadModelHealth(int jobCount, int leaseCount, int statusCount, int eventJobCount) {}
+
+    private record CachedKafkaProbe(KafkaHealth kafka, Instant validUntil) {}
 }
