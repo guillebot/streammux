@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  getHealthIssues,
-  getHealthSummary,
-  type HealthIssue,
-  type HealthSummary,
-} from "../api/healthClient";
+import { getHealthIssues, type HealthIssue, type HealthSummary } from "../api/healthClient";
 import { IconBell, IconBellOff } from "./HealthIcons";
 
 function bellTone(summary: HealthSummary | null): "ok" | "warn" | "bad" | "neutral" {
@@ -29,9 +24,23 @@ export function HealthBell() {
 
   const refresh = useCallback(async () => {
     try {
-      const [s, i] = await Promise.all([getHealthSummary(), getHealthIssues()]);
-      setSummary(s);
-      setIssues(i.issues.slice(0, 5));
+      const issuesResponse = await getHealthIssues();
+      let critical = 0;
+      let warning = 0;
+      let info = 0;
+      for (const issue of issuesResponse.issues) {
+        if (issue.severity === "critical") critical++;
+        else if (issue.severity === "warning") warning++;
+        else info++;
+      }
+      setSummary({
+        checkedAt: issuesResponse.checkedAt,
+        critical,
+        warning,
+        info,
+        prometheusReachable: true,
+      });
+      setIssues(issuesResponse.issues.slice(0, 5));
     } catch {
       setSummary(null);
       setIssues([]);
