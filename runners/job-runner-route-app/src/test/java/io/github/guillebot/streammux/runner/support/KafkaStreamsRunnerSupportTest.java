@@ -13,10 +13,13 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -66,6 +69,33 @@ class KafkaStreamsRunnerSupportTest {
         assertEquals(RuntimeState.FAILED, status.state());
         assertEquals(HealthState.UNHEALTHY, status.health());
         assertEquals("Kafka Streams entered ERROR", status.failureReason());
+    }
+
+    @Test
+    void runningStatusIncludesStartedAtAttribute() {
+        KafkaStreamsRunnerSupport support = new KafkaStreamsRunnerSupport();
+        when(streams.state()).thenReturn(KafkaStreams.State.RUNNING);
+        doAnswer(invocation -> null).when(streams).setStateListener(any());
+
+        support.register("job-1", streams);
+        JobRuntimeStatus status = support.status("job-1", "route-app");
+
+        assertEquals("RUNNING", status.workerMetadata().attributes().get("kafkaStreamsState"));
+        Object started = status.workerMetadata().attributes().get("startedAt");
+        assertNotNull(started);
+        Instant.parse(started.toString());
+    }
+
+    @Test
+    void stoppedStatusDoesNotIncludeStartedAt() {
+        KafkaStreamsRunnerSupport support = new KafkaStreamsRunnerSupport();
+        when(streams.state()).thenReturn(KafkaStreams.State.CREATED);
+        doAnswer(invocation -> null).when(streams).setStateListener(any());
+
+        support.register("job-1", streams);
+        support.stop("job-1");
+
+        assertFalse(support.status("job-1", "route-app").workerMetadata().attributes().containsKey("startedAt"));
     }
 
     @Test

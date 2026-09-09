@@ -30,6 +30,7 @@ public final class KafkaStreamsRunnerSupport {
     private final Map<String, KafkaStreams.State> streamStates = new ConcurrentHashMap<>();
     private final Map<String, String> failureReasons = new ConcurrentHashMap<>();
     private final Map<String, Boolean> lagAlertState = new ConcurrentHashMap<>();
+    private final Map<String, Instant> startedAt = new ConcurrentHashMap<>();
 
     public void register(String jobId, KafkaStreams streams) {
         stop(jobId);
@@ -43,6 +44,7 @@ public final class KafkaStreamsRunnerSupport {
             }
         });
         streamStates.put(jobId, streams.state());
+        startedAt.put(jobId, Instant.now());
         runningJobs.put(jobId, streams);
     }
 
@@ -51,6 +53,7 @@ public final class KafkaStreamsRunnerSupport {
         streamStates.remove(jobId);
         failureReasons.remove(jobId);
         lagAlertState.remove(jobId);
+        startedAt.remove(jobId);
         if (streams != null) {
             streams.close();
         }
@@ -86,13 +89,20 @@ public final class KafkaStreamsRunnerSupport {
         LagMetrics lagMetrics = extractLagMetrics(streams);
         recordLagTransition(jobId, lagMetrics);
 
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("kafkaStreamsState", kafkaState.name());
+        Instant start = startedAt.get(jobId);
+        if (start != null) {
+            attributes.put("startedAt", start.toString());
+        }
+
         return new JobRuntimeStatus(
             jobId,
             0,
             runtimeState,
             healthState,
             Instant.now(),
-            new WorkerMetadata(jobId, topologyName, kafkaState.name(), Map.of("kafkaStreamsState", kafkaState.name())),
+            new WorkerMetadata(jobId, topologyName, kafkaState.name(), attributes),
             failureReason,
             lagMetrics
         );
