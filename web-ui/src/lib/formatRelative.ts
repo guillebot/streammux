@@ -30,6 +30,30 @@ export function formatRelativeAgo(iso: string | null | undefined, now: Date = ne
   return `${plural(days, "day")} ago`;
 }
 
+/**
+ * Compact elapsed time for table cells, coarser than {@link formatRelativeAgo}.
+ * Examples: "45s", "12m", "5h 12m", "3d 4h".
+ */
+export function formatDurationSince(iso: string | null | undefined, now: Date = new Date()): string {
+  if (iso == null || iso === "") return "—";
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "—";
+
+  const ageSec = Math.max(0, Math.floor((now.getTime() - t) / 1000));
+  if (ageSec < 60) return `${ageSec}s`;
+  if (ageSec < 3600) return `${Math.floor(ageSec / 60)}m`;
+
+  if (ageSec < 86400) {
+    const hours = Math.floor(ageSec / 3600);
+    const mins = Math.floor((ageSec % 3600) / 60);
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+
+  const days = Math.floor(ageSec / 86400);
+  const remHours = Math.floor((ageSec % 86400) / 3600);
+  return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
+}
+
 /** ISO instant for tooltips (second precision, UTC). */
 export function formatIsoTooltip(iso: string): string {
   const t = Date.parse(iso);
