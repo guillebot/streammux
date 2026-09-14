@@ -1892,6 +1892,129 @@ select.form-select {
   border-radius: 999px;
 }
 
+/* Drag handle used on both rule rows and group headers. Only the handle
+   carries the sortable pointer/keyboard listeners so inputs inside a rule row
+   remain fully interactive. */
+.filter-drag-handle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: grab;
+  border-radius: 4px;
+  font-size: 1rem;
+  line-height: 1;
+  user-select: none;
+  touch-action: none; /* required for @dnd-kit pointer sensor on touch */
+}
+
+.filter-drag-handle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.filter-drag-handle:focus-visible {
+  outline: 2px solid var(--accent, #4c8dff);
+  outline-offset: 1px;
+}
+
+.filter-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Neutral (non-danger) counterpart to .filter-rule-remove for the duplicate
+   icon buttons on both rule rows and group headers. */
+.filter-duplicate {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 1.9rem;
+  padding: 0;
+  line-height: 1;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.filter-duplicate:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+}
+
+.filter-duplicate:focus-visible {
+  outline: 2px solid var(--accent, #4c8dff);
+  outline-offset: 1px;
+}
+
+/* Sortable child dragged state: mute the source row while it's being moved.
+   The dnd-kit CSS transform is applied inline via `useSortable`. */
+.filter-group-child {
+  position: relative;
+}
+
+.filter-group-child-dragging {
+  opacity: 0.4;
+}
+
+/* Insertion line showing exactly where a dragged rule/group will land. */
+.filter-drop-indicator {
+  height: 0;
+  margin: 1px 0;
+  border-top: 2px solid var(--accent, #4c8dff);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #4c8dff) 35%, transparent);
+  pointer-events: none;
+}
+
+/* Highlight a group's card while a dragged item would land inside it, so
+   nesting into a (possibly non-empty) group is unambiguous. */
+.filter-group-drop-target {
+  box-shadow: 0 0 0 2px var(--accent, #4c8dff);
+  background: color-mix(in srgb, var(--accent, #4c8dff) 12%, var(--surface));
+}
+
+/* Floating chip rendered under the cursor while dragging (DragOverlay). */
+.filter-drag-overlay {
+  display: inline-flex;
+  align-items: center;
+  max-width: 30rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--accent, #4c8dff);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  cursor: grabbing;
+}
+
+/* Highlight an empty group's body when a drag is hovering over it so the
+   drop target reads clearly even without a visible row underneath. */
+.filter-group-children-empty {
+  min-height: 2rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.6rem;
+  border-radius: 4px;
+  transition: background-color 120ms ease;
+}
+
+.filter-group-children-over {
+  background: color-mix(in srgb, var(--accent, #4c8dff) 15%, transparent);
+}
+
 /* Container-level highlighting when a validation error targets a nested field. */
 .kv-editor-invalid,
 .chip-editor-invalid,
