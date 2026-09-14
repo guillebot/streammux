@@ -30,6 +30,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { IconTrash } from "../jobActionIcons";
 import {
   COMPARE_OPERATORS,
   displayToRuleValue,
@@ -352,7 +353,7 @@ function GroupEditor({ group, isRoot, onChange, root, idPrefix }: GroupEditorPro
           <>
             <button
               type="button"
-              className="filter-duplicate"
+              className="icon-btn"
               aria-label="Duplicate group"
               title="Duplicate group"
               onClick={duplicate}
@@ -361,12 +362,12 @@ function GroupEditor({ group, isRoot, onChange, root, idPrefix }: GroupEditorPro
             </button>
             <button
               type="button"
-              className="filter-rule-remove danger"
+              className="icon-btn danger"
               aria-label="Remove group"
               title="Remove group"
               onClick={remove}
             >
-              ×
+              <IconTrash />
             </button>
           </>
         ) : null}
@@ -647,7 +648,7 @@ function RuleEditor({ rule, onChange, onRemove, onDuplicate }: RuleEditorProps) 
       />
       <button
         type="button"
-        className="filter-duplicate"
+        className="icon-btn"
         aria-label="Duplicate rule"
         title="Duplicate rule"
         onClick={onDuplicate}
@@ -656,11 +657,12 @@ function RuleEditor({ rule, onChange, onRemove, onDuplicate }: RuleEditorProps) 
       </button>
       <button
         type="button"
-        className="filter-rule-remove danger"
+        className="icon-btn danger"
         aria-label="Remove rule"
+        title="Remove rule"
         onClick={onRemove}
       >
-        ×
+        <IconTrash />
       </button>
     </div>
   );

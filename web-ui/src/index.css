@@ -1614,14 +1614,6 @@ select.form-select {
   min-width: 0;
 }
 
-.kv-remove {
-  flex: 0 0 auto;
-  width: 2rem;
-  padding: 0.35rem 0;
-  line-height: 1;
-  border-radius: 999px;
-}
-
 .text-input.invalid,
 .text-input[aria-invalid="true"] {
   border-color: var(--danger);
@@ -1884,12 +1876,12 @@ select.form-select {
   min-width: 0;
 }
 
-.filter-rule-remove {
+/* Icon buttons (duplicate / remove) inside the compact filter rows reuse the
+   app-wide `.icon-btn` style; keep them from shrinking when the row wraps. */
+.filter-rule-row .icon-btn,
+.filter-group-header-actions .icon-btn,
+.kv-value .icon-btn {
   flex: 0 0 auto;
-  width: 2rem;
-  padding: 0.35rem 0;
-  line-height: 1;
-  border-radius: 999px;
 }
 
 /* Drag handle used on both rule rows and group headers. Only the handle
@@ -1926,34 +1918,6 @@ select.form-select {
 
 .filter-drag-handle:active {
   cursor: grabbing;
-}
-
-/* Neutral (non-danger) counterpart to .filter-rule-remove for the duplicate
-   icon buttons on both rule rows and group headers. */
-.filter-duplicate {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 1.9rem;
-  padding: 0;
-  line-height: 1;
-  border-radius: 999px;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid var(--border);
-  cursor: pointer;
-}
-
-.filter-duplicate:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface) 60%, transparent);
-}
-
-.filter-duplicate:focus-visible {
-  outline: 2px solid var(--accent, #4c8dff);
-  outline-offset: 1px;
 }
 
 /* Sortable child dragged state: mute the source row while it's being moved.

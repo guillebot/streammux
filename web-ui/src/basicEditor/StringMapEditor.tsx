@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconTrash } from "../jobActionIcons";
 
 export interface KvRow {
   id: string;
@@ -152,11 +153,12 @@ export function StringMapEditor({
               />
               <button
                 type="button"
-                className="kv-remove danger"
+                className="icon-btn danger"
                 aria-label="Remove entry"
+                title="Remove entry"
                 onClick={() => commit(rows.filter((r) => r.id !== row.id))}
               >
-                ×
+                <IconTrash />
               </button>
             </div>
           </div>

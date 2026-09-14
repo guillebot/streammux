@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RouteDefinition } from "../types";
 import { TopicCombobox } from "../TopicCombobox";
+import { IconTrash } from "../jobActionIcons";
 import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { FilterExpressionBuilder } from "./FilterExpressionBuilder";
 
@@ -138,11 +139,12 @@ export function RouteListEditor({
               <div className="form-field form-row-end">
                 <button
                   type="button"
-                  className="danger"
+                  className="icon-btn danger"
                   onClick={() => removeRow(row.id)}
                   aria-label={`Remove route ${row.route.routeId || "(unnamed)"}`}
+                  title="Remove route"
                 >
-                  Remove
+                  <IconTrash />
                 </button>
               </div>
             </div>
