@@ -31,6 +31,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconTrash } from "../jobActionIcons";
+import { IconCopy, IconGroupPlus, IconRulePlus } from "./filterBuilderIcons";
 import {
   COMPARE_OPERATORS,
   displayToRuleValue,
@@ -343,11 +344,23 @@ function GroupEditor({ group, isRoot, onChange, root, idPrefix }: GroupEditorPro
         <option value="OR">OR</option>
       </select>
       <div className="filter-group-header-actions">
-        <button type="button" onClick={addRule}>
-          + Rule
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Add rule"
+          title="Add rule"
+          onClick={addRule}
+        >
+          <IconRulePlus />
         </button>
-        <button type="button" onClick={addGroup}>
-          + Group
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Add group"
+          title="Add group"
+          onClick={addGroup}
+        >
+          <IconGroupPlus />
         </button>
         {!isRoot ? (
           <>
@@ -358,7 +371,7 @@ function GroupEditor({ group, isRoot, onChange, root, idPrefix }: GroupEditorPro
               title="Duplicate group"
               onClick={duplicate}
             >
-              <CopyIcon />
+              <IconCopy />
             </button>
             <button
               type="button"
@@ -653,7 +666,7 @@ function RuleEditor({ rule, onChange, onRemove, onDuplicate }: RuleEditorProps) 
         title="Duplicate rule"
         onClick={onDuplicate}
       >
-        <CopyIcon />
+        <IconCopy />
       </button>
       <button
         type="button"
@@ -724,28 +737,6 @@ function removeGroup(root: IdFilterGroup, groupId: string): IdFilterGroup {
     return changed ? { ...g, children } : g;
   };
   return removeChild(root);
-}
-
-// ---- Icons -----------------------------------------------------------------
-
-function CopyIcon() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="5" y="5" width="8" height="8" rx="1.5" />
-      <path d="M3 11V4a1 1 0 0 1 1-1h7" />
-    </svg>
-  );
 }
 
 // ---- Placeholder / value helpers ------------------------------------------
