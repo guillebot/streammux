@@ -1,8 +1,8 @@
 package io.github.guillebot.streammux.api.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.api.service.JobDefinitionSchemaProvider;
 import io.github.guillebot.streammux.api.service.JobService;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
@@ -209,7 +209,7 @@ public class JobController {
         schemaProvider.validate(payload);
         try {
             return objectMapper.treeToValue(payload, JobDefinition.class);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new IllegalArgumentException("Failed to parse JobDefinition: " + ex.getOriginalMessage(), ex);
         }
     }

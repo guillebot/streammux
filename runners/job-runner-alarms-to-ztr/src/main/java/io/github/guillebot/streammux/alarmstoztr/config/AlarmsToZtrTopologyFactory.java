@@ -1,7 +1,7 @@
 package io.github.guillebot.streammux.alarmstoztr.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.MapType;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.type.MapType;
 import io.github.guillebot.streammux.alarmstoztr.decoder.AlarmDecoder;
 import io.github.guillebot.streammux.alarmstoztr.decoder.FilteringDecoder;
 import io.github.guillebot.streammux.alarmstoztr.decoder.MappingAlarmDecoder;

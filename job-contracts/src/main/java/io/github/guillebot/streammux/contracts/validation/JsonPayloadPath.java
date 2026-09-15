@@ -1,6 +1,6 @@
 package io.github.guillebot.streammux.contracts.validation;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 public final class JsonPayloadPath {
 

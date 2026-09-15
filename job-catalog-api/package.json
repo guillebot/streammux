@@ -5,10 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "build": "node --check server.mjs && node --check kafka-config.mjs && node --check catalog-health.mjs"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "kafkajs": "^2.2.4"
+    "kafkajs": "2.2.4"
+  },
+  "overrides": {
+    "qs": "6.16.0"
   }
 }

@@ -1,8 +1,7 @@
 package io.github.guillebot.streammux.routeapp.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -21,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 final class RoutePayloadTransformer {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final JsonFormat.Printer PROTOBUF_PRINTER = JsonFormat.printer().omittingInsignificantWhitespace();
     private static final String PROTOBUF_DESCRIPTOR_BASE64 = "protobuf.descriptor.base64";
     private static final String PROTOBUF_MESSAGE_TYPE = "protobuf.message.type";
