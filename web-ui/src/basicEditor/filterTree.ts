@@ -361,7 +361,7 @@ export function emptyIdGroup(operator: GroupOperator = "AND"): IdFilterGroup {
   };
 }
 
-/** Id-bearing analogue of `newRule` for `+ Rule` button clicks. */
+/** Fresh id-bearing rule node for the "Add rule" button. */
 export function newIdRule(): IdFilterRule {
   return {
     kind: "rule",

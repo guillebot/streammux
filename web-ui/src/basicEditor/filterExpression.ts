@@ -60,10 +60,6 @@ export function emptyFilterGroup(): FilterGroup {
   return { kind: "group", operator: "AND", negated: false, children: [] };
 }
 
-export function newRule(): FilterRule {
-  return { kind: "rule", negated: false, path: "", operator: "==", value: '""' };
-}
-
 /**
  * Parse a route filter expression. A blank string is treated as an empty AND
  * group (the builder's starting point) rather than a parse error; the Java
