@@ -274,7 +274,9 @@ public class OrchestratorService {
             );
             return currentLease;
         }
-        activeLeaseEpochs.put(definition.jobId(), renewed.leaseEpoch());
+        // Do not put this epoch in activeLeaseEpochs here. That map means the runner
+        // actually started; doing so on renew skipped maybeStartConfirmedRunner when
+        // Kafka echoed the claim after the heartbeat window had already opened.
         observeLease(renewed);
         LOGGER.debug("Renewed lease for {} at epoch {}", definition.jobId(), renewed.leaseEpoch());
         return renewed;
