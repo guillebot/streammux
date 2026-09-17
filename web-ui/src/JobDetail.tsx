@@ -84,6 +84,13 @@ export function JobDetail() {
 
   const [activeTab, setActiveTab] = useState<"basic" | "advanced">("basic");
 
+  // Outer view split so an existing job opens on its runtime Status (no scrolling
+  // past the whole editor); new jobs go straight to the editor since there is no
+  // status yet.
+  const [jobView, setJobView] = useState<"status" | "editor">(
+    isNew ? "editor" : "status",
+  );
+
   // Live two-way binding: Basic-form edits re-serialize the whole def back into
   // jsonText so the Advanced tab reflects them and existing save/validate paths
   // (which read jsonText) keep working unchanged.
@@ -375,6 +382,224 @@ export function JobDetail() {
     );
   }
 
+  // Editor view: action buttons on top, then the Basic/Advanced definition tabs.
+  const editorSection = (
+    <>
+      <div className="btn-row">
+        <button type="button" className="primary" disabled={busyAction !== null} onClick={() => void onSave()}>
+          {busyAction === "save" ? (
+            <>
+              <InlineSpinner />
+              Saving...
+            </>
+          ) : isNew ? (
+            "Create"
+          ) : (
+            "Save changes"
+          )}
+        </button>
+        <button
+          type="button"
+          disabled={
+            busyAction !== null || validation.kind === "running" || jsonParseError !== null
+          }
+          title={jsonParseError ?? undefined}
+          onClick={() => void onValidateConfig()}
+        >
+          {validation.kind === "running" ? (
+            <>
+              <InlineSpinner />
+              Validating...
+            </>
+          ) : (
+            "Validate config"
+          )}
+        </button>
+      </div>
+
+      {validation.kind === "ok" ? (
+        <div className="validation-banner ok">Definition is valid.</div>
+      ) : validation.kind === "fail" ? (
+        <div className="validation-banner fail">{validation.message}</div>
+      ) : null}
+
+      <Tabs<"basic" | "advanced">
+        value={activeTab}
+        onChange={setActiveTab}
+        ariaLabel="Job definition editor mode"
+        idPrefix="job-def"
+        tabs={[
+          {
+            value: "basic",
+            label: "Basic",
+            badge: basicErrorPath ? "!" : false,
+          },
+          { value: "advanced", label: "Advanced" },
+        ]}
+      >
+        <TabPanel value="basic">
+          <BasicJobForm
+            def={parsedDef}
+            jsonParseError={jsonParseError}
+            onChange={onBasicChange}
+            errorPath={basicErrorPath}
+          />
+        </TabPanel>
+        <TabPanel value="advanced">
+          <label className="muted" htmlFor="def-json">
+            Job definition (JSON)
+          </label>
+          <JsonEditor
+            id="def-json"
+            ariaLabel="Job definition (JSON)"
+            value={jsonText}
+            onChange={setJsonText}
+            schema={jobDefinitionSchema}
+            fillViewport
+            externalDiagnostic={
+              validation.kind === "fail"
+                ? { path: validation.path, message: validation.message }
+                : null
+            }
+          />
+        </TabPanel>
+      </Tabs>
+    </>
+  );
+
+  // Status view: lifecycle buttons on top, then the runtime/lease/events panels.
+  // Only rendered for existing jobs, so `jobId` is always present here.
+  const statusSection = (
+    <>
+      <div className="btn-row">
+        <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("PAUSED", "Pause")}>
+          {busyAction === "pause" ? (
+            <>
+              <InlineSpinner />
+              Pausing...
+            </>
+          ) : (
+            "Pause"
+          )}
+        </button>
+        <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("ACTIVE", "Resume")}>
+          {busyAction === "resume" ? (
+            <>
+              <InlineSpinner />
+              Resuming...
+            </>
+          ) : (
+            "Resume"
+          )}
+        </button>
+        <button type="button" disabled={busyAction !== null} onClick={() => void onRestart()}>
+          {busyAction === "restart" ? (
+            <>
+              <InlineSpinner />
+              Restarting...
+            </>
+          ) : (
+            "Restart"
+          )}
+        </button>
+        <label className="inline-check">
+          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+          Auto-refresh
+        </label>
+        <button type="button" disabled={busyAction !== null} onClick={() => void loadProjections()}>
+          Refresh status
+        </button>
+        <button type="button" className="danger" disabled={busyAction !== null} onClick={() => void onDelete()}>
+          {busyAction === "delete" ? (
+            <>
+              <InlineSpinner />
+              Deleting...
+            </>
+          ) : (
+            "Delete"
+          )}
+        </button>
+      </div>
+
+      <div className="panel">
+        <h2>Runtime status</h2>
+        {status === undefined ? (
+          <p className="muted">Loading…</p>
+        ) : status === null ? (
+          <p className="muted">No status projected yet.</p>
+        ) : (
+          <>
+            {status.failureReason ? (
+              <div className="banner error">Failure: {status.failureReason}</div>
+            ) : null}
+            <dl className="status-kv">
+              <dt>State</dt>
+              <dd>{status.state}</dd>
+              <dt>Health</dt>
+              <dd>
+                <JobHealthBadge health={status.health} />
+              </dd>
+              <dt>Kafka Streams</dt>
+              <dd className="mono">{kafkaStreamsState(status) ?? "—"}</dd>
+              <dt>Last heartbeat</dt>
+              <dd className="mono">{status.lastHeartbeatAt ?? "—"}</dd>
+              <dt>Worker</dt>
+              <dd className="mono">{status.workerMetadata?.topologyName ?? "—"}</dd>
+            </dl>
+            {status.state === "RUNNING" ||
+            status.state === "DEGRADED" ||
+            hasTrafficMetrics(status.lagMetrics) ? (
+              <>
+                <h3 className="panel-subhead">Traffic</h3>
+                <dl className="status-kv">
+                  <dt>Input rate</dt>
+                  <dd className="mono">{formatRatePerSecond(status.lagMetrics?.inputRatePerSecond)}</dd>
+                  <dt>Input since start</dt>
+                  <dd className="mono">{formatCount(status.lagMetrics?.inputCount)}</dd>
+                  <dt>Input lag</dt>
+                  <dd className="mono">{formatCount(status.lagMetrics?.inputLag)}</dd>
+                  <dt>Output rate</dt>
+                  <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
+                  <dt>Output since start</dt>
+                  <dd className="mono">
+                    {formatOutputCountWithPercent(
+                      status.lagMetrics?.outputCount,
+                      status.lagMetrics?.inputCount,
+                    )}
+                  </dd>
+                </dl>
+              </>
+            ) : (
+              <p className="muted" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
+                No throughput metrics yet (job stopped or streams metrics unavailable).
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2>Lease</h2>
+        {lease === undefined ? (
+          <p className="muted">Loading…</p>
+        ) : lease === null ? (
+          <p className="muted">No lease projected yet.</p>
+        ) : (
+          <pre className="pre-block mono">{JSON.stringify(lease, null, 2)}</pre>
+        )}
+      </div>
+
+      <div className="panel">
+        <h2>Events</h2>
+        {events === undefined ? (
+          <p className="muted">Loading…</p>
+        ) : (
+          <JobEventTimeline events={events ?? []} />
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div className="page">
       <div className="back-row">
@@ -399,218 +624,27 @@ export function JobDetail() {
       ) : null}
 
       {!loading || isNew ? (
-        <>
-          <Tabs<"basic" | "advanced">
-            value={activeTab}
-            onChange={setActiveTab}
-            ariaLabel="Job definition editor mode"
-            idPrefix="job-def"
+        isNew ? (
+          editorSection
+        ) : (
+          <Tabs<"status" | "editor">
+            value={jobView}
+            onChange={setJobView}
+            ariaLabel="Job view"
+            idPrefix="job-view"
             tabs={[
+              { value: "status", label: "Status" },
               {
-                value: "basic",
-                label: "Basic",
+                value: "editor",
+                label: "Editor",
                 badge: basicErrorPath ? "!" : false,
               },
-              { value: "advanced", label: "Advanced" },
             ]}
           >
-            <TabPanel value="basic">
-              <BasicJobForm
-                def={parsedDef}
-                jsonParseError={jsonParseError}
-                onChange={onBasicChange}
-                errorPath={basicErrorPath}
-              />
-            </TabPanel>
-            <TabPanel value="advanced">
-              <label className="muted" htmlFor="def-json">
-                Job definition (JSON)
-              </label>
-              <JsonEditor
-                id="def-json"
-                ariaLabel="Job definition (JSON)"
-                value={jsonText}
-                onChange={setJsonText}
-                schema={jobDefinitionSchema}
-                externalDiagnostic={
-                  validation.kind === "fail"
-                    ? { path: validation.path, message: validation.message }
-                    : null
-                }
-              />
-            </TabPanel>
+            <TabPanel value="status">{statusSection}</TabPanel>
+            <TabPanel value="editor">{editorSection}</TabPanel>
           </Tabs>
-
-          {validation.kind === "ok" ? (
-            <div className="validation-banner ok">Definition is valid.</div>
-          ) : validation.kind === "fail" ? (
-            <div className="validation-banner fail">{validation.message}</div>
-          ) : null}
-
-          <div className="btn-row">
-            <button type="button" className="primary" disabled={busyAction !== null} onClick={() => void onSave()}>
-              {busyAction === "save" ? (
-                <>
-                  <InlineSpinner />
-                  Saving...
-                </>
-              ) : isNew ? (
-                "Create"
-              ) : (
-                "Save changes"
-              )}
-            </button>
-            <button
-              type="button"
-              disabled={
-                busyAction !== null || validation.kind === "running" || jsonParseError !== null
-              }
-              title={jsonParseError ?? undefined}
-              onClick={() => void onValidateConfig()}
-            >
-              {validation.kind === "running" ? (
-                <>
-                  <InlineSpinner />
-                  Validating...
-                </>
-              ) : (
-                "Validate config"
-              )}
-            </button>
-            {!isNew && jobId ? (
-              <>
-                <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("PAUSED", "Pause")}>
-                  {busyAction === "pause" ? (
-                    <>
-                      <InlineSpinner />
-                      Pausing...
-                    </>
-                  ) : (
-                    "Pause"
-                  )}
-                </button>
-                <button type="button" disabled={busyAction !== null} onClick={() => void setDesiredState("ACTIVE", "Resume")}>
-                  {busyAction === "resume" ? (
-                    <>
-                      <InlineSpinner />
-                      Resuming...
-                    </>
-                  ) : (
-                    "Resume"
-                  )}
-                </button>
-                <button type="button" disabled={busyAction !== null} onClick={() => void onRestart()}>
-                  {busyAction === "restart" ? (
-                    <>
-                      <InlineSpinner />
-                      Restarting...
-                    </>
-                  ) : (
-                    "Restart"
-                  )}
-                </button>
-                <label className="inline-check">
-                  <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-                  Auto-refresh
-                </label>
-                <button type="button" disabled={busyAction !== null} onClick={() => void loadProjections()}>
-                  Refresh status
-                </button>
-                <button type="button" className="danger" disabled={busyAction !== null} onClick={() => void onDelete()}>
-                  {busyAction === "delete" ? (
-                    <>
-                      <InlineSpinner />
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete"
-                  )}
-                </button>
-              </>
-            ) : null}
-          </div>
-
-          {!isNew && jobId ? (
-            <>
-              <div className="panel">
-                <h2>Runtime status</h2>
-                {status === undefined ? (
-                  <p className="muted">Loading…</p>
-                ) : status === null ? (
-                  <p className="muted">No status projected yet.</p>
-                ) : (
-                  <>
-                    {status.failureReason ? (
-                      <div className="banner error">Failure: {status.failureReason}</div>
-                    ) : null}
-                    <dl className="status-kv">
-                      <dt>State</dt>
-                      <dd>{status.state}</dd>
-                      <dt>Health</dt>
-                      <dd>
-                        <JobHealthBadge health={status.health} />
-                      </dd>
-                      <dt>Kafka Streams</dt>
-                      <dd className="mono">{kafkaStreamsState(status) ?? "—"}</dd>
-                      <dt>Last heartbeat</dt>
-                      <dd className="mono">{status.lastHeartbeatAt ?? "—"}</dd>
-                      <dt>Worker</dt>
-                      <dd className="mono">{status.workerMetadata?.topologyName ?? "—"}</dd>
-                    </dl>
-                    {status.state === "RUNNING" ||
-                    status.state === "DEGRADED" ||
-                    hasTrafficMetrics(status.lagMetrics) ? (
-                      <>
-                        <h3 className="panel-subhead">Traffic</h3>
-                        <dl className="status-kv">
-                          <dt>Input rate</dt>
-                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.inputRatePerSecond)}</dd>
-                          <dt>Input since start</dt>
-                          <dd className="mono">{formatCount(status.lagMetrics?.inputCount)}</dd>
-                          <dt>Input lag</dt>
-                          <dd className="mono">{formatCount(status.lagMetrics?.inputLag)}</dd>
-                          <dt>Output rate</dt>
-                          <dd className="mono">{formatRatePerSecond(status.lagMetrics?.outputRatePerSecond)}</dd>
-                          <dt>Output since start</dt>
-                          <dd className="mono">
-                            {formatOutputCountWithPercent(
-                              status.lagMetrics?.outputCount,
-                              status.lagMetrics?.inputCount,
-                            )}
-                          </dd>
-                        </dl>
-                      </>
-                    ) : (
-                      <p className="muted" style={{ marginTop: "0.75rem", marginBottom: 0 }}>
-                        No throughput metrics yet (job stopped or streams metrics unavailable).
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="panel">
-                <h2>Lease</h2>
-                {lease === undefined ? (
-                  <p className="muted">Loading…</p>
-                ) : lease === null ? (
-                  <p className="muted">No lease projected yet.</p>
-                ) : (
-                  <pre className="pre-block mono">{JSON.stringify(lease, null, 2)}</pre>
-                )}
-              </div>
-
-              <div className="panel">
-                <h2>Events</h2>
-                {events === undefined ? (
-                  <p className="muted">Loading…</p>
-                ) : (
-                  <JobEventTimeline events={events ?? []} />
-                )}
-              </div>
-            </>
-          ) : null}
-        </>
+        )
       ) : null}
     </div>
   );

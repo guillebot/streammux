@@ -1114,6 +1114,14 @@ tr:last-child td {
   overflow: hidden;
 }
 
+/* Grow the advanced editor to fill the rest of the viewport. `min-height: 320px`
+   from `.json-editor` acts as the floor, so on short viewports the height calc is
+   clamped up to 320px. The offset roughly accounts for the header, tab strips and
+   action buttons stacked above the editor. */
+.json-editor--fill {
+  height: calc(100dvh - 22rem);
+}
+
 .panel {
   margin-top: 1.25rem;
   padding: 1rem;
