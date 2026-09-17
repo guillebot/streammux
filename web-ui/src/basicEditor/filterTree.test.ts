@@ -199,6 +199,69 @@ describe("moveNode across groups", () => {
   });
 });
 
+describe("moveNode with an explicit side (pointer-driven)", () => {
+  it("inserts after the over node in the same group", () => {
+    const tree = hydrateGroup(
+      parseFilterExpression('a == "1" && b == "2" && c == "3"'),
+    );
+    const [a, b, c] = tree.children;
+    const next = moveNode(tree, a!.id, b!.id, "after");
+    expect(next!.children.map((n) => n.id)).toEqual([b!.id, a!.id, c!.id]);
+  });
+
+  it("inserts before the over node in the same group", () => {
+    const tree = hydrateGroup(
+      parseFilterExpression('a == "1" && b == "2" && c == "3"'),
+    );
+    const [a, b, c] = tree.children;
+    const next = moveNode(tree, c!.id, a!.id, "before");
+    expect(next!.children.map((n) => n.id)).toEqual([c!.id, a!.id, b!.id]);
+  });
+
+  it("is a no-op when the side keeps the existing order", () => {
+    const tree = hydrateGroup(
+      parseFilterExpression('a == "1" && b == "2" && c == "3"'),
+    );
+    const [a, b] = tree.children;
+    // `a` is already immediately before `b`, so "before b" changes nothing.
+    expect(moveNode(tree, a!.id, b!.id, "before")).toBeNull();
+  });
+
+  it("places a rule before a sibling group", () => {
+    const tree = hydrateGroup(
+      parseFilterExpression('a == "1" && (b == "2") && c == "3"'),
+    );
+    const a = tree.children[0]!;
+    const group = tree.children[1]!;
+    const c = tree.children[2]!;
+    const next = moveNode(tree, c.id, group.id, "before");
+    expect(next!.children.map((n) => n.id)).toEqual([a.id, c.id, group.id]);
+  });
+
+  it("places a rule after a sibling group", () => {
+    const tree = hydrateGroup(
+      parseFilterExpression('a == "1" && (b == "2") && c == "3"'),
+    );
+    const a = tree.children[0]!;
+    const group = tree.children[1]!;
+    const c = tree.children[2]!;
+    const next = moveNode(tree, a.id, group.id, "after");
+    expect(next!.children.map((n) => n.id)).toEqual([group.id, a.id, c.id]);
+  });
+
+  it("nests a root rule before a specific rule inside a group", () => {
+    const tree = sampleTree();
+    const topRule = tree.children[0]!; // type == "alarm"
+    const nested = tree.children[1] as IdFilterGroup;
+    const firstInner = nested.children[0]!; // severity in [...]
+    const next = moveNode(tree, topRule.id, firstInner.id, "before");
+    expect(next!.children).toHaveLength(1);
+    const movedGroup = next!.children[0] as IdFilterGroup;
+    expect(movedGroup.children[0]!.id).toBe(topRule.id);
+    expect(movedGroup.children[1]!.id).toBe(firstInner.id);
+  });
+});
+
 describe("duplicateById", () => {
   it("clones a rule with a fresh id immediately after the original", () => {
     const tree = hydrateGroup(

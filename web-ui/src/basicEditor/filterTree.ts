@@ -249,15 +249,24 @@ function arrayMove<T>(items: readonly T[], from: number, to: number): T[] {
   return next;
 }
 
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
 /**
  * Move the node with `activeId` so that it lands at `overId`.
  *
  * `overId` is either:
- * - another node's id — the active node takes that node's slot (sortable
- *   `arrayMove` semantics when in the same group; inserted *before* it when
- *   coming from another group), or
+ * - another node's id — the active node is placed relative to it in that
+ *   node's parent group, or
  * - a container id from `containerIdFor(...)` — appended to that group's end
  *   (used when hovering an empty group body).
+ *
+ * `side` (only meaningful when `overId` is a node) picks the insertion edge
+ * from the pointer position: `"before"` / `"after"` the over node. When
+ * omitted, the legacy sortable semantics apply (same-group `arrayMove` to the
+ * over node's slot; cross-group insert *before* the over node) — this keeps the
+ * pure unit tests independent of pointer geometry.
  *
  * Returns `null` when the move is a no-op or would create a cycle (dropping a
  * group into its own subtree). Callers should treat `null` as "leave the tree
@@ -267,6 +276,7 @@ export function moveNode(
   root: IdFilterGroup,
   activeId: string,
   overId: string,
+  side?: "before" | "after",
 ): IdFilterGroup | null {
   if (activeId === overId) return null;
 
@@ -296,22 +306,36 @@ export function moveNode(
   // Cycle guard: cannot drop a group into itself or one of its descendants.
   if (isDescendant(root, activeId, targetContainerId)) return null;
 
-  // Same container: reorder with arrayMove so the active node ends up exactly
-  // at the over node's slot, regardless of drag direction.
-  if (activePi.parent.id === targetContainerId) {
-    if (activePi.index === overPi.index) return null;
-    return updateGroup(root, targetContainerId, (g) => ({
-      ...g,
-      children: arrayMove(g.children, activePi.index, overPi.index),
-    }));
+  // Legacy (no explicit side): keep arrayMove / insert-before behavior.
+  if (side === undefined) {
+    if (activePi.parent.id === targetContainerId) {
+      if (activePi.index === overPi.index) return null;
+      return updateGroup(root, targetContainerId, (g) => ({
+        ...g,
+        children: arrayMove(g.children, activePi.index, overPi.index),
+      }));
+    }
+    const { tree: without, removed } = removeById(root, activeId);
+    const overPiAfter = findParentAndIndex(without, overId);
+    if (!overPiAfter) return null;
+    return insertInto(without, targetContainerId, overPiAfter.index, removed);
   }
 
-  // Cross container: remove from the source, then insert *before* the over node
-  // at its (recomputed) index in the reduced tree.
+  // Side-aware: insert on the pointer's edge of the over node. Detect same-
+  // container no-ops (order unchanged) so we don't churn the tree needlessly.
+  if (activePi.parent.id === targetContainerId) {
+    const order = activePi.parent.children.map((c) => c.id);
+    const simulated = order.slice();
+    simulated.splice(activePi.index, 1);
+    const overIdxAfter = simulated.indexOf(overId);
+    simulated.splice(overIdxAfter + (side === "after" ? 1 : 0), 0, activeId);
+    if (arraysEqual(order, simulated)) return null;
+  }
   const { tree: without, removed } = removeById(root, activeId);
   const overPiAfter = findParentAndIndex(without, overId);
   if (!overPiAfter) return null;
-  return insertInto(without, targetContainerId, overPiAfter.index, removed);
+  const insertIndex = overPiAfter.index + (side === "after" ? 1 : 0);
+  return insertInto(without, targetContainerId, insertIndex, removed);
 }
 
 /**

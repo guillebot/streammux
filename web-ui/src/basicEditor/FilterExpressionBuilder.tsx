@@ -14,13 +14,16 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  getFirstCollision,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import type {
+  CollisionDetection,
   DragEndEvent,
-  DragOverEvent,
   DragStartEvent,
 } from "@dnd-kit/core";
 import {
@@ -29,7 +32,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { IconTrash } from "../jobActionIcons";
 import { IconCopy, IconGroupPlus, IconRulePlus } from "./filterBuilderIcons";
 import {
@@ -138,34 +140,142 @@ export function FilterExpressionBuilder({
   // Live drag state powers the drop indicator and the drag overlay.
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [overSide, setOverSide] = useState<DropSide>(null);
+  // The resolved drop target for the current pointer position. Computed in
+  // `collisionDetection` (where the live pointer is available) and mirrored into
+  // React state on drag-move so the indicator can render.
+  const dropRef = useRef<{ overId: string; side: DropSide } | null>(null);
+
+  // Custom collision resolution for the nested tree. Beyond dnd-kit's built-ins
+  // it does two things that plain closestCenter can't:
+  //  1. When a group *body* is hovered, resolve down to the closest child row
+  //     (so reordering inside a group targets a specific rule and shows a line
+  //     there); empty groups keep the container so they still accept drops.
+  //  2. Compute the before/after edge from the real pointer, then "escalate"
+  //     outward past a trailing/leading group edge — this is what lets you land
+  //     as a sibling *after* (or *before*) a group instead of being trapped as
+  //     its last/first child when there is no row beyond it to aim at.
+  const collisionDetection = useCallback<CollisionDetection>(
+    (args) => {
+      const { droppableRects, pointerCoordinates } = args;
+      const pointer = pointerWithin(args);
+      const intersections = pointer.length > 0 ? pointer : rectIntersection(args);
+      let resolved = getFirstCollision(intersections, "id");
+      if (resolved == null) resolved = getFirstCollision(closestCenter(args), "id");
+      if (resolved == null) {
+        dropRef.current = null;
+        return [];
+      }
+      if (typeof resolved === "string" && isContainerId(resolved)) {
+        const group = findNodeById(tree, groupIdFromContainerId(resolved));
+        if (group && group.kind === "group" && group.children.length > 0) {
+          const childIds = new Set(group.children.map((c) => c.id));
+          const inner = getFirstCollision(
+            closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter(
+                (c) => c.id !== resolved && childIds.has(String(c.id)),
+              ),
+            }),
+            "id",
+          );
+          if (inner != null) resolved = inner;
+        }
+      }
+
+      let resolvedId = String(resolved);
+      let side: DropSide = null;
+      if (!isContainerId(resolvedId) && pointerCoordinates) {
+        const rect = droppableRects.get(resolvedId);
+        side =
+          rect && pointerCoordinates.y > rect.top + rect.height / 2
+            ? "after"
+            : "before";
+        // The group that currently owns the dragged item. We never escalate out
+        // of it: doing so would turn an in-group reorder to the first/last slot
+        // into a jump outside the group (the reported bug). Items coming from a
+        // *different* group can still escalate to sit before/after this group.
+        const activeParentId =
+          findParentAndIndex(tree, String(args.active.id))?.parent.id ?? null;
+        // Escalate outward while the resolved node is the last/first child of a
+        // non-root group and the pointer is beyond that child's *outer* edge
+        // (below the last row / above the first row). The child's own body is
+        // deliberately left alone so the first/last slot *inside* the group
+        // stays reachable when dragging an item in from elsewhere. Stops once
+        // the node's parent is the root (root children are already the outermost
+        // sibling level). The indicator follows each step, so the line climbs to
+        // the group's outer edge as you drag past it.
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const pi = findParentAndIndex(tree, resolvedId);
+          if (!pi || pi.parent.id === tree.id) break;
+          if (pi.parent.id === activeParentId) break;
+          const nodeRect = droppableRects.get(resolvedId);
+          if (!nodeRect) break;
+          const isLast = pi.index === pi.parent.children.length - 1;
+          const isFirst = pi.index === 0;
+          if (side === "after" && isLast && pointerCoordinates.y >= nodeRect.bottom) {
+            resolvedId = pi.parent.id;
+            continue;
+          }
+          if (side === "before" && isFirst && pointerCoordinates.y <= nodeRect.top) {
+            resolvedId = pi.parent.id;
+            continue;
+          }
+          break;
+        }
+      }
+
+      dropRef.current = {
+        overId: resolvedId,
+        side: isContainerId(resolvedId) ? null : side,
+      };
+      return [{ id: resolvedId }];
+    },
+    [tree],
+  );
 
   const onDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(String(event.active.id));
   }, []);
 
-  const onDragOver = useCallback((event: DragOverEvent) => {
-    setOverId(event.over ? String(event.over.id) : null);
+  // Mirror the ref (set during collision detection) into state. Runs on every
+  // move so the indicator flips sides as the pointer crosses a row's midpoint,
+  // even while the `over` droppable itself hasn't changed.
+  const syncDropTarget = useCallback(() => {
+    const d = dropRef.current;
+    const nextOver = d?.overId ?? null;
+    const nextSide = d?.side ?? null;
+    setOverId((prev) => (prev === nextOver ? prev : nextOver));
+    setOverSide((prev) => (prev === nextSide ? prev : nextSide));
   }, []);
 
   const clearDrag = useCallback(() => {
     setActiveId(null);
     setOverId(null);
+    setOverSide(null);
+    dropRef.current = null;
   }, []);
 
   const onDragEnd = useCallback(
     (event: DragEndEvent) => {
+      const target = dropRef.current;
       clearDrag();
-      const { active, over } = event;
-      if (!over) return;
-      const next = moveNode(tree, String(active.id), String(over.id));
+      if (!target) return;
+      const next = moveNode(
+        tree,
+        String(event.active.id),
+        target.overId,
+        target.side ?? undefined,
+      );
       if (next) commitTree(next);
     },
     [tree, commitTree, clearDrag],
   );
 
   const dndState = useMemo<DndDragState>(
-    () => ({ activeId, overId, tree }),
-    [activeId, overId, tree],
+    () => ({ activeId, overId, overSide, tree }),
+    [activeId, overId, overSide, tree],
   );
 
   const activeNode = activeId ? findNodeById(tree, activeId) : null;
@@ -205,9 +315,10 @@ export function FilterExpressionBuilder({
       {mode === "builder" ? (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={collisionDetection}
           onDragStart={onDragStart}
-          onDragOver={onDragOver}
+          onDragMove={syncDropTarget}
+          onDragOver={syncDropTarget}
           onDragEnd={onDragEnd}
           onDragCancel={clearDrag}
         >
@@ -447,45 +558,36 @@ function GroupEditor({ group, isRoot, onChange, root, idPrefix }: GroupEditorPro
 // ---- Sortable wrappers ----------------------------------------------------
 
 function SortableChild({ id, children }: { id: string; children: ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
-  const style: React.CSSProperties = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
+  // Rows stay put during a drag: the explicit drop indicator plus the
+  // DragOverlay chip convey placement. We intentionally ignore useSortable's
+  // reorder transform — applying it shifts siblings while @dnd-kit still
+  // hit-tests against their pre-drag rects, so drops (worst when dragging
+  // downward) landed a full row past where the cursor showed.
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id });
 
-  // Decide whether (and where) to draw the insertion indicator for this row.
-  const { activeId, overId, tree } = useContext(DndDragStateContext);
-  let indicator: "before" | "after" | null = null;
-  if (activeId && overId === id && activeId !== id) {
-    const activePi = findParentAndIndex(tree, activeId);
-    const overPi = findParentAndIndex(tree, id);
-    if (activePi && overPi && activePi.parent.id === overPi.parent.id) {
-      // Same group: the line goes on the side the item is travelling toward.
-      indicator = activePi.index < overPi.index ? "after" : "before";
-    } else {
-      // Cross-group drops insert before the hovered row.
-      indicator = "before";
-    }
-  }
+  // Draw the insertion indicator on the edge the pointer is closest to, as
+  // computed live in `onDragOver`. This row owns the line only while it is the
+  // resolved drop target.
+  const { activeId, overId, overSide } = useContext(DndDragStateContext);
+  const indicator: "before" | "after" | null =
+    activeId && overId === id && activeId !== id ? (overSide ?? "before") : null;
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className={
         isDragging ? "filter-group-child filter-group-child-dragging" : "filter-group-child"
       }
       data-sortable-id={id}
     >
       {indicator === "before" ? (
-        <div className="filter-drop-indicator" aria-hidden="true" />
+        <div className="filter-drop-indicator filter-drop-indicator-before" aria-hidden="true" />
       ) : null}
       <DragListenerContext.Provider value={{ attributes, listeners }}>
         {children}
       </DragListenerContext.Provider>
       {indicator === "after" ? (
-        <div className="filter-drop-indicator" aria-hidden="true" />
+        <div className="filter-drop-indicator filter-drop-indicator-after" aria-hidden="true" />
       ) : null}
     </div>
   );
@@ -503,16 +605,20 @@ const DragListenerContext = createContext<DragListenerBag>({
   listeners: undefined,
 });
 
+type DropSide = "before" | "after" | null;
+
 // Live drag state shared with every SortableChild so each row can decide
 // whether to render the drop indicator and on which side.
 interface DndDragState {
   activeId: string | null;
   overId: string | null;
+  overSide: DropSide;
   tree: IdFilterGroup;
 }
 const DndDragStateContext = createContext<DndDragState>({
   activeId: null,
   overId: null,
+  overSide: null,
   tree: emptyIdGroup(),
 });
 

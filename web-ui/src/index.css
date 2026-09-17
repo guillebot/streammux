@@ -1921,7 +1921,8 @@ select.form-select {
 }
 
 /* Sortable child dragged state: mute the source row while it's being moved.
-   The dnd-kit CSS transform is applied inline via `useSortable`. */
+   Rows are not transformed during drag (see FilterExpressionBuilder); this is
+   the positioning anchor for the absolutely-placed drop indicator. */
 .filter-group-child {
   position: relative;
 }
@@ -1930,14 +1931,28 @@ select.form-select {
   opacity: 0.4;
 }
 
-/* Insertion line showing exactly where a dragged rule/group will land. */
+/* Insertion line showing exactly where a dragged rule/group will land.
+   Absolutely positioned on the row edge so toggling it never changes layout
+   (which would otherwise shift droppable rects mid-drag and desync the drop
+   point from the cursor). `.filter-group-child` is the relative anchor. */
 .filter-drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
   height: 0;
-  margin: 1px 0;
   border-top: 2px solid var(--accent, #4c8dff);
   border-radius: 2px;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #4c8dff) 35%, transparent);
   pointer-events: none;
+  z-index: 2;
+}
+
+.filter-drop-indicator-before {
+  top: -1px;
+}
+
+.filter-drop-indicator-after {
+  bottom: -1px;
 }
 
 /* Highlight a group's card while a dragged item would land inside it, so
