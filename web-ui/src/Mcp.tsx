@@ -13,8 +13,12 @@ import {
   DEFAULT_MCP_SCOPES,
   MCP_DOC_CONTENT,
   MCP_TOOL_GROUPS,
+  isInstallableMcpToken,
   mcpCursorConfig,
+  openCursorMcpInstall,
 } from "./mcpContent";
+
+const MCP_SERVER_NAME = "streammux-onelab";
 
 function formatWhen(iso: string | undefined): string {
   if (!iso) return "—";
@@ -61,7 +65,7 @@ export function McpPage() {
     [mcpUrl, created?.token],
   );
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent, opts?: { addToCursor?: boolean }) {
     e.preventDefault();
     const name = tokenName.trim();
     if (!name) return;
@@ -73,6 +77,9 @@ export function McpPage() {
       setCreated(result);
       setTokenName("");
       await loadTokens();
+      if (opts?.addToCursor && result.token) {
+        openCursorMcpInstall(MCP_SERVER_NAME, mcpUrl, result.token);
+      }
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -114,6 +121,18 @@ export function McpPage() {
           management on this page proxies to the same kstreams1 MCP admin API regardless of
           which web-ui replica you landed on.
         </p>
+        {created && isInstallableMcpToken(created.token) ? (
+          <div className="btn-row" style={{ marginBottom: "0.75rem" }}>
+            <button
+              className="primary"
+              type="button"
+              onClick={() => openCursorMcpInstall(MCP_SERVER_NAME, mcpUrl, created.token)}
+            >
+              Add to Cursor
+            </button>
+            <span className="muted">Opens Cursor&apos;s Install MCP Server dialog.</span>
+          </div>
+        ) : null}
         <pre className="pre-block mono">{cursorSnippet}</pre>
       </section>
 
@@ -125,7 +144,7 @@ export function McpPage() {
           backend — see the guide below.
         </p>
 
-        <form className="form-stack" style={{ maxWidth: "28rem" }} onSubmit={(e) => void handleCreate(e)}>
+        <form className="form-stack" style={{ maxWidth: "28rem" }} onSubmit={(e) => void handleCreate(e, { addToCursor: true })}>
           <label className="form-field">
             <span className="form-label">Token name</span>
             <input
@@ -139,7 +158,10 @@ export function McpPage() {
           </label>
           <div className="btn-row" style={{ marginTop: 0 }}>
             <button className="primary" type="submit" disabled={creating || !tokenName.trim()}>
-              {creating ? "Creating…" : "Create token"}
+              {creating ? "Creating…" : "Create token & add to Cursor"}
+            </button>
+            <button type="button" disabled={creating || !tokenName.trim()} onClick={(e) => void handleCreate(e)}>
+              Create token only
             </button>
           </div>
         </form>
