@@ -81,3 +81,29 @@ export function mcpCursorConfig(mcpUrl: string, token = "stm_REPLACE_ME"): strin
     2,
   );
 }
+
+export function isInstallableMcpToken(token: string): boolean {
+  const t = token.trim();
+  if (!t || t.includes("REPLACE") || t.endsWith("…") || t.endsWith("...")) {
+    return false;
+  }
+  return t.length >= 16;
+}
+
+/** Cursor MCP install deeplink — inner transport config only. */
+export function cursorMcpInstallUrl(
+  serverName: string,
+  mcpUrl: string,
+  token: string,
+): string {
+  const configJson = JSON.stringify({
+    url: mcpUrl,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const config = btoa(configJson);
+  return `cursor://anysphere.cursor-deeplink/mcp/install?name=${encodeURIComponent(serverName)}&config=${config}`;
+}
+
+export function openCursorMcpInstall(serverName: string, mcpUrl: string, token: string): void {
+  window.location.href = cursorMcpInstallUrl(serverName, mcpUrl, token);
+}
