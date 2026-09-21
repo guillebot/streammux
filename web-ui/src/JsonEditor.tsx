@@ -22,6 +22,12 @@ export interface JsonEditorProps {
   className?: string;
   minHeight?: number;
   /**
+   * When true the editor grows to fill the remaining viewport height, keeping
+   * `minHeight` as a floor. The actual height is driven by the
+   * `.json-editor--fill` CSS rule; here we just let CodeMirror stretch to 100%.
+   */
+  fillViewport?: boolean;
+  /**
    * Optional JSON Schema. When provided, the editor gains schema-aware linting, hover
    * tooltips, and autocompletion in addition to plain JSON syntax linting. Passing null or
    * undefined leaves the editor with syntax-only linting so callers can render before their
@@ -131,6 +137,7 @@ export function JsonEditor({
   ariaLabel,
   className = "json-editor",
   minHeight = 320,
+  fillViewport = false,
   schema,
   externalDiagnostic,
 }: JsonEditorProps) {
@@ -187,11 +194,12 @@ export function JsonEditor({
   }, [schema, externalLinter]);
 
   return (
-    <div id={id} className={className}>
+    <div id={id} className={fillViewport ? `${className} json-editor--fill` : className}>
       <CodeMirror
         value={value}
         onChange={onChange}
-        height={`${minHeight}px`}
+        height={fillViewport ? "100%" : `${minHeight}px`}
+        minHeight={fillViewport ? `${minHeight}px` : undefined}
         extensions={extensions}
         theme={theme}
         aria-label={ariaLabel}

@@ -16,6 +16,13 @@ type Props = {
   id?: string;
   placeholder?: string;
   invalid?: boolean;
+  /**
+   * Accept typed text that isn't in `options` (committed on Enter / blur). Used by
+   * the Basic editor so topics outside the allowlist-derived catalog can still be set.
+   */
+  allowCustom?: boolean;
+  /** Marker used by the Basic editor to scroll/focus this field on a server error. */
+  dataErrorPath?: string;
 };
 
 const wrapperStyle: CSSProperties = {
@@ -114,6 +121,8 @@ export function TopicCombobox({
   id,
   placeholder,
   invalid,
+  allowCustom,
+  dataErrorPath,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -142,15 +151,27 @@ export function TopicCombobox({
     setQuery(value);
   };
 
+  // Leaving the field (blur / outside click): commit the typed text when custom
+  // values are allowed, otherwise revert to the last committed value.
+  const finishRef = useRef<() => void>(() => {});
+  finishRef.current = () => {
+    if (allowCustom) {
+      if (query !== value) onChange(query);
+      setOpen(false);
+    } else {
+      cancel();
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     const onDocMouseDown = (e: MouseEvent) => {
       const node = wrapperRef.current;
-      if (node && !node.contains(e.target as Node)) cancel();
+      if (node && !node.contains(e.target as Node)) finishRef.current();
     };
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
-  }, [open, value]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !listRef.current) return;
@@ -196,6 +217,9 @@ export function TopicCombobox({
         if (open && filtered[highlight]) {
           e.preventDefault();
           commit(filtered[highlight]);
+        } else if (allowCustom) {
+          e.preventDefault();
+          commit(query);
         }
         break;
       case "Escape":
@@ -239,6 +263,7 @@ export function TopicCombobox({
         }
         aria-label={ariaLabel}
         aria-invalid={invalid || undefined}
+        data-error-path={dataErrorPath}
         className="text-input"
         style={invalid ? invalidInputStyle : inputStyle}
         autoComplete="off"
@@ -252,7 +277,7 @@ export function TopicCombobox({
           setHighlight(0);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={cancel}
+        onBlur={() => finishRef.current()}
         onKeyDown={onKeyDown}
       />
       {showClear ? (
