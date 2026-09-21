@@ -5,9 +5,14 @@ import { IconTrash } from "../jobActionIcons";
 import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
 import { FilterExpressionBuilder } from "./FilterExpressionBuilder";
 
+let rowIdCounter = 0;
 function nextRowId(): string {
   const c = typeof crypto !== "undefined" ? crypto : undefined;
-  return c && "randomUUID" in c ? c.randomUUID() : Math.random().toString(36).slice(2);
+  if (c && "randomUUID" in c) return c.randomUUID();
+  // Non-secure-context fallback (crypto.randomUUID unavailable). Row ids are
+  // React keys, not security material, so no PRNG is needed (avoids CWE-338).
+  rowIdCounter += 1;
+  return `row-${rowIdCounter}`;
 }
 
 interface RouteRow {
