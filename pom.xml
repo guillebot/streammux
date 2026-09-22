@@ -28,7 +28,7 @@
     <spring-kafka.version>3.3.16</spring-kafka.version>
     <micrometer.version>1.15.12</micrometer.version>
     <protobuf.version>3.25.5</protobuf.version>
-    <tomcat.version>10.1.58</tomcat.version>
+    <tomcat.version>10.1.60</tomcat.version>
     <lz4.version>1.8.1</lz4.version>
     <testcontainers.version>1.20.1</testcontainers.version>
     <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
