@@ -9,7 +9,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
-import org.testcontainers.containers.KafkaContainer;
+import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -27,7 +27,7 @@ import java.util.UUID;
 abstract class KafkaIntegrationSupport {
     @Container
     protected static final KafkaContainer KAFKA = new KafkaContainer(
-        DockerImageName.parse("confluentinc/cp-kafka:7.6.1")
+        DockerImageName.parse("apache/kafka:4.2.1")
     );
 
     private final List<KafkaConsumer<String, byte[]>> consumers = new ArrayList<>();
