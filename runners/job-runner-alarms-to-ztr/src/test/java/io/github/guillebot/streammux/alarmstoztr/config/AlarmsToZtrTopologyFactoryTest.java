@@ -1,6 +1,6 @@
 package io.github.guillebot.streammux.alarmstoztr.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrConfig;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilter;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilterRule;

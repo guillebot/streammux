@@ -14,6 +14,7 @@ import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.core.converter.ResolvedSchema;
 import io.swagger.v3.core.util.Json31;
 import io.swagger.v3.oas.models.media.Schema;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -42,17 +43,24 @@ public class JobDefinitionSchemaProvider {
 
     private final ObjectMapper objectMapper;
     private final JsonNode schemaJson;
+    private final tools.jackson.databind.JsonNode responseSchemaJson;
     private final JsonSchema compiledSchema;
 
-    public JobDefinitionSchemaProvider(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    @Autowired
+    public JobDefinitionSchemaProvider(tools.jackson.databind.ObjectMapper responseObjectMapper) {
+        this.objectMapper = Json31.mapper();
         this.schemaJson = buildSchemaDocument();
+        try {
+            this.responseSchemaJson = responseObjectMapper.readTree(this.schemaJson.toString());
+        } catch (tools.jackson.core.JacksonException ex) {
+            throw new IllegalStateException("Failed to convert generated job schema to Jackson 3", ex);
+        }
         this.compiledSchema = compile(this.schemaJson);
     }
 
     /** Returns the immutable JSON Schema document served to clients and used internally. */
-    public JsonNode getSchemaJson() {
-        return schemaJson;
+    public tools.jackson.databind.JsonNode getSchemaJson() {
+        return responseSchemaJson;
     }
 
     /**
@@ -60,8 +68,13 @@ public class JobDefinitionSchemaProvider {
      * {@link IllegalArgumentException} whose message enumerates every violation with a JSON
      * pointer so the shared {@code ApiExceptionHandler} maps it to a {@code VALIDATION_ERROR}.
      */
-    public void validate(JsonNode payload) {
-        Set<ValidationMessage> errors = compiledSchema.validate(payload);
+    public void validate(tools.jackson.databind.JsonNode payload) {
+        Set<ValidationMessage> errors;
+        try {
+            errors = compiledSchema.validate(objectMapper.readTree(payload.toString()));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException ex) {
+            throw new IllegalArgumentException("Payload is not valid JSON", ex);
+        }
         if (errors.isEmpty()) return;
         String combined = errors.stream()
             .map(this::formatMessage)

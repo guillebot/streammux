@@ -1,7 +1,6 @@
 package io.github.guillebot.streammux.orchestrator.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
@@ -27,7 +26,7 @@ import java.time.Instant;
 @Component
 public class OrchestratorCoordinator implements ConsumerSeekAware {
     private static final Logger LOGGER = LoggerFactory.getLogger(OrchestratorCoordinator.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final OrchestratorStateStore stateStore;
     private final OrchestratorService orchestratorService;

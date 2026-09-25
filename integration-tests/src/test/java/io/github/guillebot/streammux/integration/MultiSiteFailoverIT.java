@@ -28,8 +28,7 @@ import io.github.guillebot.streammux.orchestrator.service.OrchestratorStateStore
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -106,7 +105,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
     }
 
 
-    private static final ObjectMapper LEASE_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper LEASE_MAPPER = new ObjectMapper();
 
     private ConsumerRecord<String, byte[]> pollUntilLeaseOwner(KafkaConsumer<String, byte[]> consumer, String siteId) throws Exception {
         Instant deadline = Instant.now().plusSeconds(20);

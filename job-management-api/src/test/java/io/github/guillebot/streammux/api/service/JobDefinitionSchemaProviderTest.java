@@ -1,9 +1,7 @@
 package io.github.guillebot.streammux.api.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
@@ -25,9 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JobDefinitionSchemaProviderTest {
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-        .registerModule(new JavaTimeModule())
-        .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final JobDefinitionSchemaProvider provider = new JobDefinitionSchemaProvider(objectMapper);
 
     @Test
@@ -62,7 +58,7 @@ class JobDefinitionSchemaProviderTest {
     @Test
     void validateRejectsWrongPrimitiveType() throws Exception {
         JsonNode payload = objectMapper.valueToTree(sampleDefinition());
-        ((com.fasterxml.jackson.databind.node.ObjectNode) payload).put("jobId", 42);
+        ((tools.jackson.databind.node.ObjectNode) payload).put("jobId", 42);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> provider.validate(payload));
         assertTrue(ex.getMessage().toLowerCase().contains("jobid"), () -> "message should mention jobId, was: " + ex.getMessage());
@@ -71,7 +67,7 @@ class JobDefinitionSchemaProviderTest {
     @Test
     void validateRejectsUnknownField() throws Exception {
         JsonNode payload = objectMapper.valueToTree(sampleDefinition());
-        ((com.fasterxml.jackson.databind.node.ObjectNode) payload).put("filterExpresion", "typo");
+        ((tools.jackson.databind.node.ObjectNode) payload).put("filterExpresion", "typo");
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> provider.validate(payload));
         assertTrue(ex.getMessage().toLowerCase().contains("filterexpresion"), () -> "message should mention the typoed field, was: " + ex.getMessage());
@@ -82,8 +78,8 @@ class JobDefinitionSchemaProviderTest {
         // Regression guard: nullable $ref properties must not hide nested
         // `additionalProperties` violations behind an anyOf branch.
         JsonNode payload = objectMapper.valueToTree(sampleDefinition());
-        com.fasterxml.jackson.databind.node.ObjectNode config =
-            (com.fasterxml.jackson.databind.node.ObjectNode) payload.get("routeAppConfig");
+        tools.jackson.databind.node.ObjectNode config =
+            (tools.jackson.databind.node.ObjectNode) payload.get("routeAppConfig");
         config.put("inputaTopic", "typo.topic");
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> provider.validate(payload));
@@ -127,7 +123,7 @@ class JobDefinitionSchemaProviderTest {
     @Test
     void validateRejectsBadEnum() throws Exception {
         JsonNode payload = objectMapper.valueToTree(sampleDefinition());
-        ((com.fasterxml.jackson.databind.node.ObjectNode) payload).put("desiredState", "TOTALLY_INVALID");
+        ((tools.jackson.databind.node.ObjectNode) payload).put("desiredState", "TOTALLY_INVALID");
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> provider.validate(payload));
         assertTrue(
@@ -146,7 +142,7 @@ class JobDefinitionSchemaProviderTest {
                     () -> "expected all local $ref to target #/$defs/*, saw: " + value
                 );
             }
-            node.fields().forEachRemaining(field -> assertAllRefsUnderDefs(field.getValue()));
+            node.properties().forEach(field -> assertAllRefsUnderDefs(field.getValue()));
         } else if (node.isArray()) {
             for (JsonNode child : node) {
                 assertAllRefsUnderDefs(child);

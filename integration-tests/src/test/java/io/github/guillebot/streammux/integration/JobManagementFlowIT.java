@@ -1,7 +1,6 @@
 package io.github.guillebot.streammux.integration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.api.config.KafkaTopicProperties;
 import io.github.guillebot.streammux.api.config.TopicValidationProperties;
 import io.github.guillebot.streammux.api.service.JobService;
@@ -43,7 +42,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class JobManagementFlowIT extends KafkaIntegrationSupport {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
     void publishesApiChangesToKafkaAndProjectsThemBackIntoState() throws Exception {

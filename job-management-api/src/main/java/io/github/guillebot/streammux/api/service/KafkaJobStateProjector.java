@@ -1,7 +1,6 @@
 package io.github.guillebot.streammux.api.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class KafkaJobStateProjector {
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaJobStateProjector.class);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final JobStateStore stateStore;
 

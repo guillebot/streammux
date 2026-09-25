@@ -1,9 +1,8 @@
 package io.github.guillebot.streammux.contracts.validation;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.TextNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.StringNode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +22,7 @@ import java.util.regex.PatternSyntaxException;
  */
 public final class RouteFilterExpression {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private RouteFilterExpression() {}
 
@@ -290,7 +289,7 @@ public final class RouteFilterExpression {
                 return null;
             }
             String token = input.substring(start, end).trim();
-            return new ParsedJsonValue(TextNode.valueOf(unquote(token)), end);
+            return new ParsedJsonValue(StringNode.valueOf(unquote(token)), end);
         }
 
         private boolean isValueBoundary(char character) {

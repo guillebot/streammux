@@ -18,14 +18,13 @@
   <properties>
     <java.version>21</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
-    <spring.boot.version>3.5.12</spring.boot.version>
+    <spring.boot.version>4.1.1</spring.boot.version>
     <spring.boot.maven.plugin.version>${spring.boot.version}</spring.boot.maven.plugin.version>
-    <kafka.version>3.9.2</kafka.version>
-    <jackson.version>2.18.6</jackson.version>
+    <kafka.version>4.2.1</kafka.version>
     <protobuf.version>3.25.5</protobuf.version>
-    <tomcat.version>10.1.58</tomcat.version>
+    <tomcat.version>11.0.25</tomcat.version>
     <lz4.version>1.8.1</lz4.version>
-    <testcontainers.version>1.20.1</testcontainers.version>
+    <testcontainers.version>2.0.5</testcontainers.version>
     <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
     <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.3.0</maven.surefire.plugin.version>
@@ -51,6 +50,11 @@
         <version>${kafka.version}</version>
       </dependency>
       <dependency>
+        <groupId>net.logstash.logback</groupId>
+        <artifactId>logstash-logback-encoder</artifactId>
+        <version>${logstash-logback-encoder.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.apache.tomcat.embed</groupId>
         <artifactId>tomcat-embed-core</artifactId>
         <version>${tomcat.version}</version>
@@ -66,9 +70,9 @@
         <version>${tomcat.version}</version>
       </dependency>
       <dependency>
-        <groupId>net.logstash.logback</groupId>
-        <artifactId>logstash-logback-encoder</artifactId>
-        <version>${logstash-logback-encoder.version}</version>
+        <groupId>org.apache.tomcat</groupId>
+        <artifactId>tomcat-annotations-api</artifactId>
+        <version>${tomcat.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
