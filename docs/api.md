@@ -302,8 +302,9 @@ The API validates job definitions before publishing to Kafka, in two layers:
 - **Structural (schema)** — the payload must match the JSON Schema served by [`GET /jobs/schema`](#fetch-the-jobdefinition-json-schema). Wrong types, unknown fields (typos like `filterExpresion`), and invalid enum values fail here before Jackson binding, with a JSON-pointer path in the message.
 - **Semantic** — after binding, the same validator runs for create/update/validate/rename:
   - **Topic allowlists** — when `STREAMMUX_ALLOWED_INPUT_*` or `STREAMMUX_ALLOWED_OUTPUT_*` are configured, input/output topics in job config must match.
-  - **Job type config** — the block matching `jobType` must be present and well-formed (`routeAppConfig`, `randomSamplerConfig`, or `alarmsToZtrConfig`).
+  - **Job type config** — the block matching `jobType` must be present and well-formed (`routeAppConfig`, `randomSamplerConfig`, `alarmsToZtrConfig`, or `jsonEnricherConfig`).
   - **ROUTE_APP filter expressions** — parsed and rejected on syntax errors with a position-aware message.
+  - **JSON_ENRICHER** — event input and lookup topics both use the input allowlist, output uses the output allowlist, all required strings must be non-blank, and `joinKeyCel` must compile against the declared string variable `key`.
 
 Validation failures return **`400 Bad Request`** with a JSON body:
 

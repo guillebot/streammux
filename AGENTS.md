@@ -37,6 +37,7 @@ Canonical architecture and topic diagrams: [README.md](README.md). Shorter overv
 | `runners/job-runner-route-app` | `ROUTE_APP` Kafka Streams runner |
 | `runners/job-runner-random-sampler` | Additional runner (sampling / tests) |
 | `runners/job-runner-alarms-to-ztr` | `ALARMS_TO_ZTR` runner (JSON alarm normalization via inline mapping/filter) |
+| `runners/job-runner-json-enricher` | `JSON_ENRICHER` runner (CEL join key + GlobalKTable lookup) |
 | `integration-tests` | Testcontainers; some scenarios still placeholder-level |
 | `web-ui/` | Vite + React 19 + TypeScript management UI |
 | `job-catalog-api/` | Small Node (Express + KafkaJS) service for catalog topic |

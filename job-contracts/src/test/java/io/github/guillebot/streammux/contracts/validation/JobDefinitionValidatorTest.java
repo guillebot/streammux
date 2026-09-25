@@ -3,6 +3,7 @@ package io.github.guillebot.streammux.contracts.validation;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrConfig;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilter;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilterRule;
+import io.github.guillebot.streammux.contracts.config.JsonEnricherConfig;
 import io.github.guillebot.streammux.contracts.config.RandomSamplerConfig;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
@@ -258,6 +259,68 @@ class JobDefinitionValidatorTest {
         assertTrue(exception.getMessage().contains("sampleRate must be between 0 and 1"));
     }
 
+    @Test
+    void acceptsJsonEnricherWhenTopicsAllowed() {
+        TopicValidationPolicy policy = new TopicValidationPolicy(
+            List.of(),
+            List.of("com.optimum.", "net.optimum."),
+            List.of(),
+            List.of("net.optimum.")
+        );
+        assertDoesNotThrow(() -> JobDefinitionValidator.validate(jsonEnricherJob(
+            "com.optimum.events.it.csg.osp.json",
+            "net.optimum.experimental.streamlens.streammux.csg-osp.enriched.json",
+            "net.optimum.fixed.monitoring.network.access.custdata.acctnum.json"
+        ), policy));
+    }
+
+    @Test
+    void rejectsJsonEnricherLookupTopicOutsidePolicy() {
+        TopicValidationPolicy policy = new TopicValidationPolicy(
+            List.of(),
+            List.of("com.optimum."),
+            List.of(),
+            List.of("net.optimum.")
+        );
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> JobDefinitionValidator.validate(jsonEnricherJob(
+            "com.optimum.events.it.csg.osp.json",
+            "net.optimum.experimental.streamlens.streammux.out",
+            "secret.lookup"
+        ), policy));
+        assertTrue(exception.getMessage().contains("jsonEnricherConfig.lookupTopic is not allowed"));
+    }
+
+    @Test
+    void rejectsInvalidJsonEnricherCel() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> JobDefinitionValidator.validate(
+            jobOfType(JobType.JSON_ENRICHER, null, null, null, new JsonEnricherConfig(
+                "in",
+                "out",
+                "csg",
+                "AccountNum",
+                "key +++",
+                "lookup",
+                "custdata",
+                Map.of()
+            )),
+            TopicValidationPolicy.unrestricted()
+        ));
+        assertTrue(exception.getMessage().contains("joinKeyCel"));
+    }
+
+    private static JobDefinition jsonEnricherJob(String inputTopic, String outputTopic, String lookupTopic) {
+        return jobOfType(JobType.JSON_ENRICHER, null, null, null, new JsonEnricherConfig(
+            inputTopic,
+            outputTopic,
+            "csg",
+            "AccountNum",
+            JoinKeyCel.HYPHENATED_ACCOUNT_CEL,
+            lookupTopic,
+            "custdata",
+            Map.of()
+        ));
+    }
+
     private static JobDefinition alarmsToZtrJob(String inputTopic, String outputTopic, String defaultMappingName, AlarmsToZtrFilter filter) {
         AlarmsToZtrConfig config = new AlarmsToZtrConfig(
             inputTopic,
@@ -295,6 +358,16 @@ class JobDefinitionValidatorTest {
     }
 
     private static JobDefinition jobOfType(JobType type, RouteAppConfig routeAppConfig, RandomSamplerConfig randomSamplerConfig, AlarmsToZtrConfig alarmsToZtrConfig) {
+        return jobOfType(type, routeAppConfig, randomSamplerConfig, alarmsToZtrConfig, null);
+    }
+
+    private static JobDefinition jobOfType(
+        JobType type,
+        RouteAppConfig routeAppConfig,
+        RandomSamplerConfig randomSamplerConfig,
+        AlarmsToZtrConfig alarmsToZtrConfig,
+        JsonEnricherConfig jsonEnricherConfig
+    ) {
         return new JobDefinition(
             "job-1",
             0,
@@ -307,6 +380,7 @@ class JobDefinitionValidatorTest {
             routeAppConfig,
             randomSamplerConfig,
             alarmsToZtrConfig,
+            jsonEnricherConfig,
             Map.of(),
             List.of("test"),
             null,

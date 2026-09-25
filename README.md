@@ -5,7 +5,7 @@
 - a control API that accepts desired state
 - a Kafka event backbone that distributes job state
 - a site-local orchestrator that competes for leases and runs workers
-- pluggable job runners, currently a Kafka Streams-based `route-app` runner
+- pluggable Kafka Streams job runners for routing, sampling, normalization, and JSON enrichment
 
 ## Ownership
 
@@ -35,7 +35,7 @@ flowchart LR
   subgraph SiteRuntime[Site runtime]
     Orch[site-orchestrator]
     Lease[Lease reconcile loop]
-    Runner[route-app runner]
+    Runner[Job runner]
   end
 
   Client -->|POST /jobs| API
@@ -101,6 +101,7 @@ flowchart LR
   - `runners/job-runner-route-app`: `ROUTE_APP` jobs using Kafka Streams
   - `runners/job-runner-random-sampler`: `RANDOM_SAMPLER` (sampling / tests)
   - `runners/job-runner-alarms-to-ztr`: `ALARMS_TO_ZTR` (JSON alarm normalization via inline mapping/filter templates)
+  - `runners/job-runner-json-enricher`: `JSON_ENRICHER` (CEL join-key + GlobalKTable lookup)
 - `integration-tests`: Testcontainers-based integration test module
 
 ## How The System Works
@@ -139,11 +140,13 @@ Lease ownership is driven by desired state and lease expiry:
 
 ### 4. Workers run behind the orchestrator
 
-The orchestrator resolves a `JobRunner` implementation for the job type. Today the only implementation is `RouteAppRunner`, which:
+The orchestrator resolves a `JobRunner` implementation for the job type. Kafka Streams runners:
 
-- builds a Kafka Streams topology from `routeAppConfig`
-- uses a stable Kafka Streams application id of `streammux-{jobId}` (one consumer group per job)
-- stops and restarts the stream when lease ownership changes
+- build a topology from the matching type-specific config
+- use a stable Kafka Streams application id of `streammux-{jobId}` (one consumer group per job)
+- stop and restart the stream when lease ownership changes
+
+Available types are `ROUTE_APP`, `RANDOM_SAMPLER`, `ALARMS_TO_ZTR`, and `JSON_ENRICHER`; see [docs/job-types.md](docs/job-types.md) for their contracts.
 
 ## `route-app` Filter Expressions
 
@@ -296,6 +299,26 @@ carries its mapping and filter inline in the job definition (no sidecar files):
 ```bash
 ./create-alarms-to-ztr-job.sh
 ```
+
+For a `JSON_ENRICHER` job use `create-json-enricher-job.sh` (CEL-normalized join key into a GlobalKTable):
+
+```bash
+./create-json-enricher-job.sh
+```
+
+`JSON_ENRICHER` extracts a JSON field using a dotted/indexed or JSON Pointer path, evaluates a CEL expression with that field exposed as string variable `key`, and exact-matches the result against a string-keyed GlobalKTable. It preserves the input Kafka key and emits:
+
+```json
+{
+  "source": "csg",
+  "content": [{ "AccountNum": "7707-938199-1", "JobNumber": "WO-1" }],
+  "enrichment": [{ "custdata": [{ "cmtsNm": "example-cmts" }] }]
+}
+```
+
+A lookup miss still emits the input with `"custdata": []`. Invalid input JSON, a missing/null/blank join field, or CEL evaluation producing no key drops the record. The lookup topic must be a compacted, string-keyed JSON changelog. Because GlobalKTable restores the entire lookup topic on the active runner, plan local state capacity and cold-start/failover time accordingly.
+
+The job definition is the source of truth (`jsonEnricherConfig`); the sample uses CSG OSP input, custdata-by-account lookup, and the Streammux experimental output namespace. Input/lookup ACLs, output ACLs/retention, topic allowlists, deployment canary, rollback, privacy classification, and first-record checks are documented in [docs/job-types.md](docs/job-types.md#json_enricher), [docs/deployment.md](docs/deployment.md#json_enricher-rollout), and [docs/usage.md](docs/usage.md#first-json_enricher-job-verification). An enriched record inherits the highest classification of either source; never log or copy Restricted payloads into tickets or documentation.
 
 See [runners/job-runner-alarms-to-ztr](runners/job-runner-alarms-to-ztr) for the runner
 itself. The config shape lives in

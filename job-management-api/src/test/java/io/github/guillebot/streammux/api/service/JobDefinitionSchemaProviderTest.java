@@ -35,6 +35,7 @@ class JobDefinitionSchemaProviderTest {
         assertTrue(schema.has("$defs"), "root document should embed all definitions");
         assertNotNull(schema.at("/$defs/JobDefinition"), "root type must be present in $defs");
         assertNotNull(schema.at("/$defs/RouteAppConfig"), "referenced RouteAppConfig type must be inlined");
+        assertNotNull(schema.at("/$defs/JsonEnricherConfig"), "referenced JsonEnricherConfig type must be inlined");
     }
 
     @Test
