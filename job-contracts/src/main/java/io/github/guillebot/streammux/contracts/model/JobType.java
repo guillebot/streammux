@@ -3,5 +3,6 @@ package io.github.guillebot.streammux.contracts.model;
 public enum JobType {
     ROUTE_APP,
     RANDOM_SAMPLER,
-    ALARMS_TO_ZTR
+    ALARMS_TO_ZTR,
+    JSON_ENRICHER
 }

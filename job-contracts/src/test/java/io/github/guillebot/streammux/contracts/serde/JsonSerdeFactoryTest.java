@@ -4,6 +4,7 @@ import io.github.guillebot.streammux.contracts.command.JobCommand;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrConfig;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilter;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilterRule;
+import io.github.guillebot.streammux.contracts.config.JsonEnricherConfig;
 import io.github.guillebot.streammux.contracts.config.RandomSamplerConfig;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.event.JobEvent;
@@ -136,6 +137,42 @@ class JsonSerdeFactoryTest {
 
         JobDefinition restored = serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, serde.serializer().serialize(TopicNames.JOB_DEFINITIONS, definition));
 
+        assertEquals(definition, restored);
+    }
+
+    @Test
+    void roundTripsJobDefinitionJsonEnricher() {
+        JsonEnricherConfig jsonEnricherConfig = new JsonEnricherConfig(
+            "com.optimum.events.it.csg.osp.json",
+            "net.optimum.experimental.streamlens.streammux.csg-osp.enriched.json",
+            "csg",
+            "AccountNum",
+            "key",
+            "net.optimum.fixed.monitoring.network.access.custdata.acctnum.json",
+            "custdata",
+            Map.of("bootstrap.servers", "kafka:9092")
+        );
+        JobDefinition definition = new JobDefinition(
+            "job-enrich",
+            1,
+            JobType.JSON_ENRICHER,
+            DesiredJobState.ACTIVE,
+            1,
+            "site-a",
+            LeasePolicy.defaults(),
+            1,
+            null,
+            null,
+            null,
+            jsonEnricherConfig,
+            Map.of(),
+            List.of(),
+            Instant.parse("2024-01-02T03:04:05Z"),
+            "tester"
+        );
+
+        Serde<JobDefinition> serde = JsonSerdeFactory.jsonSerde(JobDefinition.class);
+        JobDefinition restored = serde.deserializer().deserialize(TopicNames.JOB_DEFINITIONS, serde.serializer().serialize(TopicNames.JOB_DEFINITIONS, definition));
         assertEquals(definition, restored);
     }
 

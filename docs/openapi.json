@@ -976,6 +976,38 @@
                     }
                 }
             },
+            "JsonEnricherConfig": {
+                "type": "object",
+                "properties": {
+                    "inputTopic": {
+                        "type": "string"
+                    },
+                    "outputTopic": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "joinKeyPath": {
+                        "type": "string"
+                    },
+                    "joinKeyCel": {
+                        "type": "string"
+                    },
+                    "lookupTopic": {
+                        "type": "string"
+                    },
+                    "enrichmentName": {
+                        "type": "string"
+                    },
+                    "streamProperties": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "JobDefinition": {
                 "type": "object",
                 "properties": {
@@ -991,7 +1023,8 @@
                         "enum": [
                             "ROUTE_APP",
                             "RANDOM_SAMPLER",
-                            "ALARMS_TO_ZTR"
+                            "ALARMS_TO_ZTR",
+                            "JSON_ENRICHER"
                         ]
                     },
                     "desiredState": {
@@ -1025,6 +1058,9 @@
                     },
                     "alarmsToZtrConfig": {
                         "$ref": "#/components/schemas/AlarmsToZtrConfig"
+                    },
+                    "jsonEnricherConfig": {
+                        "$ref": "#/components/schemas/JsonEnricherConfig"
                     },
                     "labels": {
                         "type": "object",

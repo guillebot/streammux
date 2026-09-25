@@ -28,6 +28,7 @@ function makeDef(): JobDefinition {
       serdeProperties: {},
     },
     randomSamplerConfig: null,
+    jsonEnricherConfig: null,
     labels: { env: "prod" },
     tags: ["alpha"],
     updatedAt: "2024-01-01T00:00:00Z",
@@ -110,6 +111,7 @@ describe("applyJobTypeSwitch", () => {
     const switched = applyJobTypeSwitch(asSampler, "ROUTE_APP");
     expect(switched.jobType).toBe("ROUTE_APP");
     expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
     expect(switched.routeAppConfig).toEqual(defaultRouteAppConfig());
   });
 
@@ -118,6 +120,7 @@ describe("applyJobTypeSwitch", () => {
     const switched = applyJobTypeSwitch(def, "RANDOM_SAMPLER");
     expect(switched.jobType).toBe("RANDOM_SAMPLER");
     expect(switched.routeAppConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
     expect(switched.randomSamplerConfig).not.toBeNull();
     expect(switched.randomSamplerConfig?.inputTopic).toBe("");
   });
@@ -142,5 +145,6 @@ describe("applyJobTypeSwitch", () => {
     expect(switched.jobType).toBe("ROUTE_APP");
     expect(switched.routeAppConfig).toBe(def.routeAppConfig);
     expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
   });
 });

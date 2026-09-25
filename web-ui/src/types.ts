@@ -1,4 +1,4 @@
-export type JobType = "ROUTE_APP" | "RANDOM_SAMPLER";
+export type JobType = "ROUTE_APP" | "RANDOM_SAMPLER" | "JSON_ENRICHER";
 
 export type DesiredJobState = "ACTIVE" | "PAUSED" | "DELETED";
 
@@ -52,6 +52,17 @@ export interface RandomSamplerConfig {
   streamProperties: Record<string, string>;
 }
 
+export interface JsonEnricherConfig {
+  inputTopic: string;
+  outputTopic: string;
+  source: string;
+  joinKeyPath: string;
+  joinKeyCel: string;
+  lookupTopic: string;
+  enrichmentName: string;
+  streamProperties: Record<string, string>;
+}
+
 export interface LeasePolicy {
   heartbeatIntervalSeconds: number;
   leaseDurationSeconds: number;
@@ -70,6 +81,7 @@ export interface JobDefinition {
   parallelism: number;
   routeAppConfig: RouteAppConfig | null;
   randomSamplerConfig: RandomSamplerConfig | null;
+  jsonEnricherConfig: JsonEnricherConfig | null;
   labels: Record<string, string>;
   tags: string[];
   updatedAt: string;

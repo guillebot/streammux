@@ -187,3 +187,35 @@ docker login registry.gitlab.com
 
 - Orchestrators must reach the **same Kafka cluster** and use the **same topic names** as the API.
 - Route-app jobs embed `streamProperties` (including `bootstrap.servers`); ensure those values are valid **inside** the runner environment (often align with `KAFKA_BOOTSTRAP_SERVERS`).
+- `JSON_ENRICHER` jobs also embed `streamProperties`; their event input, lookup table, output, consumer group, and Kafka Streams internal topics must all be reachable and authorized from the lease-owning orchestrator.
+
+## `JSON_ENRICHER` rollout
+
+### Topic and capacity gate
+
+Before enabling the first job, have the Kafka/data owners verify:
+
+- `lookupTopic` is a string-keyed JSON changelog with stable normalized keys and `cleanup.policy=compact`; tombstones represent deletion. If delete retention is combined with compaction, it must not remove still-current rows required by the table.
+- The runtime Kafka principal can read `inputTopic` and `lookupTopic`, write `outputTopic`, use consumer group `streammux-{jobId}`, and create/read/write the Kafka Streams internal topics required by that application id. The management API allowlists are an additional validation boundary, not a substitute for broker ACLs.
+- `outputTopic` has suitable partitions, retention, encryption/access controls, and classification for the combined data. The output inherits the highest classification of the input and lookup sources.
+- Every active runner has disk and network capacity for a complete local GlobalKTable copy. There is no co-partitioning requirement, but every lookup partition is restored. Estimate cold restore from retained lookup bytes and replay throughput, including failover to a host without warm state.
+- The image contains `runners/job-runner-json-enricher`; `Dockerfile.orchestrator` and the Maven reactor include it in this release.
+
+### Canary
+
+1. Build and test the release, then promote the immutable release tag to OneLab.
+2. Deploy production to one explicit kstreams host with `--limit`, as shown in [observability.md](observability.md), and request Platform review before broad production rollout.
+3. Confirm API/orchestrator health, runner discovery, no runner start failures, and expected host disk headroom.
+4. Validate the job definition through `POST /jobs/validate`. Start the first job on synthetic/non-sensitive fixtures and follow [usage.md](usage.md#first-json_enricher-job-verification).
+5. Observe GlobalKTable restore behavior, job state/lease, input lag, output rate/count, lookup hit/miss quality at the consumer, and container errors before deploying the same immutable tag to the remaining hosts.
+
+Only one host owns a job lease at a time, but after fleet rollout a future failover can restore the full table on any eligible host. Canary success on warm state does not remove the need to budget cold-restore capacity fleet-wide.
+
+### Rollback
+
+1. Stop new processing by changing the job's desired state to `PAUSED` or retiring the definition through the API. Do not rely only on the command topic; this repository has no command consumer.
+2. Redeploy the previous immutable `streammux_image_tag` through the devops MR/playbook workflow in [DEPLOY.md](DEPLOY.md#rollback-ansible), canary first.
+3. Verify the previous API/orchestrator versions are healthy and existing job types still reconcile normally.
+4. Keep or remove the new output according to its retention/governance policy; rolling back the image does not retract already-emitted enriched records.
+
+Rollback does not reverse broker ACL, topic, retention, or data-classification changes. Track those separately with the Kafka/data owners.

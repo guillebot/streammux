@@ -37,7 +37,7 @@ export const DOC_PAGES: DocPage[] = [
   {
     slug: "job-types",
     title: "Job types",
-    description: "ROUTE_APP, RANDOM_SAMPLER, and ALARMS_TO_ZTR configuration",
+    description: "ROUTE_APP, RANDOM_SAMPLER, ALARMS_TO_ZTR, and JSON_ENRICHER configuration",
     content: jobTypesMd,
   },
   {
