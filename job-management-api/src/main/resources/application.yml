@@ -27,10 +27,13 @@ spring:
   flyway:
     enabled: false
   autoconfigure:
+    # Spring Boot 4 package names. Unknown class names are silently ignored, so a
+    # stale (Boot 3) name here means JDBC auto-config runs with no URL and the API
+    # crash-loops. ApplicationContextStartupTest boots this document to catch that.
     exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
-      - org.springframework.boot.actuate.autoconfigure.jdbc.DataSourceHealthContributorAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+      - org.springframework.boot.jdbc.autoconfigure.health.DataSourceHealthContributorAutoConfiguration
 
 management:
   endpoints:
