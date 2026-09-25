@@ -25,6 +25,10 @@ class ApplicationYamlJdbcOptionalTest {
         assertEquals(Boolean.FALSE, defaults.getProperty("spring.flyway.enabled"));
         assertEquals(Boolean.FALSE, defaults.getProperty("management.health.db.enabled"));
         assertEquals("${STREAMMUX_AUTH_ENABLED:false}", defaults.getProperty("streammux.auth.enabled"));
+        // Boot 4 moved JDBC auto-configuration out of org.springframework.boot.autoconfigure.
+        assertEquals(
+            "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+            defaults.getProperty("spring.autoconfigure.exclude[0]"));
     }
 
     @Test
