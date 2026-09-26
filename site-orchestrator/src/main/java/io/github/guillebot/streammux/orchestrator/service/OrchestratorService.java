@@ -108,6 +108,15 @@ public class OrchestratorService {
         stopIfLeaseLost(definition, currentLease);
         Instant now = Instant.now();
         JobDefinition effective = withLeaseFloors(definition);
+        if (isStaleLeaseSnapshot(definition.jobId(), currentLease)) {
+            LOGGER.info(
+                "Ignoring stale lease snapshot for {} at epoch {} (max observed {})",
+                definition.jobId(),
+                currentLease.leaseEpoch(),
+                maxObservedEpochs.getOrDefault(definition.jobId(), 0L)
+            );
+            return currentLease;
+        }
         LeaseDecision decision = leaseManager.decide(effective, currentLease, now);
         return switch (decision) {
             case CLAIM -> claimBackoffElapsed(effective, now) ? claim(effective, currentLease, now) : currentLease;
@@ -224,9 +233,26 @@ public class OrchestratorService {
         return !now.isBefore(lastAttempt.plusMillis(backoffMillis));
     }
 
+    private boolean isStaleLeaseSnapshot(String jobId, JobLease currentLease) {
+        if (currentLease == null) {
+            return false;
+        }
+        long maxObserved = maxObservedEpochs.getOrDefault(jobId, 0L);
+        return currentLease.leaseEpoch() < maxObserved;
+    }
+
     private JobLease claim(JobDefinition definition, JobLease currentLease, Instant now) {
         long maxObserved = maxObservedEpochs.getOrDefault(definition.jobId(), 0L);
         JobLease newLease = leaseManager.claim(definition, currentLease, maxObserved, now);
+        if (newLease.leaseEpoch() < maxObserved) {
+            LOGGER.warn(
+                "Refusing regressive claim for {} at epoch {} (max observed {})",
+                definition.jobId(),
+                newLease.leaseEpoch(),
+                maxObserved
+            );
+            return currentLease;
+        }
         lastClaimAttempts.put(definition.jobId(), now);
         pendingRunnerEpochs.put(definition.jobId(), newLease.leaseEpoch());
         observeLease(newLease);
