@@ -32,7 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -154,8 +154,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         DefaultKafkaProducerFactory<String, Object> producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
             org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers(),
             org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.StringSerializer.class,
-            org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class,
-            JsonSerializer.ADD_TYPE_INFO_HEADERS, false
+            org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class,
+            JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false
         ));
         return new KafkaTemplate<>(producerFactory);
     }

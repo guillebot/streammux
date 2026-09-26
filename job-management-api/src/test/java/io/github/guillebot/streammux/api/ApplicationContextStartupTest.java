@@ -7,6 +7,11 @@ package io.github.guillebot.streammux.api;
 
 import io.github.guillebot.streammux.api.config.AuthProfileEnvironmentPostProcessor;
 import io.github.guillebot.streammux.api.service.KafkaJobCommandPublisher;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Map;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.Serializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +19,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,6 +64,22 @@ class ApplicationContextStartupTest {
         assertNotNull(context.getBean(KafkaJobCommandPublisher.class));
         assertFalse(listenerRegistry.getListenerContainerIds().isEmpty(),
             "@KafkaListener endpoints must be registered (listener container factory present)");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void configuredValueSerializerWritesJavaTimeTypes() throws Exception {
+        // Job definitions and commands carry Instants; a serializer without java.time
+        // support fails every create/update at send time, after startup looks healthy.
+        Map<String, Object> config = context.getBean(ProducerFactory.class).getConfigurationProperties();
+        Object configured = config.get(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
+        Class<?> type = configured instanceof Class<?> c ? c : Class.forName(configured.toString());
+        try (Serializer<Object> serializer = (Serializer<Object>) type.getDeclaredConstructor().newInstance()) {
+            serializer.configure(config, false);
+            Instant at = Instant.parse("2026-09-26T00:32:08.014878941Z");
+            String json = new String(serializer.serialize("t", Map.of("updatedAt", at)), StandardCharsets.UTF_8);
+            assertTrue(json.contains("2026-09-26T00:32:08.014878941Z"), json);
+        }
     }
 
     @Test
