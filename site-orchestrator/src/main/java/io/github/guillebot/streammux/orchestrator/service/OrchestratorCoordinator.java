@@ -52,9 +52,26 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
 
     @Override
     public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
-        for (TopicPartition partition : assignments.keySet()) {
-            if (bootstrappedPartitions.add(partition)) {
-                LOGGER.info("Seeking to beginning of compacted topic {} after orchestrator startup", partition.topic());
+        for (Map.Entry<TopicPartition, Long> entry : assignments.entrySet()) {
+            TopicPartition partition = entry.getKey();
+            Long offset = entry.getValue();
+            boolean firstAssignmentThisProcess = bootstrappedPartitions.add(partition);
+            if (!firstAssignmentThisProcess) {
+                LOGGER.info("Resuming {}-{} at offset {} after rebalance (committed offsets retained)",
+                    partition.topic(), partition.partition(), offset);
+                continue;
+            }
+            if (offset == null || offset < 0) {
+                LOGGER.info("No committed offset for {}-{}; seeking to beginning",
+                    partition.topic(), partition.partition());
+                callback.seekToBeginning(partition.topic(), partition.partition());
+            } else {
+                LOGGER.info(
+                    "Seeking compacted {}-{} to beginning on first assignment to rebuild in-memory state (committed offset was {})",
+                    partition.topic(),
+                    partition.partition(),
+                    offset
+                );
                 callback.seekToBeginning(partition.topic(), partition.partition());
             }
         }

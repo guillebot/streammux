@@ -27,9 +27,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -148,7 +154,7 @@ class OrchestratorServiceTest {
     }
 
     @Test
-    void startFailurePublishesFailedEventAndRethrows() {
+    void startFailurePublishesFailedEvent() {
         JobDefinition definition = jobDefinition(DesiredJobState.ACTIVE);
         JobLease claimedLease = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.CLAIMED, Instant.parse("2024-01-01T00:01:00Z"), Instant.parse("2024-01-01T00:00:00Z"));
         when(leaseManager.decide(eq(definition), isNull(), any())).thenReturn(LeaseDecision.CLAIM);
@@ -159,8 +165,8 @@ class OrchestratorServiceTest {
 
         OrchestratorService service = newService();
         service.reconcile(definition, null);
+        service.maybeStartConfirmedRunner(definition, claimedLease);
 
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class, () -> service.maybeStartConfirmedRunner(definition, claimedLease));
         verify(eventPublisher).publishForDefinition(eq(definition), eq(EventType.CLAIMED), eq("Lease claimed"), anyMap());
         verify(eventPublisher).publishForDefinition(eq(definition), eq(EventType.FAILED), eq("topology failed"), anyMap());
     }
@@ -241,7 +247,7 @@ class OrchestratorServiceTest {
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
         when(jobRunner.status("job-1")).thenReturn(failedStatus);
 
-        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 1), orchestratorMetrics);
+        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 1, 0, 0), orchestratorMetrics);
 
         service.reconcile(definition, null);
         service.maybeStartConfirmedRunner(definition, runningLease);
@@ -309,7 +315,7 @@ class OrchestratorServiceTest {
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
         when(jobRunner.status("job-1")).thenReturn(failedStatus);
 
-        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 60_000), orchestratorMetrics);
+        OrchestratorService service = new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, new OrchestratorProperties(5000, 60_000, 0, 0), orchestratorMetrics);
 
         service.reconcile(definition, null);
         service.maybeStartConfirmedRunner(definition, runningLease);
@@ -319,12 +325,106 @@ class OrchestratorServiceTest {
         verify(jobRunner, never()).stop("job-1");
     }
 
+    @Test
+    void staleOwnLeaseReplayDoesNotStopRunner() {
+        JobDefinition definition = jobDefinition();
+        Instant futureExpiry = Instant.now().plusSeconds(3600);
+        JobLease current = new JobLease("job-1", 1, "site-a", "instance-a", 8, LeaseStatus.RUNNING, futureExpiry, Instant.now());
+        JobLease stale = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.CLAIMED, Instant.now().minusSeconds(20), Instant.now().minusSeconds(50));
+        LeaseManager realManager = new LeaseManager(SITE);
+        when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
+
+        OrchestratorService service = new OrchestratorService(
+            realManager,
+            SITE,
+            jobRunnerRegistry,
+            eventPublisher,
+            disabledRestart(),
+            orchestratorMetrics
+        );
+        service.observeLease(current);
+        service.recoverOwnedRunnerIfMissing(definition, current);
+        service.reconcile(definition, stale);
+
+        verify(jobRunner).start(definition, 8);
+        verify(jobRunner, never()).stop("job-1");
+        verify(eventPublisher, never()).publishForDefinition(eq(definition), eq(EventType.RELEASED), any(), anyMap());
+    }
+
+    @Test
+    void ownedExpiredLeaseRenewsSameEpochInsteadOfClaiming() {
+        JobDefinition definition = jobDefinition();
+        Instant claimedAt = Instant.parse("2024-01-01T00:00:00Z");
+        JobLease ownedExpired = new JobLease("job-1", 1, "site-a", "instance-a", 4, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:00:30Z"), claimedAt);
+        LeaseManager realManager = new LeaseManager(SITE);
+
+        OrchestratorService service = new OrchestratorService(
+            realManager,
+            SITE,
+            jobRunnerRegistry,
+            eventPublisher,
+            disabledRestart(),
+            orchestratorMetrics
+        );
+
+        JobLease result = service.reconcile(definition, ownedExpired);
+
+        assertEquals(4, result.leaseEpoch());
+        assertEquals("site-a", result.leaseOwnerSite());
+        assertEquals("instance-a", result.leaseOwnerInstance());
+        verify(jobRunner, never()).start(any(), anyLong());
+    }
+
+    @Test
+    void confirmedRunnerStartRunsOffCallerThread() throws Exception {
+        JobDefinition definition = jobDefinition();
+        JobLease claimedLease = new JobLease("job-1", 1, "site-a", "instance-a", 3, LeaseStatus.CLAIMED, Instant.parse("2024-01-01T00:01:00Z"), Instant.parse("2024-01-01T00:00:00Z"));
+        when(leaseManager.decide(eq(definition), isNull(), any())).thenReturn(LeaseDecision.CLAIM);
+        when(leaseManager.claim(eq(definition), isNull(), eq(0L), any())).thenReturn(claimedLease);
+        when(leaseManager.ownsLease(eq(claimedLease))).thenReturn(true);
+        when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
+
+        CountDownLatch started = new CountDownLatch(1);
+        AtomicReference<Thread> startThread = new AtomicReference<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            startThread.set(Thread.currentThread());
+            started.countDown();
+            return null;
+        }).when(jobRunner).start(definition, 3);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "test-runner-lifecycle");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            OrchestratorService service = new OrchestratorService(
+                leaseManager,
+                SITE,
+                jobRunnerRegistry,
+                eventPublisher,
+                disabledRestart(),
+                orchestratorMetrics,
+                executor
+            );
+            service.reconcile(definition, null);
+            Thread caller = Thread.currentThread();
+            service.maybeStartConfirmedRunner(definition, claimedLease);
+
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            assertNotEquals(caller, startThread.get());
+            assertEquals("test-runner-lifecycle", startThread.get().getName());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private OrchestratorService newService() {
         return new OrchestratorService(leaseManager, SITE, jobRunnerRegistry, eventPublisher, disabledRestart(), orchestratorMetrics);
     }
 
     private static OrchestratorProperties disabledRestart() {
-        return new OrchestratorProperties(5000, 0);
+        return new OrchestratorProperties(5000, 0, 0, 0);
     }
 
     private static JobDefinition jobDefinition() {

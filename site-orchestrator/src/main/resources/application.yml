@@ -11,6 +11,10 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      properties:
+        # Must outlast Kafka Streams / GlobalKTable restore. Runner start is off the poll thread;
+        # this is a backstop if a listener callback still blocks.
+        max.poll.interval.ms: ${STREAMMUX_KAFKA_MAX_POLL_INTERVAL_MS:900000}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
@@ -30,6 +34,9 @@ streammux:
   orchestrator:
     reconcile-interval-ms: ${STREAMMUX_RECONCILE_INTERVAL_MS:5000}
     runner-restart-delay-ms: ${STREAMMUX_RUNNER_RESTART_DELAY_MS:60000}
+    # Floors applied when claiming/renewing so job-defined 10s/30s TTLs survive GlobalKTable restore.
+    lease-duration-floor-seconds: ${STREAMMUX_LEASE_DURATION_FLOOR_SECONDS:600}
+    heartbeat-interval-floor-seconds: ${STREAMMUX_HEARTBEAT_INTERVAL_FLOOR_SECONDS:30}
   topics:
     job-definitions: ${STREAMMUX_TOPIC_JOB_DEFINITIONS}
     job-leases: ${STREAMMUX_TOPIC_JOB_LEASES}

@@ -89,6 +89,11 @@ docker compose -f docker-compose.dev.yml up --build
 | -------- | ------- | ------- |
 | `STREAMMUX_SITE_ID` | `site-a` | Site label for the orchestrator instance |
 | `STREAMMUX_INSTANCE_ID` | `orchestrator-1` | Instance id within the site |
+| `STREAMMUX_LEASE_DURATION_FLOOR_SECONDS` | `600` | Minimum lease TTL written on claim/renew. Raises short job-defined TTLs (often 30s) so GlobalKTable restore can finish before expiry. |
+| `STREAMMUX_HEARTBEAT_INTERVAL_FLOOR_SECONDS` | `30` | Minimum heartbeat window used when deciding RENEW vs KEEP_RUNNING. |
+| `STREAMMUX_KAFKA_MAX_POLL_INTERVAL_MS` | `900000` | Kafka consumer `max.poll.interval.ms` for orchestrator listeners. Runner start runs on a dedicated executor so the poll thread must not block; this is a backstop. |
+| `STREAMMUX_RECONCILE_INTERVAL_MS` | `5000` | How often the orchestrator re-evaluates leases. Owned CLAIMED/RUNNING leases are heartbeated, not re-claimed. |
+| `STREAMMUX_RUNNER_RESTART_DELAY_MS` | `60000` | Delay before restarting a failed runner while the lease is still held (`0` disables). |
 
 ### Topic names (both services)
 

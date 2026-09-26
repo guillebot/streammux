@@ -17,10 +17,24 @@ public class LeaseManager {
     public LeaseManager(SiteIdentityProperties siteIdentity) { this.siteIdentity = siteIdentity; }
 
     public LeaseDecision decide(JobDefinition definition, JobLease currentLease, Instant now) {
-        if (definition.desiredState() != DesiredJobState.ACTIVE) return ownsLease(currentLease) ? LeaseDecision.RELEASE : LeaseDecision.IGNORE;
-        if (currentLease == null || currentLease.isExpired(now)) return LeaseDecision.CLAIM;
-        if (ownsLease(currentLease)) return currentLease.leaseExpiresAt().minusSeconds(definition.leasePolicy().heartbeatIntervalSeconds()).isBefore(now) ? LeaseDecision.RENEW : LeaseDecision.KEEP_RUNNING;
+        if (definition.desiredState() != DesiredJobState.ACTIVE) {
+            return ownsLease(currentLease) ? LeaseDecision.RELEASE : LeaseDecision.IGNORE;
+        }
+        if (ownsLease(currentLease)) {
+            return shouldHeartbeat(definition, currentLease, now) ? LeaseDecision.RENEW : LeaseDecision.KEEP_RUNNING;
+        }
+        if (currentLease == null || currentLease.isExpired(now)) {
+            return LeaseDecision.CLAIM;
+        }
         return LeaseDecision.IGNORE;
+    }
+
+    private static boolean shouldHeartbeat(JobDefinition definition, JobLease currentLease, Instant now) {
+        if (currentLease.isExpired(now)) {
+            return true;
+        }
+        long heartbeatSeconds = Math.max(1L, definition.leasePolicy().heartbeatIntervalSeconds());
+        return currentLease.leaseExpiresAt().minusSeconds(heartbeatSeconds).isBefore(now);
     }
 
     public JobLease claim(JobDefinition definition, JobLease currentLease, long maxObservedEpoch, Instant now) {
