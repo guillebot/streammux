@@ -138,7 +138,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             new SiteIdentityProperties(siteId, instanceId),
             new JobRunnerRegistry(List.of(runner)),
             eventPublisher,
-            new OrchestratorProperties(5000, 0),
+            new OrchestratorProperties(5000, 0, 0, 0),
             orchestratorMetrics
         );
         return new OrchestratorCoordinator(

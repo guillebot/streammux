@@ -62,7 +62,11 @@ public final class OrchestratorRequiredSettingsEnvironmentPostProcessor implemen
                 + " commands="
                 + environment.getProperty("streammux.topics.job-commands")
                 + " reconcileIntervalMs="
-                + environment.getProperty("streammux.orchestrator.reconcile-interval-ms"));
+                + environment.getProperty("streammux.orchestrator.reconcile-interval-ms")
+                + " leaseDurationFloorSeconds="
+                + environment.getProperty("streammux.orchestrator.lease-duration-floor-seconds")
+                + " heartbeatIntervalFloorSeconds="
+                + environment.getProperty("streammux.orchestrator.heartbeat-interval-floor-seconds"));
     }
 
     private record RequiredProperty(String propertyKey, String envName) {}
