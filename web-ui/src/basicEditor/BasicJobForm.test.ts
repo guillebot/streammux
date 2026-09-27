@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { JobDefinition } from "../types";
-import { applyJobTypeSwitch, defaultRouteAppConfig } from "./BasicJobForm";
+import {
+  applyJobTypeSwitch,
+  defaultJsonEnricherConfig,
+  defaultRouteAppConfig,
+} from "./BasicJobForm";
 import { recordToRows, rowsToRecord } from "./StringMapEditor";
 
 function makeDef(): JobDefinition {
@@ -123,6 +127,16 @@ describe("applyJobTypeSwitch", () => {
     expect(switched.jsonEnricherConfig).toBeNull();
     expect(switched.randomSamplerConfig).not.toBeNull();
     expect(switched.randomSamplerConfig?.inputTopic).toBe("");
+  });
+
+  it("clears the other configs and populates the preset jsonEnricherConfig when switching to JSON_ENRICHER", () => {
+    const def = makeDef();
+    const switched = applyJobTypeSwitch(def, "JSON_ENRICHER");
+    expect(switched.jobType).toBe("JSON_ENRICHER");
+    expect(switched.routeAppConfig).toBeNull();
+    expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toEqual(defaultJsonEnricherConfig());
+    expect(switched.jsonEnricherConfig?.joinKeyCel).toContain('key.split("-")');
   });
 
   it("is non-destructive: switching to a jobType that already has config preserves it", () => {

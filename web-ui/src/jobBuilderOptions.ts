@@ -1,4 +1,5 @@
-import type { JobDefinition, JobType } from "./types";
+import type { JobDefinition, JobType, JsonEnricherConfig } from "./types";
+import { defaultJsonEnricherConfig } from "./basicEditor/BasicJobForm";
 import { exampleBootstrapServers, newJobTemplate } from "./templates";
 
 /** Rednet PNR Kafka (kb101–kb105 :9095) — primary data plane for stream jobs. */
@@ -22,7 +23,25 @@ export const JOB_BUILDER_FALLBACK_OUTPUT_TOPICS: string[] = [
   "net.optimum.experimental.streamlens.streammux.alerts",
 ];
 
-export const JOB_BUILDER_JOB_TYPES: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER"];
+export const JOB_BUILDER_JOB_TYPES: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER", "JSON_ENRICHER"];
+
+/** JSON_ENRICHER-only builder inputs; topics and bootstrap come from the shared fields. */
+export type JobBuilderJsonEnricherOptions = Pick<
+  JsonEnricherConfig,
+  "lookupTopic" | "source" | "joinKeyPath" | "joinKeyCel" | "enrichmentName"
+>;
+
+/** Starting values for the JSON_ENRICHER fields (multi-format account-number CEL preset). */
+export function defaultJobBuilderJsonEnricherOptions(): JobBuilderJsonEnricherOptions {
+  const d = defaultJsonEnricherConfig();
+  return {
+    lookupTopic: d.lookupTopic,
+    source: d.source,
+    joinKeyPath: d.joinKeyPath,
+    joinKeyCel: d.joinKeyCel,
+    enrichmentName: d.enrichmentName,
+  };
+}
 
 export function buildJobDefinition(options: {
   jobId: string;
@@ -32,8 +51,33 @@ export function buildJobDefinition(options: {
   outputTopic: string;
   /** Percent of messages to forward (0–100); stored in the API as `rate = samplePercent / 100`. */
   samplePercent: number;
+  /** Only read when `jobType` is `JSON_ENRICHER`; falls back to the preset when omitted. */
+  jsonEnricher?: JobBuilderJsonEnricherOptions;
 }): JobDefinition {
   const base = newJobTemplate();
+  if (options.jobType === "JSON_ENRICHER") {
+    const enricher = options.jsonEnricher ?? defaultJobBuilderJsonEnricherOptions();
+    return {
+      ...base,
+      jobId: options.jobId.trim() || base.jobId,
+      jobType: "JSON_ENRICHER",
+      routeAppConfig: null,
+      randomSamplerConfig: null,
+      jsonEnricherConfig: {
+        ...defaultJsonEnricherConfig(),
+        inputTopic: options.inputTopic,
+        outputTopic: options.outputTopic,
+        lookupTopic: enricher.lookupTopic,
+        source: enricher.source.trim(),
+        joinKeyPath: enricher.joinKeyPath.trim(),
+        joinKeyCel: enricher.joinKeyCel.trim(),
+        enrichmentName: enricher.enrichmentName.trim(),
+        streamProperties: {
+          "bootstrap.servers": options.bootstrapServers,
+        },
+      },
+    };
+  }
   if (options.jobType === "RANDOM_SAMPLER") {
     const p = Math.min(100, Math.max(0, options.samplePercent));
     return {
@@ -41,6 +85,7 @@ export function buildJobDefinition(options: {
       jobId: options.jobId.trim() || base.jobId,
       jobType: "RANDOM_SAMPLER",
       routeAppConfig: null,
+      jsonEnricherConfig: null,
       randomSamplerConfig: {
         inputTopic: options.inputTopic,
         outputTopic: options.outputTopic,
@@ -76,5 +121,6 @@ export function buildJobDefinition(options: {
       },
     },
     randomSamplerConfig: null,
+    jsonEnricherConfig: null,
   };
 }
