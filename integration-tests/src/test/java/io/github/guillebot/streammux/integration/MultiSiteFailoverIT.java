@@ -74,6 +74,10 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         OrchestratorCoordinator coordinatorA = coordinator("site-a", "instance-a", runnerA, kafkaTemplate, topics);
         OrchestratorCoordinator coordinatorB = coordinator("site-b", "instance-b", runnerB, kafkaTemplate, topics);
 
+        ConsumerRecord<String, byte[]> leaseWarmup = new ConsumerRecord<>(topics.jobLeases(), 0, 0L, "warmup", (byte[]) null);
+        coordinatorA.onJobLease(leaseWarmup, leaseConsumer);
+        coordinatorB.onJobLease(leaseWarmup, leaseConsumer);
+
         JobDefinition definition = jobDefinition("job-1");
         kafkaTemplate.send(topics.jobDefinitions(), definition.jobId(), definition).get();
 
@@ -146,7 +150,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             orchestratorService,
             leaseManager,
             publisher,
-            orchestratorMetrics
+            orchestratorMetrics,
+            topics
         );
     }
 
