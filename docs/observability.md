@@ -141,7 +141,7 @@ Use the existing per-job status, lease, lag, output-rate/count, runner start-fai
 - missing/blank join keys, invalid input JSON, CEL evaluation failures, and envelope serialization failures are dropped before output;
 - debug logs identify those drop reasons without logging Kafka keys or payloads. Keep production logging at its approved level and do not enable payload logging to investigate Restricted data.
 
-There are currently **no dedicated counters** for lookup hits, lookup misses, invalid input, missing join keys, CEL evaluation failures, or GlobalKTable restore progress/size. First-job verification therefore requires synthetic hit/miss/drop fixtures plus consumer-side inspection of the output contract; see [usage.md](usage.md#first-json_enricher-job-verification). This is an observability gap, not evidence that those events cannot occur.
+There are currently **no dedicated counters** for lookup hits, lookup misses, invalid input, missing join keys, CEL evaluation failures, or GlobalKTable restore progress/size. Measure hit-rate by **counting** envelope shapes on an authorized consumer (one-element array vs `[]`); **never print Restricted payloads**. See [enricher-guide.md](enricher-guide.md#4-verify-hits-with-counts-only) and [usage.md](usage.md#first-json_enricher-job-verification). This is an observability gap, not evidence that those events cannot occur.
 
 For capacity, monitor host/container disk and Kafka consumer restore traffic in addition to Streammux metrics. Each active `JSON_ENRICHER` runner stores a full copy of every lookup-topic partition, and a cold host/failover may replay the complete retained changelog.
 

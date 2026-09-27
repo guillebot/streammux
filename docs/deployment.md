@@ -211,7 +211,7 @@ Before enabling the first job, have the Kafka/data owners verify:
 1. Build and test the release, then promote the immutable release tag to OneLab.
 2. Deploy production to one explicit kstreams host with `--limit`, as shown in [observability.md](observability.md), and request Platform review before broad production rollout.
 3. Confirm API/orchestrator health, runner discovery, no runner start failures, and expected host disk headroom.
-4. Validate the job definition through `POST /jobs/validate`. Start the first job on synthetic/non-sensitive fixtures and follow [usage.md](usage.md#first-json_enricher-job-verification).
+4. Validate the job definition through `POST /jobs/validate`. Start the first job on synthetic/non-sensitive fixtures and follow [enricher-guide.md](enricher-guide.md) and [usage.md](usage.md#first-json_enricher-job-verification).
 5. Observe GlobalKTable restore behavior, job state/lease, input lag, output rate/count, lookup hit/miss quality at the consumer, and container errors before deploying the same immutable tag to the remaining hosts.
 
 Only one host owns a job lease at a time, but after fleet rollout a future failover can restore the full table on any eligible host. Canary success on warm state does not remove the need to budget cold-restore capacity fleet-wide.
@@ -224,3 +224,20 @@ Only one host owns a job lease at a time, but after fleet rollout a future failo
 4. Keep or remove the new output according to its retention/governance policy; rolling back the image does not retract already-emitted enriched records.
 
 Rollback does not reverse broker ACL, topic, retention, or data-classification changes. Track those separately with the Kafka/data owners.
+
+### Operational notes (enricher rollout)
+
+Lessons from the first production `JSON_ENRICHER` pin. Do not treat tag numbers as “run this again”; they explain why later images exist.
+
+| Tag / change | What happened |
+| ------------ | ------------- |
+| `20260925-03` | Orchestrator failed to serialize/deserialize lease timestamps (**Jackson Instant** / Java time). Fixed in later images (`fix/orchestrator-jackson-time`). |
+| `20260926-01` | **Lease storm**: poll-thread starts and self-claims flapped CLAIM/STOP. Do not run a new enricher on a storming fleet. |
+| `20260926-02` | First healthy enricher pin: **single orchestrator** (`kstreams1`) until lease behavior is stable fleet-wide. |
+| MR `!51` | First-start **lease replay** can re-apply regressive CLAIMs; skip those during replay (open at time of this note). |
+
+**Registry pull:** kstreams hosts cannot pull `registry.gitlab.com`. Sideload the release image tarball (Ansible/operator process); do not assume `docker compose pull` works on the box.
+
+**Classification:** the CSG/custdata output topic is **Restricted**. Hit checks are counts-only.
+
+**MCP** runs only on kstreams1; new tools (`get_enricher_template`, `build_enricher_job`, `normalize_key_preview`) ship in the `mcp` image of the same release tag.
