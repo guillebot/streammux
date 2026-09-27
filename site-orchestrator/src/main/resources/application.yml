@@ -6,6 +6,10 @@ spring:
 
     properties:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+    listener:
+      # Fires ListenerContainerIdleEvent so an empty or fully-consumed jobleases
+      # assignment can finish first-start catch-up without waiting for a record.
+      idle-event-interval: ${STREAMMUX_KAFKA_LISTENER_IDLE_EVENT_MS:1000}
     consumer:
       group-id: ${STREAMMUX_SITE_ID}-${STREAMMUX_INSTANCE_ID}
       auto-offset-reset: earliest

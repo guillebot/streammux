@@ -6,22 +6,30 @@ import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
+import io.github.guillebot.streammux.orchestrator.config.KafkaTopicProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.event.ListenerContainerIdleEvent;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.time.Instant;
+import java.util.stream.Collectors;
 
 @Component
 public class OrchestratorCoordinator implements ConsumerSeekAware {
@@ -33,8 +41,10 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     private final LeaseManager leaseManager;
     private final KafkaOrchestratorPublisher publisher;
     private final StreammuxOrchestratorMetrics orchestratorMetrics;
+    private final KafkaTopicProperties topics;
     private final Set<TopicPartition> bootstrappedPartitions = ConcurrentHashMap.newKeySet();
     private final Map<String, Instant> lastUnhealthyWarnAt = new ConcurrentHashMap<>();
+    private final AtomicBoolean leaseLogReady = new AtomicBoolean(false);
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
@@ -43,11 +53,24 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         KafkaOrchestratorPublisher publisher,
         StreammuxOrchestratorMetrics orchestratorMetrics
     ) {
+        this(stateStore, orchestratorService, leaseManager, publisher, orchestratorMetrics, KafkaTopicProperties.defaults());
+    }
+
+    @Autowired
+    public OrchestratorCoordinator(
+        OrchestratorStateStore stateStore,
+        OrchestratorService orchestratorService,
+        LeaseManager leaseManager,
+        KafkaOrchestratorPublisher publisher,
+        StreammuxOrchestratorMetrics orchestratorMetrics,
+        KafkaTopicProperties topics
+    ) {
         this.stateStore = stateStore;
         this.orchestratorService = orchestratorService;
         this.leaseManager = leaseManager;
         this.publisher = publisher;
         this.orchestratorMetrics = orchestratorMetrics;
+        this.topics = topics;
     }
 
     @Override
@@ -90,39 +113,98 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         JobDefinition definition = read(record.value(), JobDefinition.class);
         if (definition.desiredState() == DesiredJobState.DELETED) {
             stateStore.upsertDefinition(definition);
-            reconcile(definition.jobId(), false);
+            if (leaseLogReady.get()) {
+                reconcile(definition.jobId(), false);
+            }
             stateStore.removeDefinition(definition.jobId());
             stateStore.removeLease(definition.jobId());
             return;
         }
         stateStore.upsertDefinition(definition);
-        reconcile(definition.jobId(), false);
+        if (leaseLogReady.get()) {
+            reconcile(definition.jobId(), false);
+        }
     }
 
     @KafkaListener(topics = "${streammux.topics.job-leases}")
-    public void onJobLease(ConsumerRecord<String, byte[]> record) {
+    public void onJobLease(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+        ingestLeaseRecord(record);
+        if (!leaseLogReady.get()) {
+            tryCompleteLeaseReplay(consumer);
+            return;
+        }
+        String jobId = record.key();
+        if (jobId != null) {
+            reconcile(jobId, true);
+        }
+    }
+
+    @EventListener
+    public void onListenerIdle(ListenerContainerIdleEvent event) {
+        if (leaseLogReady.get() || event.getConsumer() == null) {
+            return;
+        }
+        tryCompleteLeaseReplay(event.getConsumer());
+    }
+
+    @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
+    public void reconcileAll() {
+        if (!leaseLogReady.get()) {
+            LOGGER.debug("Skipping scheduled reconcile until compacted lease log catch-up completes");
+            return;
+        }
+        orchestratorMetrics.recordReconcile();
+        for (JobDefinition definition : stateStore.listDefinitions()) {
+            reconcile(definition.jobId(), false);
+            JobLease lease = stateStore.getLease(definition.jobId()).orElse(null);
+            orchestratorService.recoverOwnedRunnerIfMissing(definition, lease);
+        }
+    }
+
+    private void ingestLeaseRecord(ConsumerRecord<String, byte[]> record) {
         String jobId = record.key();
         if (record.value() == null) {
-            if (jobId != null) {
+            if (jobId != null && leaseLogReady.get()) {
                 stateStore.removeLease(jobId);
-                reconcile(jobId, false);
             }
             return;
         }
 
         JobLease lease = read(record.value(), JobLease.class);
         orchestratorService.observeLease(lease);
-        stateStore.upsertLease(lease);
-        reconcile(lease.jobId(), true);
+        if (!stateStore.upsertLease(lease)) {
+            LOGGER.debug(
+                "Kept higher-epoch lease for {} while ingesting epoch {}",
+                lease.jobId(),
+                lease.leaseEpoch()
+            );
+        }
     }
 
-    @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
-    public void reconcileAll() {
-        orchestratorMetrics.recordReconcile();
+    private void tryCompleteLeaseReplay(Consumer<?, ?> consumer) {
+        if (leaseLogReady.get() || consumer == null) {
+            return;
+        }
+        Set<TopicPartition> leasePartitions = consumer.assignment().stream()
+            .filter(partition -> topics.jobLeases().equals(partition.topic()))
+            .collect(Collectors.toCollection(HashSet::new));
+        if (leasePartitions.isEmpty()) {
+            return;
+        }
+        Map<TopicPartition, Long> endOffsets = consumer.endOffsets(leasePartitions);
+        for (TopicPartition partition : leasePartitions) {
+            long position = consumer.position(partition);
+            long end = endOffsets.getOrDefault(partition, 0L);
+            if (position < end) {
+                return;
+            }
+        }
+        if (!leaseLogReady.compareAndSet(false, true)) {
+            return;
+        }
+        LOGGER.info("Compacted lease log catch-up complete; reconciling from local state without regressive claims");
         for (JobDefinition definition : stateStore.listDefinitions()) {
             reconcile(definition.jobId(), false);
-            JobLease lease = stateStore.getLease(definition.jobId()).orElse(null);
-            orchestratorService.recoverOwnedRunnerIfMissing(definition, lease);
         }
     }
 

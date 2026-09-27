@@ -206,6 +206,55 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    void compactedOlderLeaseSnapshotDoesNotProduceLowerEpochClaim() {
+        JobDefinition definition = jobDefinition();
+        Instant now = Instant.now();
+        JobLease live = new JobLease("job-1", 1, "site-b", "instance-b", 9, LeaseStatus.RUNNING, now.plusSeconds(600), now);
+        JobLease stale = new JobLease("job-1", 1, "site-b", "instance-b", 3, LeaseStatus.RUNNING, now.minusSeconds(30), now.minusSeconds(60));
+        LeaseManager realManager = new LeaseManager(SITE);
+
+        OrchestratorService service = new OrchestratorService(
+            realManager,
+            SITE,
+            jobRunnerRegistry,
+            eventPublisher,
+            disabledRestart(),
+            orchestratorMetrics
+        );
+        service.observeLease(stale);
+        service.observeLease(live);
+
+        JobLease result = service.reconcile(definition, stale);
+
+        assertEquals(stale, result);
+        verify(eventPublisher, never()).publishForDefinition(eq(definition), eq(EventType.CLAIMED), any(), anyMap());
+        assertFalse(service.shouldPublishLease(new JobLease("job-1", 1, "site-a", "instance-a", 4, LeaseStatus.CLAIMED, now.plusSeconds(20), now)));
+    }
+
+    @Test
+    void newInstanceDoesNotStealLiveUnexpiredForeignLease() {
+        JobDefinition definition = jobDefinition();
+        Instant now = Instant.now();
+        JobLease live = new JobLease("job-1", 1, "kstreams1", "orchestrator-1", 40, LeaseStatus.RUNNING, now.plusSeconds(600), now);
+        LeaseManager realManager = new LeaseManager(SITE);
+
+        OrchestratorService service = new OrchestratorService(
+            realManager,
+            SITE,
+            jobRunnerRegistry,
+            eventPublisher,
+            disabledRestart(),
+            orchestratorMetrics
+        );
+        service.observeLease(live);
+
+        JobLease result = service.reconcile(definition, live);
+
+        assertEquals(live, result);
+        verify(eventPublisher, never()).publishForDefinition(eq(definition), eq(EventType.CLAIMED), any(), anyMap());
+    }
+
+    @Test
     void statusDelegatesToResolvedRunner() {
         JobDefinition definition = jobDefinition();
         JobRuntimeStatus status = new JobRuntimeStatus(

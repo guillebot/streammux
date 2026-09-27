@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class OrchestratorStateStore {
@@ -30,8 +31,22 @@ public class OrchestratorStateStore {
         definitions.remove(jobId);
     }
 
-    public void upsertLease(JobLease lease) {
-        leases.put(lease.jobId(), lease);
+    /**
+     * Stores {@code lease} unless a higher epoch is already present for the job.
+     * Same-epoch updates (heartbeats) replace the stored record.
+     *
+     * @return {@code true} if the incoming lease was stored
+     */
+    public boolean upsertLease(JobLease lease) {
+        AtomicBoolean stored = new AtomicBoolean(false);
+        leases.compute(lease.jobId(), (ignored, existing) -> {
+            if (existing != null && existing.leaseEpoch() > lease.leaseEpoch()) {
+                return existing;
+            }
+            stored.set(true);
+            return lease;
+        });
+        return stored.get();
     }
 
     public Optional<JobLease> getLease(String jobId) {
