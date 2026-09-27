@@ -92,6 +92,8 @@ Topics on that job: input `com.optimum.events.it.csg.osp.json`, lookup `net.opti
 3. Create **PAUSED**, confirm ACLs (`streammux-{jobId}` group + Streams internals), then set `ACTIVE`. Prefer one orchestrator host while bringing up a new enricher (see [deployment notes](deployment.md#json_enricher-rollout)).
 4. Confirm `GET /jobs/{id}/lease` has an owner and `GET /jobs/{id}/status` is **RUNNING**. GlobalKTable restore can take a long time on a cold host. Keep `STREAMMUX_LEASE_DURATION_FLOOR_SECONDS` (default 600) so a 30s job lease TTL cannot expire mid-restore.
 
+API/MCP `create_job` does **not** create a Job catalog entry. Call `create_catalog_entry` (or Save via the UI catalog) if you want the job listed there.
+
 MCP: `get_job_status` / `get_job_lease`. Web console Basic tab also edits `jsonEnricherConfig`.
 
 ## 4. Verify hits with counts only
@@ -124,6 +126,6 @@ Synthetic fixtures (non-sensitive keys/values) are the only payloads that belong
 2. `get_enricher_template` — presets and CEL
 3. `normalize_key_preview` — synthetic strings only
 4. `build_enricher_job` — JobDefinition JSON (does not persist)
-5. `validate_job` → `create_job` with `apply=true` only after review
+5. `validate_job` → `create_job` with `apply=true` only after review. That does **not** add a catalog entry — use `create_catalog_entry` or UI Save if you want it listed.
 6. `get_job_status` / `get_job_lease` until RUNNING
 7. Counts-only hit check; never print Restricted payloads
