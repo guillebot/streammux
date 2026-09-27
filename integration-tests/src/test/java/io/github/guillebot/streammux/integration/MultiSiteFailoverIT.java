@@ -82,8 +82,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
 
         ConsumerRecord<String, byte[]> firstLease = pollSingleRecord(leaseConsumer);
         JobLease claimed = LEASE_MAPPER.readValue(firstLease.value(), JobLease.class);
-        coordinatorA.onJobLease(firstLease);
-        coordinatorB.onJobLease(firstLease);
+        coordinatorA.onJobLease(firstLease, leaseConsumer);
+        coordinatorB.onJobLease(firstLease, leaseConsumer);
         coordinatorB.onJobDefinition(definitionRecord);
 
         verify(runnerA, timeout(10_000)).start(eq(definition), anyLong());
@@ -97,8 +97,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
 
         ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseOwner(leaseConsumer, "site-b");
         JobLease failedOver = LEASE_MAPPER.readValue(secondLease.value(), JobLease.class);
-        coordinatorA.onJobLease(secondLease);
-        coordinatorB.onJobLease(secondLease);
+        coordinatorA.onJobLease(secondLease, leaseConsumer);
+        coordinatorB.onJobLease(secondLease, leaseConsumer);
 
         verify(runnerB).start(definition, failedOver.leaseEpoch());
         verify(runnerA).stop("job-1");
