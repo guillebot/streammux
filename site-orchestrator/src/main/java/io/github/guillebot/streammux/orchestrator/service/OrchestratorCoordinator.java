@@ -43,6 +43,7 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     private final StreammuxOrchestratorMetrics orchestratorMetrics;
     private final KafkaTopicProperties topics;
     private final Set<TopicPartition> bootstrappedPartitions = ConcurrentHashMap.newKeySet();
+    private final Map<TopicPartition, Long> highestIngestedLeaseOffset = new ConcurrentHashMap<>();
     private final Map<String, Instant> lastUnhealthyWarnAt = new ConcurrentHashMap<>();
     private final AtomicBoolean leaseLogReady = new AtomicBoolean(false);
 
@@ -130,7 +131,7 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     public void onJobLease(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
         ingestLeaseRecord(record);
         if (!leaseLogReady.get()) {
-            tryCompleteLeaseReplay(consumer);
+            tryCompleteLeaseReplay(consumer, record);
             return;
         }
         String jobId = record.key();
@@ -144,7 +145,7 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         if (leaseLogReady.get() || event.getConsumer() == null) {
             return;
         }
-        tryCompleteLeaseReplay(event.getConsumer());
+        tryCompleteLeaseReplay(event.getConsumer(), null);
     }
 
     @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
@@ -162,6 +163,7 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     }
 
     private void ingestLeaseRecord(ConsumerRecord<String, byte[]> record) {
+        noteIngestedLeaseOffset(record);
         String jobId = record.key();
         if (record.value() == null) {
             if (jobId != null && leaseLogReady.get()) {
@@ -181,7 +183,28 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         }
     }
 
-    private void tryCompleteLeaseReplay(Consumer<?, ?> consumer) {
+    private void noteIngestedLeaseOffset(ConsumerRecord<String, byte[]> record) {
+        if (record == null || !topics.jobLeases().equals(record.topic())) {
+            return;
+        }
+        TopicPartition partition = new TopicPartition(record.topic(), record.partition());
+        highestIngestedLeaseOffset.merge(partition, record.offset(), Math::max);
+    }
+
+    /**
+     * Completes catch-up only after every delivered lease record through the high watermark
+     * has been ingested.
+     *
+     * <p>{@code consumer.position()} moves to the end of the current poll batch before the
+     * listener sees later records in that batch. Treating position alone as caught up let a
+     * peer reconcile an older expired snapshot and CLAIM epoch+1 over a live unexpired lease
+     * still waiting in the same batch. Same-instance restart did not steal: an owned expired
+     * snapshot is renewed at the same epoch.
+     *
+     * @param currentRecord record just ingested, or null when the consumer is idle and the
+     *                      previous poll returned no records
+     */
+    private void tryCompleteLeaseReplay(Consumer<?, ?> consumer, ConsumerRecord<String, byte[]> currentRecord) {
         if (leaseLogReady.get() || consumer == null) {
             return;
         }
@@ -193,9 +216,30 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         }
         Map<TopicPartition, Long> endOffsets = consumer.endOffsets(leasePartitions);
         for (TopicPartition partition : leasePartitions) {
-            long position = consumer.position(partition);
             long end = endOffsets.getOrDefault(partition, 0L);
+            long position = consumer.position(partition);
             if (position < end) {
+                return;
+            }
+        }
+        Map<TopicPartition, Long> beginningOffsets = consumer.beginningOffsets(leasePartitions);
+        if (beginningOffsets == null) {
+            beginningOffsets = Map.of();
+        }
+        for (TopicPartition partition : leasePartitions) {
+            long beginning = beginningOffsets.getOrDefault(partition, 0L);
+            long end = endOffsets.getOrDefault(partition, 0L);
+            if (beginning >= end) {
+                continue;
+            }
+            if (highestIngestedLeaseOffset.get(partition) == null) {
+                return;
+            }
+            long position = consumer.position(partition);
+            if (currentRecord != null
+                && partition.topic().equals(currentRecord.topic())
+                && partition.partition() == currentRecord.partition()
+                && currentRecord.offset() + 1 < position) {
                 return;
             }
         }
