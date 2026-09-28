@@ -36,7 +36,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -238,14 +237,11 @@ class OrchestratorCoordinatorTest {
             now
         );
 
-        // position() is already at the batch end before later records are ingested.
+        // position() is already at the batch end; both records arrive in the same poll batch.
         AtomicLong position = new AtomicLong(2);
         Consumer<String, byte[]> consumer = leaseConsumer(position, 2L);
 
-        coordinator.onJobLease(leaseRecord(expiredSnapshot, 0), consumer);
-        verify(publisher, never()).publishLease(any());
-
-        coordinator.onJobLease(leaseRecord(liveRenew, 1), consumer);
+        coordinator.onJobLeases(List.of(leaseRecord(expiredSnapshot, 0), leaseRecord(liveRenew, 1)), consumer);
 
         verify(publisher, never()).publishLease(any());
         JobLease stored = stateStore.getLease("job-1").orElseThrow();
@@ -286,11 +282,12 @@ class OrchestratorCoordinatorTest {
     }
 
     @Test
-    void idleAtEndBeforeReplayDoesNotClaim() {
-        lenient().when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
-        lenient().when(jobRunner.status(any())).thenReturn(null);
+    void idleAtHighWatermarkWithNoSurvivingRecordsCompletesCatchUp() {
+        when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        when(jobRunner.status(any())).thenReturn(null);
         stateStore.upsertDefinition(jobDefinition());
 
+        // Non-empty offset range whose records were all compacted away: nothing is ever delivered.
         AtomicLong position = new AtomicLong(100);
         Consumer<String, byte[]> consumer = leaseConsumer(position, 100L);
         ListenerContainerIdleEvent event = new ListenerContainerIdleEvent(
@@ -305,8 +302,118 @@ class OrchestratorCoordinatorTest {
 
         coordinator.onListenerIdle(event);
 
-        verify(publisher, never()).publishLease(any());
-        assertTrue(stateStore.getLease("job-1").isEmpty());
+        ArgumentCaptor<JobLease> captor = ArgumentCaptor.forClass(JobLease.class);
+        verify(publisher).publishLease(captor.capture());
+        assertEquals(1, captor.getValue().leaseEpoch());
+        assertEquals("instance-a", captor.getValue().leaseOwnerInstance());
+    }
+
+    /**
+     * Regression for the 20260928-04 hang: the last delivered record of the batch sits below the
+     * high watermark (offsets compacted away / control records), so waiting for "the record at
+     * end-1" never returns. Catch-up must complete from position == end after the batch.
+     */
+    @Test
+    void catchUpCompletesWhenLastDeliveredOffsetIsBelowHighWatermark() {
+        when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        when(jobRunner.status(any())).thenReturn(null);
+        stateStore.upsertDefinition(jobDefinition());
+
+        Instant now = Instant.now();
+        JobLease older = new JobLease("job-1", 1, "site-b", "instance-b", 6, LeaseStatus.RUNNING,
+            now.minusSeconds(120), now.minusSeconds(180));
+        JobLease expired = new JobLease("job-1", 1, "site-b", "instance-b", 7, LeaseStatus.RUNNING,
+            now.minusSeconds(5), now.minusSeconds(30));
+
+        // Delivered offsets 0 and 1; offset 2 no longer exists, high watermark is 3.
+        AtomicLong position = new AtomicLong(3);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 3L);
+
+        coordinator.onJobLeases(List.of(leaseRecord(older, 0), leaseRecord(expired, 1)), consumer);
+
+        ArgumentCaptor<JobLease> captor = ArgumentCaptor.forClass(JobLease.class);
+        verify(publisher).publishLease(captor.capture());
+        assertEquals(8, captor.getValue().leaseEpoch());
+        assertEquals("instance-a", captor.getValue().leaseOwnerInstance());
+        verify(consumer, times(1)).endOffsets(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void catchUpCompletesWhenAnotherNonEmptyPartitionHasNoSurvivingRecords() {
+        when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        when(jobRunner.status(any())).thenReturn(null);
+        stateStore.upsertDefinition(jobDefinition());
+
+        Instant now = Instant.now();
+        JobLease expired = new JobLease("job-1", 1, "site-b", "instance-b", 7, LeaseStatus.RUNNING,
+            now.minusSeconds(5), now.minusSeconds(30));
+
+        TopicPartition emptied = new TopicPartition(TopicNames.JOB_LEASES, 1);
+        Consumer<String, byte[]> consumer = mock(Consumer.class);
+        when(consumer.assignment()).thenReturn(Set.of(LEASE_PARTITION, emptied));
+        when(consumer.endOffsets(any())).thenReturn(Map.of(LEASE_PARTITION, 1L, emptied, 50L));
+        when(consumer.position(LEASE_PARTITION)).thenReturn(1L);
+        when(consumer.position(emptied)).thenReturn(50L);
+
+        coordinator.onJobLease(leaseRecord(expired, 0), consumer);
+
+        ArgumentCaptor<JobLease> captor = ArgumentCaptor.forClass(JobLease.class);
+        verify(publisher).publishLease(captor.capture());
+        assertEquals(8, captor.getValue().leaseEpoch());
+        assertEquals("instance-a", captor.getValue().leaseOwnerInstance());
+    }
+
+    @Test
+    void sameInstanceRestartHeartbeatsOwnedLeaseBeforeReplayCompletes() {
+        stateStore.upsertDefinition(jobDefinition());
+        stateStore.upsertDefinition(jobDefinition("job-2"));
+
+        Instant now = Instant.now();
+        // Owned, unexpired, inside the 10s heartbeat window of the 30s policy.
+        JobLease owned = new JobLease("job-1", 1, "site-a", "instance-a", 40, LeaseStatus.RUNNING,
+            now.plusSeconds(5), now.minusSeconds(25));
+        // Expired and held by a peer: must NOT be claimed while replay is still in progress.
+        JobLease peerExpired = new JobLease("job-2", 1, "site-b", "instance-b", 7, LeaseStatus.RUNNING,
+            now.minusSeconds(5), now.minusSeconds(30));
+
+        AtomicLong position = new AtomicLong(10);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 1_000L);
+
+        coordinator.onJobLeases(List.of(leaseRecord(owned, 8), leaseRecord(peerExpired, 9)), consumer);
+
+        ArgumentCaptor<JobLease> captor = ArgumentCaptor.forClass(JobLease.class);
+        verify(publisher, times(1)).publishLease(captor.capture());
+        JobLease renewed = captor.getValue();
+        assertEquals("job-1", renewed.jobId());
+        assertEquals(40, renewed.leaseEpoch());
+        assertEquals("instance-a", renewed.leaseOwnerInstance());
+        assertEquals(LeaseStatus.RUNNING, renewed.status());
+        assertTrue(renewed.leaseExpiresAt().isAfter(owned.leaseExpiresAt()));
+        assertEquals("instance-b", stateStore.getLease("job-2").orElseThrow().leaseOwnerInstance());
+        // No runner start, restart, or status probe while replay is in progress.
+        verify(jobRunnerRegistry, never()).resolve(any());
+    }
+
+    @Test
+    void scheduledReconcileHeartbeatsOwnedLeaseWhileReplayInProgress() {
+        stateStore.upsertDefinition(jobDefinition());
+        stateStore.upsertDefinition(jobDefinition("job-2"));
+
+        Instant now = Instant.now();
+        JobLease owned = new JobLease("job-1", 1, "site-a", "instance-a", 40, LeaseStatus.RUNNING,
+            now.plusSeconds(5), now.minusSeconds(25));
+        AtomicLong position = new AtomicLong(10);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 1_000L);
+        coordinator.onJobLease(leaseRecord(owned, 8), consumer);
+        verify(publisher, times(1)).publishLease(any());
+
+        coordinator.reconcileAll();
+
+        // Second heartbeat is not due yet, and job-2 (no lease) is not claimed before catch-up.
+        verify(publisher, times(1)).publishLease(any());
+        assertTrue(stateStore.getLease("job-2").isEmpty());
+        verify(jobRunnerRegistry, never()).resolve(any());
     }
 
     @SuppressWarnings("unchecked")
@@ -314,7 +421,6 @@ class OrchestratorCoordinatorTest {
         Consumer<String, byte[]> consumer = mock(Consumer.class);
         when(consumer.assignment()).thenReturn(Set.of(LEASE_PARTITION));
         when(consumer.endOffsets(any())).thenReturn(Map.of(LEASE_PARTITION, endOffset));
-        lenient().when(consumer.beginningOffsets(any())).thenReturn(Map.of(LEASE_PARTITION, 0L));
         when(consumer.position(LEASE_PARTITION)).thenAnswer(invocation -> position.get());
         return consumer;
     }
@@ -325,8 +431,12 @@ class OrchestratorCoordinatorTest {
     }
 
     private static JobDefinition jobDefinition() {
+        return jobDefinition("job-1");
+    }
+
+    private static JobDefinition jobDefinition(String jobId) {
         return new JobDefinition(
-            "job-1",
+            jobId,
             1,
             JobType.ROUTE_APP,
             DesiredJobState.ACTIVE,

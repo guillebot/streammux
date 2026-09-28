@@ -127,6 +127,28 @@ public class OrchestratorService {
     }
 
     /**
+     * Renews a lease this instance already owns when its heartbeat is due, and does nothing else.
+     * Safe to call before lease log catch-up completes: it never claims, releases, or touches
+     * runners, and a same-epoch renew of an unexpired owned lease cannot take a lease from a peer.
+     *
+     * @return the renewed lease, or {@code currentLease} unchanged when no heartbeat is due
+     */
+    public JobLease renewOwnedUnexpiredLease(JobDefinition definition, JobLease currentLease) {
+        Instant now = Instant.now();
+        if (definition.desiredState() != DesiredJobState.ACTIVE
+            || currentLease == null
+            || !leaseManager.ownsLease(currentLease)
+            || currentLease.isExpired(now)) {
+            return currentLease;
+        }
+        JobDefinition effective = withLeaseFloors(definition);
+        if (leaseManager.decide(effective, currentLease, now) != LeaseDecision.RENEW) {
+            return currentLease;
+        }
+        return renew(effective, currentLease, now);
+    }
+
+    /**
      * CLAIM only an absent lease, an expired lease, or one this instance already owns
      * (owned leases are normally renewed instead). Never take a live lease whose owner
      * is a different site or instance.
