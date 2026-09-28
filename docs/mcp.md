@@ -104,7 +104,7 @@ Every token must include scope **`mcp`**. Additional scopes gate tool tiers:
 
 | Scope | Tools |
 | ----- | ----- |
-| `docs` | `list_docs`, `get_doc`, `search_docs`, `get_schema`, `get_job_schema`, `get_openapi` |
+| `docs` | `list_docs`, `get_doc`, `search_docs`, `get_schema`, `get_job_schema`, `get_openapi`, `get_enricher_template`, `build_enricher_job`, `normalize_key_preview` |
 | `read` | Job and catalog reads, `validate_job`, `get_health`, `get_settings`, `list_kafka_topics` |
 | `write` | Job lifecycle and catalog mutations (`apply=true`) |
 | `admin` | `session`, `token_create`, `token_list`, `token_revoke` |
@@ -123,6 +123,9 @@ All successful MCP sessions report **`username: admin`** and **`role: ADMIN`** �
 | `get_schema` | OpenAPI component schema (`JobDefinition`, …) |
 | `get_job_schema` | JSON Schema (2020-12) from `GET /jobs/schema` — same document the server validator and web UI editor use |
 | `get_openapi` | Full OpenAPI JSON |
+| `get_enricher_template` | `JSON_ENRICHER` CEL presets, AccountNum shapes, last documented prod CEL snapshot |
+| `build_enricher_job` | Ready-to-validate `JobDefinition` (no persist) |
+| `normalize_key_preview` | Apply a CEL preset to synthetic sample strings (no Kafka) |
 
 Docs are also available as MCP resources under the `streammux://` URI scheme.
 
@@ -169,11 +172,12 @@ Docs are also available as MCP resources under the `streammux://` URI scheme.
 
 ## Suggested agent workflow
 
-1. `list_docs` → `get_doc(docs/overview.md)` and `get_doc(docs/job-types.md)`
-2. `get_job_schema` (or `get_schema(JobDefinition)`) before creating jobs
-3. `validate_job` before `create_job` / `update_job` with `apply=true`
-4. `list_jobs` / `get_job` / `get_job_status` for live state; `list_activity` for the global audit feed
-5. `list_catalog_entries` for templates; `push_catalog_entry` to deploy
+1. `list_docs` → `get_doc(docs/overview.md)`, `get_doc(docs/job-types.md)`, and for enrichers `get_doc(docs/enricher-guide.md)`
+2. `get_enricher_template` / `build_enricher_job` / `normalize_key_preview` (synthetic strings) then `validate_job`
+3. `get_job_schema` (or `get_schema(JobDefinition)`) before creating other job types
+4. `validate_job` before `create_job` / `update_job` with `apply=true`
+5. `list_jobs` / `get_job` / `get_job_status` for live state; `list_activity` for the global audit feed
+6. `list_catalog_entries` for templates; `push_catalog_entry` to deploy
 
 ## Related
 

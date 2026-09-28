@@ -171,6 +171,8 @@ Left-joins a JSON event stream against a lookup topic materialized as a Kafka St
 
 This is a generic enricher. A typical first job is CSG OSP work-order events joined to custdata rekeyed by account number.
 
+**Operator how-to:** [enricher-guide.md](enricher-guide.md) (topics, CEL recipes including three AccountNum shapes, validate/create, counts-only hit checks, troubleshooting). MCP: `get_enricher_template`, `build_enricher_job`, `normalize_key_preview`.
+
 ### Config shape (`jsonEnricherConfig`)
 
 | Field | Required | Meaning |
@@ -196,18 +198,23 @@ v1 supports exactly **one** lookup and one enrichment slot. The envelope uses an
 - A lookup miss is a left-join result, not an error: the input is emitted with an empty array under `enrichmentName`.
 - A null, empty, or non-JSON lookup value is treated like a miss. Any valid JSON lookup value (object, array, or scalar) is appended as the one array element.
 
-### CEL join-key example
+### CEL join-key recipes
 
-Hyphenated billing accounts `AAAA-BBBBBB-C` → concatenate 4 + 6 + last segment padded to 2 digits (`7707-938199-1` → `770793819901`):
+The compiler declares string variable `key` and enables the CEL **strings** and **regex** extensions (`split`, `substring`, `regex.replace`).
 
-```cel
-size(key.split("-")) == 3
-  ? key.split("-")[0] + key.split("-")[1]
-    + (size(key.split("-")[2]) >= 2 ? key.split("-")[2] : "0" + key.split("-")[2])
-  : key
-```
+**Presets** (same IDs as MCP `cel_preset`):
 
-Set `joinKeyCel` to `key` for an identity transform.
+| Preset | CEL |
+| ------ | --- |
+| `identity` | `key` |
+| `acctnum-12` | Hyphenated: `parts[0]+parts[1]+last` padded/truncated to 2 digits; otherwise `regex.replace` non-digits and take 12 |
+| `digits-only` | Strip non-digits, take 12 |
+
+Constants: `JoinKeyCel.ACCTNUM_12_CEL`, `JoinKeyCel.HYPHENATED_ACCOUNT_CEL`, `JoinKeyCel.DIGITS_ONLY_CEL`.
+
+Three CSG `AccountNum` shapes (synthetic): `NNNN-NNNNNN-N` (13), `NNNN-NNNNNN-NN` (14), 12 digits + 3 letters (15). Lookup keys are 12 digits. Full expressions: [enricher-guide.md](enricher-guide.md#2-choose-a-cel-recipe).
+
+**Deployed** `json-enricher-csg-osp-1` (jobVersion 1, `updatedAt` 2026-09-26T01:07:14Z) still uses `HYPHENATED_ACCOUNT_CEL` (hyphen pad, else identity). That does **not** map the 15-character form onto 12-digit keys. Re-read `get_job` before treating this as current.
 
 The extracted JSON field is passed to CEL as text. Scalar nodes use their text value; object or array nodes use their JSON representation. A non-null CEL result is converted to text before lookup; evaluation errors and null or blank results produce no join key.
 
@@ -261,9 +268,9 @@ The sample creates `json-enricher-csg-osp-1` using:
 - input `com.optimum.events.it.csg.osp.json`
 - lookup `net.optimum.fixed.monitoring.network.access.custdata.acctnum.json`
 - output `net.optimum.experimental.streamlens.streammux.csg-osp.enriched.json`
-- join path `AccountNum` and the hyphen-normalization CEL expression above
+- join path `AccountNum` and the hyphen-normalization CEL currently stored on that job (see [enricher-guide.md](enricher-guide.md#what-production-job-json-enricher-csg-osp-1-actually-runs))
 
-The script contains configuration only, not customer records. Adapt topic names and `bootstrap.servers` to the target environment and validate allowlists/ACLs before running it. See [usage.md](usage.md#first-json_enricher-job-verification) for the canary and first-record verification sequence.
+The script contains configuration only, not customer records. Adapt topic names and `bootstrap.servers` to the target environment and validate allowlists/ACLs before running it. See [enricher-guide.md](enricher-guide.md) and [usage.md](usage.md#first-json_enricher-job-verification).
 
 ---
 

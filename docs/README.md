@@ -9,6 +9,7 @@ This folder complements the [root README](../README.md) with structured guides f
 | [overview.md](overview.md) | Engineers, architects | What Streammux is, main components, how data flows through Kafka |
 | [architecture.md](architecture.md) | Engineers | Control plane, Kafka topics, lease model, component map |
 | [job-types.md](job-types.md) | Operators, integrators | `ROUTE_APP`, `RANDOM_SAMPLER`, `ALARMS_TO_ZTR`, `JSON_ENRICHER` configuration |
+| [enricher-guide.md](enricher-guide.md) | Operators | Create a `JSON_ENRICHER` job: topics, CEL recipes, validate/create, Restricted/hit-rate checks |
 | [developer-guidelines.md](developer-guidelines.md) | Contributors | Build/test workflow, conventions, **adding new job types (runners)** |
 | [api.md](api.md) | Operators, integrators, automation | **100% API-managed** control plane, complete OpenAPI reference, curl examples |
 | [web-console.md](web-console.md) | Operators | Web UI pages: jobs, builder, catalog, health, settings |
@@ -25,6 +26,7 @@ This folder complements the [root README](../README.md) with structured guides f
 - **Repository:** [README](../README.md)
 - **Architecture diagrams (Mermaid):** [README § Architecture](../README.md#architecture)
 - **Filter expression reference:** [job-types.md § ROUTE_APP](job-types.md#route_app)
+- **Create an enrichment job:** [enricher-guide.md](enricher-guide.md)
 - **Web console:** [web-console.md](web-console.md)
 - **MCP (AI clients):** [mcp.md](mcp.md) — also **MCP** page in the web UI (`/#/mcp`)
 - **API reference:** [api.md](api.md) — endpoints, examples, [openapi.json](openapi.json) snapshot

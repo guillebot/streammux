@@ -19,7 +19,7 @@ The API does not call orchestrators directly over HTTP. Both services build thei
 4. The orchestrator starts the matching **JobRunner** (route-app, random-sampler, alarms-to-ztr, JSON-enricher) on the lease holder.
 5. Runners read and write **business data topics** according to the job definition.
 
-For `JSON_ENRICHER`, the business-data path is event topic → JSON path extraction → CEL string-key normalization → exact GlobalKTable lookup → envelope output topic. The lookup table is fully replicated on the active runner, so it does not require event/table co-partitioning but does require local capacity and a full changelog restore on cold state. See [job-types.md](job-types.md#json_enricher).
+For `JSON_ENRICHER`, the business-data path is event topic → JSON path extraction → CEL string-key normalization → exact GlobalKTable lookup → envelope output topic. The lookup table is fully replicated on the active runner, so it does not require event/table co-partitioning but does require local capacity and a full changelog restore on cold state. See [job-types.md](job-types.md#json_enricher) and [enricher-guide.md](enricher-guide.md).
 
 ## Kafka control topics
 

@@ -304,7 +304,7 @@ The API validates job definitions before publishing to Kafka, in two layers:
   - **Topic allowlists** — when `STREAMMUX_ALLOWED_INPUT_*` or `STREAMMUX_ALLOWED_OUTPUT_*` are configured, input/output topics in job config must match.
   - **Job type config** — the block matching `jobType` must be present and well-formed (`routeAppConfig`, `randomSamplerConfig`, `alarmsToZtrConfig`, or `jsonEnricherConfig`).
   - **ROUTE_APP filter expressions** — parsed and rejected on syntax errors with a position-aware message.
-  - **JSON_ENRICHER** — event input and lookup topics both use the input allowlist, output uses the output allowlist, all required strings must be non-blank, and `joinKeyCel` must compile against the declared string variable `key`.
+  - **JSON_ENRICHER** — event input and lookup topics both use the input allowlist, output uses the output allowlist, all required strings must be non-blank, and `joinKeyCel` must compile against the declared string variable `key` (strings + regex extensions). Operator how-to: [enricher-guide.md](enricher-guide.md).
 
 Validation failures return **`400 Bad Request`** with a JSON body:
 

@@ -16,6 +16,9 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: "get_schema", desc: "OpenAPI schema (e.g. JobDefinition)" },
       { name: "get_job_schema", desc: "JSON Schema for validation (GET /jobs/schema)" },
       { name: "get_openapi", desc: "Full OpenAPI JSON" },
+      { name: "get_enricher_template", desc: "JSON_ENRICHER CEL presets and prod CEL snapshot" },
+      { name: "build_enricher_job", desc: "Ready-to-validate JSON_ENRICHER JobDefinition (no persist)" },
+      { name: "normalize_key_preview", desc: "Apply a CEL preset to synthetic sample strings" },
     ],
   },
   {

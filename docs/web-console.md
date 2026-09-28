@@ -46,7 +46,7 @@ The builder helps operators create jobs without writing JSON from scratch.
 4. For `RANDOM_SAMPLER`, set a **sample percent** (0–100). The API stores `randomSamplerConfig.rate` as a fraction (for example `25` → `0.25`).
 5. Click **Continue to editor** to open the full job JSON pre-filled on the New job page. Review and submit from there.
 
-`ALARMS_TO_ZTR` jobs are not in the builder yet; create them via the job editor, catalog, or API. `JSON_ENRICHER` is available in the job editor Basic tab, including input/output/lookup topics, source, enrichment name, join-key path/CEL, and stream properties. The editor supplies defaults but the submitted `jsonEnricherConfig` remains the source of truth and is validated by the API. See [job-types.md](job-types.md#json_enricher).
+`ALARMS_TO_ZTR` jobs are not in the builder yet; create them via the job editor, catalog, or API. `JSON_ENRICHER` is available in the job editor Basic tab, including input/output/lookup topics, source, enrichment name, join-key path/CEL, and stream properties. The editor supplies defaults but the submitted `jsonEnricherConfig` remains the source of truth and is validated by the API. Operator how-to: [enricher-guide.md](enricher-guide.md). Contract: [job-types.md](job-types.md#json_enricher).
 
 ## Job catalog
 

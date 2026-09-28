@@ -23,6 +23,21 @@ class JoinKeyCelTest {
     }
 
     @Test
+    void acctnum12CoversThreeAccountNumShapes() {
+        JoinKeyCel.Compiled compiled = JoinKeyCel.compile(JoinKeyCel.ACCTNUM_12_CEL);
+        assertEquals("770793819901", compiled.apply("7707-938199-1"));
+        assertEquals("770793819912", compiled.apply("7707-938199-12"));
+        assertEquals("770793819901", compiled.apply("770793819901ABC"));
+    }
+
+    @Test
+    void digitsOnlyStripsNonDigits() {
+        JoinKeyCel.Compiled compiled = JoinKeyCel.compile(JoinKeyCel.DIGITS_ONLY_CEL);
+        assertEquals("770793819912", compiled.apply("7707-938199-12"));
+        assertEquals("770793819901", compiled.apply("770793819901ABC"));
+    }
+
+    @Test
     void rejectsInvalidExpression() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> JoinKeyCel.compile("key +++"));
         assertTrue(ex.getMessage().contains("joinKeyCel"));

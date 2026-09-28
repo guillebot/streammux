@@ -24,6 +24,24 @@ func toolList() []map[string]any {
 		tool("get_schema", "Return an OpenAPI component schema by name (e.g. JobDefinition, JobRuntimeStatus, JobLease). Omit name to list available schema names. For the JSON Schema used by create/update validation, use get_job_schema.", map[string]any{"name": str}, nil),
 		tool("get_job_schema", "Return the JSON Schema (2020-12) for JobDefinition used by the server validator and web UI editor (GET /jobs/schema).", nil, nil),
 		tool("get_openapi", "Return the full Streammux job-management-api OpenAPI document.", nil, nil),
+		tool("get_enricher_template", "JSON_ENRICHER helper: CEL presets (acctnum-12, identity, digits-only), the three AccountNum shapes, and the last documented production CEL snapshot. Read-only; does not create a job.", nil, nil),
+		tool("build_enricher_job", "Build a ready-to-validate JSON_ENRICHER JobDefinition. Required: input_topic, lookup_topic, key_field, source, output_topic. Optional: cel_preset (acctnum-12|identity|digits-only), job_id, enrichment_name, desired_state (default PAUSED), bootstrap_servers, site_affinity. Does not persist; call validate_job then create_job.", map[string]any{
+			"input_topic":       str,
+			"lookup_topic":      str,
+			"key_field":         str,
+			"source":            str,
+			"output_topic":      str,
+			"cel_preset":        str,
+			"job_id":            str,
+			"enrichment_name":   str,
+			"desired_state":     str,
+			"bootstrap_servers": str,
+			"site_affinity":     str,
+		}, []string{"input_topic", "lookup_topic", "key_field", "source", "output_topic"}),
+		tool("normalize_key_preview", "Apply a JSON_ENRICHER CEL preset to synthetic sample strings (no Kafka). Required: samples array. Optional: cel_preset (default acctnum-12). Never pass customer account numbers.", map[string]any{
+			"cel_preset": str,
+			"samples":    strArr,
+		}, []string{"samples"}),
 
 		tool("list_jobs", "List all job definitions from the read model.", nil, nil),
 		tool("get_job", "Get one job definition by job_id.", map[string]any{"job_id": str}, []string{"job_id"}),
@@ -77,7 +95,8 @@ func (s *mcpServer) handleToolCall(ctx context.Context, p toolsCallParams, authz
 	}
 
 	switch p.Name {
-	case "list_docs", "get_doc", "search_docs", "get_schema", "get_openapi":
+	case "list_docs", "get_doc", "search_docs", "get_schema", "get_openapi",
+		"get_enricher_template", "build_enricher_job", "normalize_key_preview":
 		if err := principal.RequireScope("docs"); err != nil {
 			return "", err
 		}
@@ -136,17 +155,31 @@ func (s *mcpServer) handleToolCall(ctx context.Context, p toolsCallParams, authz
 			return "", errors.New("openapi not embedded")
 		}
 		return body, nil
+	case "get_enricher_template":
+		return toJSON(getEnricherTemplatePayload())
+	case "build_enricher_job":
+		built, err := buildEnricherJob(p.Arguments)
+		if err != nil {
+			return "", err
+		}
+		return toJSON(built)
+	case "normalize_key_preview":
+		preview, err := normalizeKeyPreview(p.Arguments)
+		if err != nil {
+			return "", err
+		}
+		return toJSON(preview)
 	case "session":
 		scopes := make([]string, 0, len(principal.Scopes))
 		for sc := range principal.Scopes {
 			scopes = append(scopes, sc)
 		}
 		return toJSON(map[string]any{
-			"username":       "admin",
-			"role":           "ADMIN",
-			"token_name":     principal.Name,
-			"token_prefix":   principal.DisplayPrefix,
-			"scopes":         scopes,
+			"username":     "admin",
+			"role":         "ADMIN",
+			"token_name":   principal.Name,
+			"token_prefix": principal.DisplayPrefix,
+			"scopes":       scopes,
 		})
 	case "token_create":
 		if err := requireApply(p.Arguments); err != nil {

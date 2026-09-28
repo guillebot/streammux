@@ -34,12 +34,22 @@ public final class JoinKeyCel {
     public static final String HYPHENATED_ACCOUNT_CEL =
         "size(key.split(\"-\")) == 3 ? key.split(\"-\")[0] + key.split(\"-\")[1] + (size(key.split(\"-\")[2]) >= 2 ? key.split(\"-\")[2] : \"0\" + key.split(\"-\")[2]) : key";
 
+    /**
+     * Three AccountNum shapes → 12-digit lookup key: hyphenated pad/truncate last
+     * segment to 2 digits, otherwise strip non-digits and take 12.
+     */
+    public static final String ACCTNUM_12_CEL =
+        "size(key.split(\"-\")) == 3 ? key.split(\"-\")[0] + key.split(\"-\")[1] + (size(key.split(\"-\")[2]) > 2 ? key.split(\"-\")[2].substring(0, 2) : (size(key.split(\"-\")[2]) == 2 ? key.split(\"-\")[2] : \"0\" + key.split(\"-\")[2])) : (size(regex.replace(key, \"[^0-9]\", \"\")) >= 12 ? regex.replace(key, \"[^0-9]\", \"\").substring(0, 12) : regex.replace(key, \"[^0-9]\", \"\"))";
+
+    public static final String DIGITS_ONLY_CEL =
+        "size(regex.replace(key, \"[^0-9]\", \"\")) >= 12 ? regex.replace(key, \"[^0-9]\", \"\").substring(0, 12) : regex.replace(key, \"[^0-9]\", \"\")";
+
     private static final CelCompiler COMPILER = CelCompilerFactory.standardCelCompilerBuilder()
         .addVar("key", SimpleType.STRING)
-        .addLibraries(CelExtensions.strings())
+        .addLibraries(CelExtensions.strings(), CelExtensions.regex())
         .build();
     private static final CelRuntime RUNTIME = CelRuntimeFactory.standardCelRuntimeBuilder()
-        .addLibraries(CelExtensions.strings())
+        .addLibraries(CelExtensions.strings(), CelExtensions.regex())
         .build();
 
     private JoinKeyCel() {}

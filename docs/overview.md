@@ -4,7 +4,7 @@
 
 **Streammux** is a control plane for running stream-processing **jobs** across one or more sites. It uses **Apache Kafka** as the shared backbone: operators define desired job state through an HTTP API, and **site orchestrators** compete for **leases** so that each job runs on exactly one worker at a time (today’s behavior).
 
-The original job type is **ROUTE_APP**, a Kafka Streams application that routes records by filter expression. Streammux also runs sampling, alarm normalization, and **JSON_ENRICHER** jobs; the latter joins JSON events to a replicated lookup table and emits a combined envelope.
+The original job type is **ROUTE_APP**, a Kafka Streams application that routes records by filter expression. Streammux also runs sampling, alarm normalization, and **JSON_ENRICHER** jobs; the latter joins JSON events to a replicated lookup table and emits a combined envelope. Operators: [enricher-guide.md](enricher-guide.md).
 
 ## Why it exists
 
@@ -49,7 +49,7 @@ For diagrams and topic-level flows, see the [root README](../README.md) (Mermaid
 
 For `JSON_ENRICHER`, the runner parses each input value as JSON, resolves `joinKeyPath`, and evaluates `joinKeyCel` with the extracted value as string variable `key`. It exact-matches the result against a string-keyed GlobalKTable built from `lookupTopic`, then writes an envelope containing the original parsed input and zero or one lookup value.
 
-The GlobalKTable replicates all lookup partitions to the active runner. It does not require co-partitioning with the event stream, but its full state must be restored after a cold start, failover to a host without local state, or state loss. The job definition's `jsonEnricherConfig` is the source of truth; API allowlists treat both event and lookup topics as inputs. Full semantics and prerequisites are in [job-types.md](job-types.md#json_enricher).
+The GlobalKTable replicates all lookup partitions to the active runner. It does not require co-partitioning with the event stream, but its full state must be restored after a cold start, failover to a host without local state, or state loss. The job definition's `jsonEnricherConfig` is the source of truth; API allowlists treat both event and lookup topics as inputs. Full semantics: [job-types.md](job-types.md#json_enricher). How-to: [enricher-guide.md](enricher-guide.md).
 
 ## Route-app filtering (short reference)
 

@@ -21,7 +21,7 @@ Proprietary — Optimum (Altice USA). All rights reserved.
 - Operators define **desired state** via HTTP; there is **no direct HTTP** from the API to orchestrators.
 - **Apache Kafka** carries job definitions, leases, status, events, commands, and (optionally) catalog data.
 - **site-orchestrator** instances consume definitions and leases, reconcile **leases**, and start/stop local **job runners**.
-- Today’s main runner is **ROUTE_APP** (`runners/job-runner-route-app`): Kafka Streams, per-route **filter expressions** (field `==` / `!=` or substring fallback on normalized payload).
+- Today’s runners include **ROUTE_APP**, sampling, alarm normalization, and **JSON_ENRICHER** (`runners/job-runner-json-enricher`): CEL join-key + GlobalKTable lookup. Operator guide: [docs/enricher-guide.md](docs/enricher-guide.md).
 
 Canonical architecture and topic diagrams: [README.md](README.md). Shorter overview: [docs/overview.md](docs/overview.md).
 
@@ -120,6 +120,7 @@ Summarized from [README.md](README.md) and [docs/overview.md](docs/overview.md):
 | [README.md](README.md) | Architecture, route-app filter syntax, local dev |
 | [docs/overview.md](docs/overview.md) | Component table, limitations |
 | [docs/usage.md](docs/usage.md) | API shortcuts, health probes |
+| [docs/enricher-guide.md](docs/enricher-guide.md) | Create a `JSON_ENRICHER` job (CEL recipes, Restricted, MCP helpers) |
 | [docs/observability.md](docs/observability.md) | Metrics, logs, otelcol, Grafana |
 | [docs/deployment.md](docs/deployment.md) | Images, compose, env vars (note: may lag slightly vs compose if new services were added) |
 

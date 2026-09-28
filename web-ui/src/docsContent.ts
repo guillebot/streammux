@@ -2,6 +2,7 @@ import apiMd from "../../docs/api.md?raw";
 import architectureMd from "../../docs/architecture.md?raw";
 import authMd from "../../docs/auth.md?raw";
 import deploymentMd from "../../docs/deployment.md?raw";
+import enricherGuideMd from "../../docs/enricher-guide.md?raw";
 import jobTypesMd from "../../docs/job-types.md?raw";
 import overviewMd from "../../docs/overview.md?raw";
 import usageMd from "../../docs/usage.md?raw";
@@ -39,6 +40,12 @@ export const DOC_PAGES: DocPage[] = [
     title: "Job types",
     description: "ROUTE_APP, RANDOM_SAMPLER, ALARMS_TO_ZTR, and JSON_ENRICHER configuration",
     content: jobTypesMd,
+  },
+  {
+    slug: "enricher-guide",
+    title: "Create an enrichment job",
+    description: "JSON_ENRICHER how-to: topics, CEL recipes, validate/create, Restricted hit checks",
+    content: enricherGuideMd,
   },
   {
     slug: "api",
