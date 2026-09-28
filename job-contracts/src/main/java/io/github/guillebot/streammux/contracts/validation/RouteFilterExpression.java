@@ -14,6 +14,7 @@ import java.util.regex.PatternSyntaxException;
  *
  * <p>Supports boolean composition ({@code &&}, {@code ||}, {@code !}, parentheses),
  * field comparisons ({@code ==}, {@code !=}), membership ({@code in}, {@code not in}),
+ * array containment ({@code contains}, {@code not contains}),
  * and regular-expression matching ({@code =~}, {@code !~}). Regex operators use
  * {@link java.util.regex.Matcher#find()} semantics (unanchored), matching the
  * {@code regex} operator behaviour of the {@code ALARMS_TO_ZTR} filter engine.
@@ -121,6 +122,18 @@ public final class RouteFilterExpression {
         }
     }
 
+    private record ContainsNode(String path, JsonNode expectedValue, boolean negated) implements Node {
+        @Override
+        public boolean evaluate(JsonNode payload) {
+            JsonNode actualValue = JsonPayloadPath.resolve(payload, path);
+            if (actualValue.isMissingNode() || !actualValue.isArray()) {
+                return false;
+            }
+            boolean contained = actualValue.valueStream().anyMatch(expectedValue::equals);
+            return negated ? !contained : contained;
+        }
+    }
+
     private record RegexNode(String path, Pattern pattern, boolean negated) implements Node {
         @Override
         public boolean evaluate(JsonNode payload) {
@@ -196,6 +209,12 @@ public final class RouteFilterExpression {
             }
             if (consume("in")) {
                 return new InNode(path, readJsonArrayValues(), false);
+            }
+            if (consume("not contains")) {
+                return new ContainsNode(path, readValue(), true);
+            }
+            if (consume("contains")) {
+                return new ContainsNode(path, readValue(), false);
             }
             if (consume("=~")) {
                 return new RegexNode(path, readPattern(), false);

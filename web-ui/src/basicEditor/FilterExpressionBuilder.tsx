@@ -863,6 +863,9 @@ function valuePlaceholder(op: CompareOperator): string {
     case "in":
     case "not in":
       return "MAJOR, CRITICAL";
+    case "contains":
+    case "not contains":
+      return "urgent";
     case "=~":
     case "!~":
       return "^prefix.*";
