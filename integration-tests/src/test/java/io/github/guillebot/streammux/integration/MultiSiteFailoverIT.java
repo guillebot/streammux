@@ -32,7 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -74,6 +74,10 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         OrchestratorCoordinator coordinatorA = coordinator("site-a", "instance-a", runnerA, kafkaTemplate, topics);
         OrchestratorCoordinator coordinatorB = coordinator("site-b", "instance-b", runnerB, kafkaTemplate, topics);
 
+        ConsumerRecord<String, byte[]> leaseWarmup = new ConsumerRecord<>(topics.jobLeases(), 0, 0L, "warmup", (byte[]) null);
+        coordinatorA.onJobLease(leaseWarmup, leaseConsumer);
+        coordinatorB.onJobLease(leaseWarmup, leaseConsumer);
+
         JobDefinition definition = jobDefinition("job-1");
         kafkaTemplate.send(topics.jobDefinitions(), definition.jobId(), definition).get();
 
@@ -82,8 +86,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
 
         ConsumerRecord<String, byte[]> firstLease = pollSingleRecord(leaseConsumer);
         JobLease claimed = LEASE_MAPPER.readValue(firstLease.value(), JobLease.class);
-        coordinatorA.onJobLease(firstLease);
-        coordinatorB.onJobLease(firstLease);
+        coordinatorA.onJobLease(firstLease, leaseConsumer);
+        coordinatorB.onJobLease(firstLease, leaseConsumer);
         coordinatorB.onJobDefinition(definitionRecord);
 
         verify(runnerA, timeout(10_000)).start(eq(definition), anyLong());
@@ -97,8 +101,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
 
         ConsumerRecord<String, byte[]> secondLease = pollUntilLeaseOwner(leaseConsumer, "site-b");
         JobLease failedOver = LEASE_MAPPER.readValue(secondLease.value(), JobLease.class);
-        coordinatorA.onJobLease(secondLease);
-        coordinatorB.onJobLease(secondLease);
+        coordinatorA.onJobLease(secondLease, leaseConsumer);
+        coordinatorB.onJobLease(secondLease, leaseConsumer);
 
         verify(runnerB).start(definition, failedOver.leaseEpoch());
         verify(runnerA).stop("job-1");
@@ -138,7 +142,7 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             new SiteIdentityProperties(siteId, instanceId),
             new JobRunnerRegistry(List.of(runner)),
             eventPublisher,
-            new OrchestratorProperties(5000, 0),
+            new OrchestratorProperties(5000, 0, 0, 0),
             orchestratorMetrics
         );
         return new OrchestratorCoordinator(
@@ -146,7 +150,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
             orchestratorService,
             leaseManager,
             publisher,
-            orchestratorMetrics
+            orchestratorMetrics,
+            topics
         );
     }
 
@@ -154,8 +159,8 @@ class MultiSiteFailoverIT extends KafkaIntegrationSupport {
         DefaultKafkaProducerFactory<String, Object> producerFactory = new DefaultKafkaProducerFactory<>(Map.of(
             org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers(),
             org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.StringSerializer.class,
-            org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class,
-            JsonSerializer.ADD_TYPE_INFO_HEADERS, false
+            org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class,
+            JacksonJsonSerializer.ADD_TYPE_INFO_HEADERS, false
         ));
         return new KafkaTemplate<>(producerFactory);
     }

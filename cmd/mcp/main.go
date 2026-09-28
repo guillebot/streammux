@@ -21,19 +21,20 @@ const serverVersion = "0.1.0"
 
 const serverInstructions = `Streammux is a Kafka-backed control plane for multi-site stream-processing jobs. ` +
 	`Operators define desired state via HTTP; Apache Kafka carries job definitions, leases, status, events, and commands. ` +
-	`Site orchestrators reconcile leases and run job runners (ROUTE_APP, RANDOM_SAMPLER, ALARMS_TO_ZTR).
+	`Site orchestrators reconcile leases and run job runners (ROUTE_APP, RANDOM_SAMPLER, ALARMS_TO_ZTR, JSON_ENRICHER).
 
 This MCP server exposes embedded documentation and proxies the job-management-api and job-catalog-api. ` +
 	`Authentication uses Bearer stm_ tokens (create with stmctl token create). Every caller is treated as admin.
 
 Start here:
 1. list_docs then get_doc(docs/overview.md) and get_doc(docs/job-types.md)
-2. get_job_schema for the JSON Schema used by validation; get_schema(JobDefinition) for OpenAPI components
-3. validate_job before create_job/update_job; list_jobs / get_job for live definitions; get_job_status for runtime state (includes lagMetrics)
-4. list_activity for the global audit feed; list_catalog_entries for templates; push_catalog_entry deploys a template
+2. For JSON_ENRICHER: get_doc(docs/enricher-guide.md), get_enricher_template, normalize_key_preview (synthetic strings only), build_enricher_job, then validate_job
+3. get_job_schema for the JSON Schema used by validation; get_schema(JobDefinition) for OpenAPI components
+4. validate_job before create_job/update_job; list_jobs / get_job for live definitions; get_job_status for runtime state (includes lagMetrics)
+5. list_activity for the global audit feed; list_catalog_entries for templates; push_catalog_entry deploys a template
 
 Tool tiers (Bearer stm_ token scopes):
-- docs: list_docs, get_doc, search_docs, get_schema, get_job_schema, get_openapi
+- docs: list_docs, get_doc, search_docs, get_schema, get_job_schema, get_openapi, get_enricher_template, build_enricher_job, normalize_key_preview
 - read: list_jobs, get_job, get_job_status, get_job_lease, get_job_events, list_activity, validate_job, get_health, get_settings, list_kafka_topics, catalog reads (incl. get_catalog_health, get_catalog_settings)
 - write: create_job, update_job, rename_job, delete_job, pause_job, resume_job, restart_job, catalog mutations (apply=true)
 - admin: session, token_create, token_list, token_revoke (apply=true for create/revoke)

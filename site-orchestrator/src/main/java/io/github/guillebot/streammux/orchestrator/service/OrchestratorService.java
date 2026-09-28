@@ -5,6 +5,7 @@ import io.github.guillebot.streammux.contracts.model.EventType;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
+import io.github.guillebot.streammux.contracts.model.LeasePolicy;
 import io.github.guillebot.streammux.contracts.model.RuntimeState;
 import io.github.guillebot.streammux.contracts.spi.JobRunner;
 import io.github.guillebot.streammux.orchestrator.config.OrchestratorProperties;
@@ -15,12 +16,15 @@ import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorM
 import io.github.guillebot.streammux.orchestrator.runner.JobRunnerRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 @Service
 public class OrchestratorService {
@@ -39,7 +43,9 @@ public class OrchestratorService {
     private final Map<String, Instant> lastLeaseLossAt = new ConcurrentHashMap<>();
     private final Map<String, Instant> failedSince = new ConcurrentHashMap<>();
     private final Map<String, Instant> lastRestartAttempts = new ConcurrentHashMap<>();
+    private final Set<String> runnerStartsInFlight = ConcurrentHashMap.newKeySet();
     private final Instant startedAt = Instant.now();
+    private final Executor runnerLifecycleExecutor;
 
     public OrchestratorService(
         LeaseManager leaseManager,
@@ -49,12 +55,34 @@ public class OrchestratorService {
         OrchestratorProperties orchestratorProperties,
         StreammuxOrchestratorMetrics orchestratorMetrics
     ) {
+        this(
+            leaseManager,
+            siteIdentity,
+            jobRunnerRegistry,
+            eventPublisher,
+            orchestratorProperties,
+            orchestratorMetrics,
+            Runnable::run
+        );
+    }
+
+    @Autowired
+    public OrchestratorService(
+        LeaseManager leaseManager,
+        SiteIdentityProperties siteIdentity,
+        JobRunnerRegistry jobRunnerRegistry,
+        OrchestratorEventPublisher eventPublisher,
+        OrchestratorProperties orchestratorProperties,
+        StreammuxOrchestratorMetrics orchestratorMetrics,
+        @Qualifier("runnerLifecycleExecutor") Executor runnerLifecycleExecutor
+    ) {
         this.leaseManager = leaseManager;
         this.siteIdentity = siteIdentity;
         this.jobRunnerRegistry = jobRunnerRegistry;
         this.eventPublisher = eventPublisher;
         this.orchestratorProperties = orchestratorProperties;
         this.orchestratorMetrics = orchestratorMetrics;
+        this.runnerLifecycleExecutor = runnerLifecycleExecutor;
     }
 
     public Set<String> activeJobIds() {
@@ -79,13 +107,75 @@ public class OrchestratorService {
     public JobLease reconcile(JobDefinition definition, JobLease currentLease) {
         stopIfLeaseLost(definition, currentLease);
         Instant now = Instant.now();
-        LeaseDecision decision = leaseManager.decide(definition, currentLease, now);
+        JobDefinition effective = withLeaseFloors(definition);
+        if (isStaleLeaseSnapshot(definition.jobId(), currentLease)) {
+            LOGGER.info(
+                "Ignoring stale lease snapshot for {} at epoch {} (max observed {})",
+                definition.jobId(),
+                currentLease.leaseEpoch(),
+                maxObservedEpochs.getOrDefault(definition.jobId(), 0L)
+            );
+            return currentLease;
+        }
+        LeaseDecision decision = leaseManager.decide(effective, currentLease, now);
         return switch (decision) {
-            case CLAIM -> claimBackoffElapsed(definition, now) ? claim(definition, currentLease, now) : currentLease;
-            case RENEW -> renew(definition, currentLease, now);
+            case CLAIM -> claimIfLeaseIsFree(effective, currentLease, now);
+            case RENEW -> renewIfOwned(effective, currentLease, now);
             case RELEASE -> release(definition);
             case KEEP_RUNNING, IGNORE -> currentLease;
         };
+    }
+
+    /**
+     * Renews a lease this instance already owns when its heartbeat is due, and does nothing else.
+     * Safe to call before lease log catch-up completes: it never claims, releases, or touches
+     * runners, and a same-epoch renew of an unexpired owned lease cannot take a lease from a peer.
+     *
+     * @return the renewed lease, or {@code currentLease} unchanged when no heartbeat is due
+     */
+    public JobLease renewOwnedUnexpiredLease(JobDefinition definition, JobLease currentLease) {
+        Instant now = Instant.now();
+        if (definition.desiredState() != DesiredJobState.ACTIVE
+            || currentLease == null
+            || !leaseManager.ownsLease(currentLease)
+            || currentLease.isExpired(now)) {
+            return currentLease;
+        }
+        JobDefinition effective = withLeaseFloors(definition);
+        if (leaseManager.decide(effective, currentLease, now) != LeaseDecision.RENEW) {
+            return currentLease;
+        }
+        return renew(effective, currentLease, now);
+    }
+
+    /**
+     * CLAIM only an absent lease, an expired lease, or one this instance already owns
+     * (owned leases are normally renewed instead). Never take a live lease whose owner
+     * is a different site or instance.
+     */
+    private JobLease claimIfLeaseIsFree(JobDefinition definition, JobLease currentLease, Instant now) {
+        if (currentLease != null && !leaseManager.ownsLease(currentLease) && !currentLease.isExpired(now)) {
+            LOGGER.info(
+                "Not claiming live lease for {} held by {}/{} until it expires",
+                definition.jobId(),
+                currentLease.leaseOwnerSite(),
+                currentLease.leaseOwnerInstance()
+            );
+            return currentLease;
+        }
+        return claimBackoffElapsed(definition, now) ? claim(definition, currentLease, now) : currentLease;
+    }
+
+    /** Heartbeat/renew only when this instance already owns the lease. */
+    private JobLease renewIfOwned(JobDefinition definition, JobLease currentLease, Instant now) {
+        if (!leaseManager.ownsLease(currentLease)) {
+            LOGGER.info(
+                "Not renewing lease for {} held by another instance",
+                definition.jobId()
+            );
+            return currentLease;
+        }
+        return renew(definition, currentLease, now);
     }
 
     public JobRuntimeStatus status(String jobId, JobDefinition definition) {
@@ -98,8 +188,8 @@ public class OrchestratorService {
         String jobId = definition.jobId();
         Long activeEpoch = activeLeaseEpochs.get(jobId);
         if (activeEpoch != null && activeEpoch == lease.leaseEpoch()) return;
-        if (pendingRunnerEpochs.containsKey(jobId)) return;
-        startRunner(definition, lease.leaseEpoch(), "Runner recovered after restart", Map.of("recovery", true, "leaseEpoch", lease.leaseEpoch()));
+        if (pendingRunnerEpochs.containsKey(jobId) || runnerStartsInFlight.contains(jobId)) return;
+        submitRunnerStart(definition, lease.leaseEpoch(), "Runner recovered after restart", Map.of("recovery", true, "leaseEpoch", lease.leaseEpoch()));
     }
 
     /**
@@ -125,7 +215,7 @@ public class OrchestratorService {
         }
 
         pendingRunnerEpochs.remove(jobId);
-        startRunner(definition, lease.leaseEpoch(), "Runner started", Map.of("leaseEpoch", lease.leaseEpoch()));
+        submitRunnerStart(definition, lease.leaseEpoch(), "Runner started", Map.of("leaseEpoch", lease.leaseEpoch()));
     }
 
     /**
@@ -170,7 +260,7 @@ public class OrchestratorService {
             return;
         }
 
-        restartRunner(definition, lease, now);
+        submitRunnerRestart(definition, lease, now);
     }
 
     private static boolean needsRestart(RuntimeState state) {
@@ -195,9 +285,26 @@ public class OrchestratorService {
         return !now.isBefore(lastAttempt.plusMillis(backoffMillis));
     }
 
+    private boolean isStaleLeaseSnapshot(String jobId, JobLease currentLease) {
+        if (currentLease == null) {
+            return false;
+        }
+        long maxObserved = maxObservedEpochs.getOrDefault(jobId, 0L);
+        return currentLease.leaseEpoch() < maxObserved;
+    }
+
     private JobLease claim(JobDefinition definition, JobLease currentLease, Instant now) {
         long maxObserved = maxObservedEpochs.getOrDefault(definition.jobId(), 0L);
         JobLease newLease = leaseManager.claim(definition, currentLease, maxObserved, now);
+        if (newLease.leaseEpoch() < maxObserved) {
+            LOGGER.warn(
+                "Refusing regressive claim for {} at epoch {} (max observed {})",
+                definition.jobId(),
+                newLease.leaseEpoch(),
+                maxObserved
+            );
+            return currentLease;
+        }
         lastClaimAttempts.put(definition.jobId(), now);
         pendingRunnerEpochs.put(definition.jobId(), newLease.leaseEpoch());
         observeLease(newLease);
@@ -209,6 +316,38 @@ public class OrchestratorService {
         );
         LOGGER.info("Published claim for job {} at epoch {}", definition.jobId(), newLease.leaseEpoch());
         return newLease;
+    }
+
+    private void submitRunnerStart(JobDefinition definition, long leaseEpoch, String message, Map<String, Object> attributes) {
+        String jobId = definition.jobId();
+        if (!runnerStartsInFlight.add(jobId)) {
+            LOGGER.info("Skipping duplicate runner start for {} at epoch {}", jobId, leaseEpoch);
+            return;
+        }
+        runnerLifecycleExecutor.execute(() -> {
+            try {
+                startRunner(definition, leaseEpoch, message, attributes);
+            } catch (RuntimeException ex) {
+                LOGGER.debug("Runner start task for {} at epoch {} completed with failure", jobId, leaseEpoch);
+            } finally {
+                runnerStartsInFlight.remove(jobId);
+            }
+        });
+    }
+
+    private void submitRunnerRestart(JobDefinition definition, JobLease lease, Instant now) {
+        String jobId = definition.jobId();
+        if (!runnerStartsInFlight.add(jobId)) {
+            LOGGER.info("Skipping duplicate runner restart for {} at epoch {}", jobId, lease.leaseEpoch());
+            return;
+        }
+        runnerLifecycleExecutor.execute(() -> {
+            try {
+                restartRunner(definition, lease, now);
+            } finally {
+                runnerStartsInFlight.remove(jobId);
+            }
+        });
     }
 
     private void startRunner(JobDefinition definition, long leaseEpoch, String message, Map<String, Object> attributes) {
@@ -288,29 +427,65 @@ public class OrchestratorService {
             return;
         }
 
-        boolean stillOwnsLease = currentLease != null
-            && leaseManager.ownsLease(currentLease)
-            && currentLease.leaseEpoch() == activeLeaseEpoch;
-
-        if (!stillOwnsLease) {
-            JobRunner runner = jobRunnerRegistry.resolve(definition);
-            runner.stop(definition.jobId());
-            activeLeaseEpochs.remove(definition.jobId());
-            pendingRunnerEpochs.remove(definition.jobId());
-            lastRestartAttempts.remove(definition.jobId());
-            failedSince.remove(definition.jobId());
-            lastLeaseLossAt.put(definition.jobId(), Instant.now());
-            String owner = currentLease == null
-                ? "unknown"
-                : currentLease.leaseOwnerSite() + "/" + currentLease.leaseOwnerInstance();
-            eventPublisher.publishForDefinition(
-                definition,
-                EventType.RELEASED,
-                "Stopped after losing lease to " + owner,
-                Map.of("leaseEpoch", activeLeaseEpoch, "newOwner", owner)
-            );
-            LOGGER.info("Stopped job {} after losing lease ownership", definition.jobId());
+        if (currentLease != null && leaseManager.ownsLease(currentLease)) {
+            if (currentLease.leaseEpoch() < activeLeaseEpoch) {
+                LOGGER.info(
+                    "Ignoring stale own-lease replay for {} epoch {} while active epoch is {}",
+                    definition.jobId(),
+                    currentLease.leaseEpoch(),
+                    activeLeaseEpoch
+                );
+            }
+            return;
         }
+
+        JobRunner runner = jobRunnerRegistry.resolve(definition);
+        runner.stop(definition.jobId());
+        activeLeaseEpochs.remove(definition.jobId());
+        pendingRunnerEpochs.remove(definition.jobId());
+        lastRestartAttempts.remove(definition.jobId());
+        failedSince.remove(definition.jobId());
+        lastLeaseLossAt.put(definition.jobId(), Instant.now());
+        String owner = currentLease == null
+            ? "unknown"
+            : currentLease.leaseOwnerSite() + "/" + currentLease.leaseOwnerInstance();
+        eventPublisher.publishForDefinition(
+            definition,
+            EventType.RELEASED,
+            "Stopped after losing lease to " + owner,
+            Map.of("leaseEpoch", activeLeaseEpoch, "newOwner", owner)
+        );
+        LOGGER.info("Stopped job {} after losing lease ownership", definition.jobId());
+    }
+
+    private JobDefinition withLeaseFloors(JobDefinition definition) {
+        LeasePolicy policy = definition.leasePolicy();
+        long heartbeat = Math.max(policy.heartbeatIntervalSeconds(), orchestratorProperties.heartbeatIntervalFloorSeconds());
+        long duration = Math.max(policy.leaseDurationSeconds(), orchestratorProperties.leaseDurationFloorSeconds());
+        if (duration < heartbeat * 2) {
+            duration = heartbeat * 2;
+        }
+        if (heartbeat == policy.heartbeatIntervalSeconds() && duration == policy.leaseDurationSeconds()) {
+            return definition;
+        }
+        return new JobDefinition(
+            definition.jobId(),
+            definition.jobVersion(),
+            definition.jobType(),
+            definition.desiredState(),
+            definition.priority(),
+            definition.siteAffinity(),
+            new LeasePolicy(heartbeat, duration, policy.claimBackoffMillis(), policy.allowFailover()),
+            definition.parallelism(),
+            definition.routeAppConfig(),
+            definition.randomSamplerConfig(),
+            definition.alarmsToZtrConfig(),
+            definition.jsonEnricherConfig(),
+            definition.labels(),
+            definition.tags(),
+            definition.updatedAt(),
+            definition.updatedBy()
+        );
     }
 
     private JobLease release(JobDefinition definition) {

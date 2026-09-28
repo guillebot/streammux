@@ -6,22 +6,33 @@ import io.github.guillebot.streammux.contracts.model.HealthState;
 import io.github.guillebot.streammux.contracts.model.JobDefinition;
 import io.github.guillebot.streammux.contracts.model.JobLease;
 import io.github.guillebot.streammux.contracts.model.JobRuntimeStatus;
+import io.github.guillebot.streammux.orchestrator.config.KafkaTopicProperties;
 import io.github.guillebot.streammux.orchestrator.lease.LeaseManager;
 import io.github.guillebot.streammux.orchestrator.metrics.StreammuxOrchestratorMetrics;
+import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.event.ListenerContainerIdleEvent;
+import org.springframework.kafka.listener.BatchListenerFailedException;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.time.Instant;
+import java.util.stream.Collectors;
 
 @Component
 public class OrchestratorCoordinator implements ConsumerSeekAware {
@@ -33,8 +44,10 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
     private final LeaseManager leaseManager;
     private final KafkaOrchestratorPublisher publisher;
     private final StreammuxOrchestratorMetrics orchestratorMetrics;
+    private final KafkaTopicProperties topics;
     private final Set<TopicPartition> bootstrappedPartitions = ConcurrentHashMap.newKeySet();
     private final Map<String, Instant> lastUnhealthyWarnAt = new ConcurrentHashMap<>();
+    private final AtomicBoolean leaseLogReady = new AtomicBoolean(false);
 
     public OrchestratorCoordinator(
         OrchestratorStateStore stateStore,
@@ -43,18 +56,48 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         KafkaOrchestratorPublisher publisher,
         StreammuxOrchestratorMetrics orchestratorMetrics
     ) {
+        this(stateStore, orchestratorService, leaseManager, publisher, orchestratorMetrics, KafkaTopicProperties.defaults());
+    }
+
+    @Autowired
+    public OrchestratorCoordinator(
+        OrchestratorStateStore stateStore,
+        OrchestratorService orchestratorService,
+        LeaseManager leaseManager,
+        KafkaOrchestratorPublisher publisher,
+        StreammuxOrchestratorMetrics orchestratorMetrics,
+        KafkaTopicProperties topics
+    ) {
         this.stateStore = stateStore;
         this.orchestratorService = orchestratorService;
         this.leaseManager = leaseManager;
         this.publisher = publisher;
         this.orchestratorMetrics = orchestratorMetrics;
+        this.topics = topics;
     }
 
     @Override
     public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
-        for (TopicPartition partition : assignments.keySet()) {
-            if (bootstrappedPartitions.add(partition)) {
-                LOGGER.info("Seeking to beginning of compacted topic {} after orchestrator startup", partition.topic());
+        for (Map.Entry<TopicPartition, Long> entry : assignments.entrySet()) {
+            TopicPartition partition = entry.getKey();
+            Long offset = entry.getValue();
+            boolean firstAssignmentThisProcess = bootstrappedPartitions.add(partition);
+            if (!firstAssignmentThisProcess) {
+                LOGGER.info("Resuming {}-{} at offset {} after rebalance (committed offsets retained)",
+                    partition.topic(), partition.partition(), offset);
+                continue;
+            }
+            if (offset == null || offset < 0) {
+                LOGGER.info("No committed offset for {}-{}; seeking to beginning",
+                    partition.topic(), partition.partition());
+                callback.seekToBeginning(partition.topic(), partition.partition());
+            } else {
+                LOGGER.info(
+                    "Seeking compacted {}-{} to beginning on first assignment to rebuild in-memory state (committed offset was {})",
+                    partition.topic(),
+                    partition.partition(),
+                    offset
+                );
                 callback.seekToBeginning(partition.topic(), partition.partition());
             }
         }
@@ -73,35 +116,160 @@ public class OrchestratorCoordinator implements ConsumerSeekAware {
         JobDefinition definition = read(record.value(), JobDefinition.class);
         if (definition.desiredState() == DesiredJobState.DELETED) {
             stateStore.upsertDefinition(definition);
-            reconcile(definition.jobId(), false);
+            if (leaseLogReady.get()) {
+                reconcile(definition.jobId(), false);
+            }
             stateStore.removeDefinition(definition.jobId());
             stateStore.removeLease(definition.jobId());
             return;
         }
         stateStore.upsertDefinition(definition);
-        reconcile(definition.jobId(), false);
+        if (leaseLogReady.get()) {
+            reconcile(definition.jobId(), false);
+        }
     }
 
-    @KafkaListener(topics = "${streammux.topics.job-leases}")
-    public void onJobLease(ConsumerRecord<String, byte[]> record) {
+    /**
+     * Consumes the compacted lease log one poll batch at a time.
+     *
+     * <p>The whole batch is ingested before catch-up is evaluated, so {@code consumer.position()}
+     * (which already sits at the end of the batch) is only compared against the high watermark
+     * once every record it accounts for is in the state store. A record listener could not tell
+     * "more records of this batch still pending" from "offsets compacted away", which is what made
+     * the previous per-record high-watermark gate spin without ever completing.
+     */
+    @KafkaListener(topics = "${streammux.topics.job-leases}", batch = "true")
+    public void onJobLeases(List<ConsumerRecord<String, byte[]>> records, Consumer<?, ?> consumer) {
+        Set<String> jobIds = new LinkedHashSet<>();
+        for (ConsumerRecord<String, byte[]> record : records) {
+            try {
+                ingestLeaseRecord(record);
+            } catch (RuntimeException ex) {
+                throw new BatchListenerFailedException("Failed to ingest lease record", ex, record);
+            }
+            if (record.key() != null) {
+                jobIds.add(record.key());
+            }
+        }
+        if (!leaseLogReady.get()) {
+            heartbeatOwnedLeases(jobIds);
+            tryCompleteLeaseReplay(consumer);
+            return;
+        }
+        for (String jobId : jobIds) {
+            reconcile(jobId, true);
+        }
+    }
+
+    /** Single-record entry point for tests and in-process callers; delivers a one-record batch. */
+    public void onJobLease(ConsumerRecord<String, byte[]> record, Consumer<?, ?> consumer) {
+        onJobLeases(List.of(record), consumer);
+    }
+
+    @EventListener
+    public void onListenerIdle(ListenerContainerIdleEvent event) {
+        if (leaseLogReady.get() || event.getConsumer() == null) {
+            return;
+        }
+        tryCompleteLeaseReplay(event.getConsumer());
+    }
+
+    @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
+    public void reconcileAll() {
+        if (!leaseLogReady.get()) {
+            LOGGER.debug("Lease log catch-up in progress; heartbeating owned leases only");
+            heartbeatOwnedLeases(stateStore.listDefinitions().stream()
+                .map(JobDefinition::jobId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+            return;
+        }
+        orchestratorMetrics.recordReconcile();
+        for (JobDefinition definition : stateStore.listDefinitions()) {
+            reconcile(definition.jobId(), false);
+            JobLease lease = stateStore.getLease(definition.jobId()).orElse(null);
+            orchestratorService.recoverOwnedRunnerIfMissing(definition, lease);
+        }
+    }
+
+    /**
+     * Keeps leases this instance already holds alive while the compacted log is still replaying.
+     * Only a same-epoch renew of an unexpired, owned lease is published: it can never take a lease
+     * from a peer, and a higher own epoch later in the log supersedes it on ingest. No CLAIM, no
+     * runner start, no RELEASE happens here; those wait for catch-up.
+     */
+    private void heartbeatOwnedLeases(Set<String> jobIds) {
+        for (String jobId : jobIds) {
+            JobDefinition definition = stateStore.getDefinition(jobId).orElse(null);
+            JobLease currentLease = stateStore.getLease(jobId).orElse(null);
+            if (definition == null || currentLease == null) {
+                continue;
+            }
+            JobLease renewed = orchestratorService.renewOwnedUnexpiredLease(definition, currentLease);
+            if (renewed == null || Objects.equals(renewed, currentLease)) {
+                continue;
+            }
+            stateStore.upsertLease(renewed);
+            if (orchestratorService.shouldPublishLease(renewed)) {
+                LOGGER.info(
+                    "Heartbeated owned lease for {} at epoch {} during lease log catch-up",
+                    jobId,
+                    renewed.leaseEpoch()
+                );
+                publisher.publishLease(renewed);
+            }
+        }
+    }
+
+    private void ingestLeaseRecord(ConsumerRecord<String, byte[]> record) {
         String jobId = record.key();
         if (record.value() == null) {
-            if (jobId != null) {
+            if (jobId != null && leaseLogReady.get()) {
                 stateStore.removeLease(jobId);
-                reconcile(jobId, false);
             }
             return;
         }
 
         JobLease lease = read(record.value(), JobLease.class);
         orchestratorService.observeLease(lease);
-        stateStore.upsertLease(lease);
-        reconcile(lease.jobId(), true);
+        if (!stateStore.upsertLease(lease)) {
+            LOGGER.debug(
+                "Kept higher-epoch lease for {} while ingesting epoch {}",
+                lease.jobId(),
+                lease.leaseEpoch()
+            );
+        }
     }
 
-    @Scheduled(fixedDelayString = "${streammux.orchestrator.reconcile-interval-ms:5000}")
-    public void reconcileAll() {
-        orchestratorMetrics.recordReconcile();
+    /**
+     * Completes catch-up once the consumer position of every assigned lease partition has reached
+     * its high watermark. Called after a full poll batch has been ingested (or on idle), so
+     * position never runs ahead of the state store; compacted-away offsets and control records
+     * between the last delivered record and the high watermark do not block completion.
+     * One {@code endOffsets} round trip per batch, not per record.
+     */
+    private void tryCompleteLeaseReplay(Consumer<?, ?> consumer) {
+        if (leaseLogReady.get() || consumer == null) {
+            return;
+        }
+        Set<TopicPartition> leasePartitions = consumer.assignment().stream()
+            .filter(partition -> topics.jobLeases().equals(partition.topic()))
+            .collect(Collectors.toCollection(HashSet::new));
+        if (leasePartitions.isEmpty()) {
+            return;
+        }
+        Map<TopicPartition, Long> endOffsets = consumer.endOffsets(leasePartitions);
+        for (TopicPartition partition : leasePartitions) {
+            long end = endOffsets.getOrDefault(partition, 0L);
+            long position = consumer.position(partition);
+            if (position < end) {
+                LOGGER.debug("Lease log catch-up in progress for {}: position {} < end {}", partition, position, end);
+                return;
+            }
+        }
+        if (!leaseLogReady.compareAndSet(false, true)) {
+            return;
+        }
+        LOGGER.info("Compacted lease log catch-up complete; reconciling from local state without regressive claims");
         for (JobDefinition definition : stateStore.listDefinitions()) {
             reconcile(definition.jobId(), false);
             JobLease lease = stateStore.getLease(definition.jobId()).orElse(null);

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { JobDefinition } from "../types";
-import { applyJobTypeSwitch, defaultRouteAppConfig } from "./BasicJobForm";
+import {
+  applyJobTypeSwitch,
+  defaultJsonEnricherConfig,
+  defaultRouteAppConfig,
+} from "./BasicJobForm";
 import { recordToRows, rowsToRecord } from "./StringMapEditor";
 
 function makeDef(): JobDefinition {
@@ -28,6 +32,7 @@ function makeDef(): JobDefinition {
       serdeProperties: {},
     },
     randomSamplerConfig: null,
+    jsonEnricherConfig: null,
     labels: { env: "prod" },
     tags: ["alpha"],
     updatedAt: "2024-01-01T00:00:00Z",
@@ -110,6 +115,7 @@ describe("applyJobTypeSwitch", () => {
     const switched = applyJobTypeSwitch(asSampler, "ROUTE_APP");
     expect(switched.jobType).toBe("ROUTE_APP");
     expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
     expect(switched.routeAppConfig).toEqual(defaultRouteAppConfig());
   });
 
@@ -118,8 +124,19 @@ describe("applyJobTypeSwitch", () => {
     const switched = applyJobTypeSwitch(def, "RANDOM_SAMPLER");
     expect(switched.jobType).toBe("RANDOM_SAMPLER");
     expect(switched.routeAppConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
     expect(switched.randomSamplerConfig).not.toBeNull();
     expect(switched.randomSamplerConfig?.inputTopic).toBe("");
+  });
+
+  it("clears the other configs and populates the preset jsonEnricherConfig when switching to JSON_ENRICHER", () => {
+    const def = makeDef();
+    const switched = applyJobTypeSwitch(def, "JSON_ENRICHER");
+    expect(switched.jobType).toBe("JSON_ENRICHER");
+    expect(switched.routeAppConfig).toBeNull();
+    expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toEqual(defaultJsonEnricherConfig());
+    expect(switched.jsonEnricherConfig?.joinKeyCel).toContain('key.split("-")');
   });
 
   it("is non-destructive: switching to a jobType that already has config preserves it", () => {
@@ -142,5 +159,6 @@ describe("applyJobTypeSwitch", () => {
     expect(switched.jobType).toBe("ROUTE_APP");
     expect(switched.routeAppConfig).toBe(def.routeAppConfig);
     expect(switched.randomSamplerConfig).toBeNull();
+    expect(switched.jsonEnricherConfig).toBeNull();
   });
 });

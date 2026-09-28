@@ -7,9 +7,11 @@
     <dependency><groupId>io.github.guillebot</groupId><artifactId>job-runner-route-app</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.github.guillebot</groupId><artifactId>job-runner-random-sampler</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>io.github.guillebot</groupId><artifactId>job-runner-alarms-to-ztr</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.guillebot</groupId><artifactId>job-runner-json-enricher</artifactId><version>${project.version}</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>
-    <dependency><groupId>org.springframework.kafka</groupId><artifactId>spring-kafka</artifactId></dependency>
+    <!-- Spring Boot 4 ships Kafka auto-configuration (KafkaTemplate, listener factory) in the starter, not in spring-kafka. -->
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-kafka</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
     <dependency><groupId>io.micrometer</groupId><artifactId>micrometer-registry-prometheus</artifactId></dependency>
     <dependency><groupId>net.logstash.logback</groupId><artifactId>logstash-logback-encoder</artifactId></dependency>

@@ -180,5 +180,6 @@ The UI is **not** part of the Maven reactor; ship UI changes separately if you u
 | `RANDOM_SAMPLER` | [`runners/job-runner-random-sampler`](runners/job-runner-random-sampler) | Smallest Streams example — start here |
 | `ROUTE_APP` | [`runners/job-runner-route-app`](runners/job-runner-route-app) | Multi-route filters, payload normalization |
 | `ALARMS_TO_ZTR` | [`runners/job-runner-alarms-to-ztr`](runners/job-runner-alarms-to-ztr) | Mapping templates + filter rules |
+| `JSON_ENRICHER` | [`runners/job-runner-json-enricher`](runners/job-runner-json-enricher) | CEL join-key + GlobalKTable lookup |
 
 Use these as canonical patterns for topology factories, stable `application.id` per job, `KafkaStreamsRunnerSupport` (per-module copy under `runner/support/`), and `JobRuntimeStatus` construction.

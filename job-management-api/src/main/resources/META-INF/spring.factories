@@ -1,0 +1,5 @@
+# EnvironmentPostProcessors are discovered through spring.factories only; the
+# META-INF/spring/*.imports layout applies to auto-configurations, not to this key.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+io.github.guillebot.streammux.api.config.AuthProfileEnvironmentPostProcessor,\
+io.github.guillebot.streammux.api.config.JobManagementRequiredSettingsEnvironmentPostProcessor

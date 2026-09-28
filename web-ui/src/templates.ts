@@ -44,6 +44,7 @@ export function newJobTemplate(): JobDefinition {
       serdeProperties: {},
     },
     randomSamplerConfig: null,
+    jsonEnricherConfig: null,
     labels: { team: "mux" },
     tags: ["demo"],
     updatedAt: now,

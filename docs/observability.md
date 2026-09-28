@@ -132,6 +132,19 @@ Orchestrators publish `JobRuntimeStatus` to the compacted `jobstatus` topic. The
 
 The web UI job detail page and list rows surface these fields; Prometheus rollups above (`streammux_job_input_lag`, `streammux_job_output_rate`) are refreshed from the same read model on a schedule.
 
+### `JSON_ENRICHER` verification signals
+
+Use the existing per-job status, lease, lag, output-rate/count, runner start-failure, and container-log signals during rollout. In particular:
+
+- a healthy lease and running status confirm runner ownership/startup, but do not prove that the GlobalKTable has the expected business keys;
+- lookup misses are valid outputs with an empty array, so output count is not a lookup-hit count;
+- missing/blank join keys, invalid input JSON, CEL evaluation failures, and envelope serialization failures are dropped before output;
+- debug logs identify those drop reasons without logging Kafka keys or payloads. Keep production logging at its approved level and do not enable payload logging to investigate Restricted data.
+
+There are currently **no dedicated counters** for lookup hits, lookup misses, invalid input, missing join keys, CEL evaluation failures, or GlobalKTable restore progress/size. Measure hit-rate by **counting** envelope shapes on an authorized consumer (one-element array vs `[]`); **never print Restricted payloads**. See [enricher-guide.md](enricher-guide.md#4-verify-hits-with-counts-only) and [usage.md](usage.md#first-json_enricher-job-verification). This is an observability gap, not evidence that those events cannot occur.
+
+For capacity, monitor host/container disk and Kafka consumer restore traffic in addition to Streammux metrics. Each active `JSON_ENRICHER` runner stores a full copy of every lookup-topic partition, and a cold host/failover may replay the complete retained changelog.
+
 ### Custom Micrometer metrics (site-orchestrator)
 
 Registered in `StreammuxOrchestratorMetrics`.

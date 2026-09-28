@@ -16,8 +16,10 @@ The API does not call orchestrators directly over HTTP. Both services build thei
 1. Operators create or update jobs via `POST /jobs` or `PUT /jobs/{jobId}`.
 2. job-management-api validates the payload, publishes to Kafka (`job-definitions`, `job-events`, `job-commands`), and maintains an in-memory read model from the same topics.
 3. Each site-orchestrator consumes definitions and leases, runs a reconcile loop, and claims or renews leases for `ACTIVE` jobs.
-4. The orchestrator starts the matching **JobRunner** (route-app, random-sampler, alarms-to-ztr, etc.) on the lease holder.
+4. The orchestrator starts the matching **JobRunner** (route-app, random-sampler, alarms-to-ztr, JSON-enricher) on the lease holder.
 5. Runners read and write **business data topics** according to the job definition.
+
+For `JSON_ENRICHER`, the business-data path is event topic → JSON path extraction → CEL string-key normalization → exact GlobalKTable lookup → envelope output topic. The lookup table is fully replicated on the active runner, so it does not require event/table co-partitioning but does require local capacity and a full changelog restore on cold state. See [job-types.md](job-types.md#json_enricher) and [enricher-guide.md](enricher-guide.md).
 
 ## Kafka control topics
 

@@ -3,6 +3,7 @@ package io.github.guillebot.streammux.contracts.validation;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrConfig;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilter;
 import io.github.guillebot.streammux.contracts.config.AlarmsToZtrFilterRule;
+import io.github.guillebot.streammux.contracts.config.JsonEnricherConfig;
 import io.github.guillebot.streammux.contracts.config.RandomSamplerConfig;
 import io.github.guillebot.streammux.contracts.config.RouteAppConfig;
 import io.github.guillebot.streammux.contracts.model.DesiredJobState;
@@ -34,6 +35,9 @@ public final class JobDefinitionValidator {
         }
         if (jobDefinition.jobType() == JobType.ALARMS_TO_ZTR) {
             validateAlarmsToZtrConfig(jobDefinition.alarmsToZtrConfig(), topicValidationPolicy);
+        }
+        if (jobDefinition.jobType() == JobType.JSON_ENRICHER) {
+            validateJsonEnricherConfig(jobDefinition.jsonEnricherConfig(), topicValidationPolicy);
         }
         if (jobDefinition.desiredState() == DesiredJobState.DELETED && jobDefinition.jobVersion() <= 0) throw new IllegalArgumentException("deleted jobs must include a valid version");
     }
@@ -186,6 +190,47 @@ public final class JobDefinitionValidator {
             if (rule.mappingName() != null && !rule.mappingName().isBlank() && !mappingNames.contains(rule.mappingName())) {
                 throw new IllegalArgumentException(prefix + ".mappingName is not defined in mappings: " + rule.mappingName());
             }
+        }
+    }
+
+    private static void validateJsonEnricherConfig(JsonEnricherConfig config, TopicValidationPolicy topicValidationPolicy) {
+        if (config == null) {
+            throw new IllegalArgumentException("jsonEnricherConfig is required for JSON_ENRICHER jobs");
+        }
+        if (isBlank(config.inputTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.inputTopic is required");
+        }
+        if (!topicValidationPolicy.isInputTopicAllowed(config.inputTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.inputTopic is not allowed: " + config.inputTopic());
+        }
+        if (isBlank(config.outputTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.outputTopic is required");
+        }
+        if (!topicValidationPolicy.isOutputTopicAllowed(config.outputTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.outputTopic is not allowed: " + config.outputTopic());
+        }
+        if (isBlank(config.source())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.source is required");
+        }
+        if (isBlank(config.joinKeyPath())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.joinKeyPath is required");
+        }
+        if (isBlank(config.joinKeyCel())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.joinKeyCel is required");
+        }
+        try {
+            JoinKeyCel.validateSyntax(config.joinKeyCel());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("jsonEnricherConfig.joinKeyCel invalid: " + ex.getMessage(), ex);
+        }
+        if (isBlank(config.lookupTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.lookupTopic is required");
+        }
+        if (!topicValidationPolicy.isInputTopicAllowed(config.lookupTopic())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.lookupTopic is not allowed: " + config.lookupTopic());
+        }
+        if (isBlank(config.enrichmentName())) {
+            throw new IllegalArgumentException("jsonEnricherConfig.enrichmentName is required");
         }
     }
 

@@ -89,6 +89,11 @@ docker compose -f docker-compose.dev.yml up --build
 | -------- | ------- | ------- |
 | `STREAMMUX_SITE_ID` | `site-a` | Site label for the orchestrator instance |
 | `STREAMMUX_INSTANCE_ID` | `orchestrator-1` | Instance id within the site |
+| `STREAMMUX_LEASE_DURATION_FLOOR_SECONDS` | `600` | Minimum lease TTL written on claim/renew. Raises short job-defined TTLs (often 30s) so GlobalKTable restore can finish before expiry. |
+| `STREAMMUX_HEARTBEAT_INTERVAL_FLOOR_SECONDS` | `30` | Minimum heartbeat window used when deciding RENEW vs KEEP_RUNNING. |
+| `STREAMMUX_KAFKA_MAX_POLL_INTERVAL_MS` | `900000` | Kafka consumer `max.poll.interval.ms` for orchestrator listeners. Runner start runs on a dedicated executor so the poll thread must not block; this is a backstop. |
+| `STREAMMUX_RECONCILE_INTERVAL_MS` | `5000` | How often the orchestrator re-evaluates leases. Owned CLAIMED/RUNNING leases are heartbeated, not re-claimed. |
+| `STREAMMUX_RUNNER_RESTART_DELAY_MS` | `60000` | Delay before restarting a failed runner while the lease is still held (`0` disables). |
 
 ### Topic names (both services)
 
@@ -187,3 +192,52 @@ docker login registry.gitlab.com
 
 - Orchestrators must reach the **same Kafka cluster** and use the **same topic names** as the API.
 - Route-app jobs embed `streamProperties` (including `bootstrap.servers`); ensure those values are valid **inside** the runner environment (often align with `KAFKA_BOOTSTRAP_SERVERS`).
+- `JSON_ENRICHER` jobs also embed `streamProperties`; their event input, lookup table, output, consumer group, and Kafka Streams internal topics must all be reachable and authorized from the lease-owning orchestrator.
+
+## `JSON_ENRICHER` rollout
+
+### Topic and capacity gate
+
+Before enabling the first job, have the Kafka/data owners verify:
+
+- `lookupTopic` is a string-keyed JSON changelog with stable normalized keys and `cleanup.policy=compact`; tombstones represent deletion. If delete retention is combined with compaction, it must not remove still-current rows required by the table.
+- The runtime Kafka principal can read `inputTopic` and `lookupTopic`, write `outputTopic`, use consumer group `streammux-{jobId}`, and create/read/write the Kafka Streams internal topics required by that application id. The management API allowlists are an additional validation boundary, not a substitute for broker ACLs.
+- `outputTopic` has suitable partitions, retention, encryption/access controls, and classification for the combined data. The output inherits the highest classification of the input and lookup sources.
+- Every active runner has disk and network capacity for a complete local GlobalKTable copy. There is no co-partitioning requirement, but every lookup partition is restored. Estimate cold restore from retained lookup bytes and replay throughput, including failover to a host without warm state.
+- The image contains `runners/job-runner-json-enricher`; `Dockerfile.orchestrator` and the Maven reactor include it in this release.
+
+### Canary
+
+1. Build and test the release, then promote the immutable release tag to OneLab.
+2. Deploy production to one explicit kstreams host with `--limit`, as shown in [observability.md](observability.md), and request Platform review before broad production rollout.
+3. Confirm API/orchestrator health, runner discovery, no runner start failures, and expected host disk headroom.
+4. Validate the job definition through `POST /jobs/validate`. Start the first job on synthetic/non-sensitive fixtures and follow [enricher-guide.md](enricher-guide.md) and [usage.md](usage.md#first-json_enricher-job-verification).
+5. Observe GlobalKTable restore behavior, job state/lease, input lag, output rate/count, lookup hit/miss quality at the consumer, and container errors before deploying the same immutable tag to the remaining hosts.
+
+Only one host owns a job lease at a time, but after fleet rollout a future failover can restore the full table on any eligible host. Canary success on warm state does not remove the need to budget cold-restore capacity fleet-wide.
+
+### Rollback
+
+1. Stop new processing by changing the job's desired state to `PAUSED` or retiring the definition through the API. Do not rely only on the command topic; this repository has no command consumer.
+2. Redeploy the previous immutable `streammux_image_tag` through the devops MR/playbook workflow in [DEPLOY.md](DEPLOY.md#rollback-ansible), canary first.
+3. Verify the previous API/orchestrator versions are healthy and existing job types still reconcile normally.
+4. Keep or remove the new output according to its retention/governance policy; rolling back the image does not retract already-emitted enriched records.
+
+Rollback does not reverse broker ACL, topic, retention, or data-classification changes. Track those separately with the Kafka/data owners.
+
+### Operational notes (enricher rollout)
+
+Lessons from the first production `JSON_ENRICHER` pin. Do not treat tag numbers as “run this again”; they explain why later images exist.
+
+| Tag / change | What happened |
+| ------------ | ------------- |
+| `20260925-03` | Orchestrator failed to serialize/deserialize lease timestamps (**Jackson Instant** / Java time). Fixed in later images (`fix/orchestrator-jackson-time`). |
+| `20260926-01` | **Lease storm**: poll-thread starts and self-claims flapped CLAIM/STOP. Do not run a new enricher on a storming fleet. |
+| `20260926-02` | First healthy enricher pin: **single orchestrator** (`kstreams1`) until lease behavior is stable fleet-wide. |
+| MR `!51` | First-start **lease replay** can re-apply regressive CLAIMs; skip those during replay (open at time of this note). |
+
+**Registry pull:** kstreams hosts cannot pull `registry.gitlab.com`. Sideload the release image tarball (Ansible/operator process); do not assume `docker compose pull` works on the box.
+
+**Classification:** the CSG/custdata output topic is **Restricted**. Hit checks are counts-only.
+
+**MCP** runs only on kstreams1; new tools (`get_enricher_template`, `build_enricher_job`, `normalize_key_preview`) ship in the `mcp` image of the same release tag.

@@ -7,7 +7,9 @@ import {
   JOB_BUILDER_FALLBACK_OUTPUT_TOPICS,
   JOB_BUILDER_JOB_TYPES,
   buildJobDefinition,
+  defaultJobBuilderJsonEnricherOptions,
 } from "./jobBuilderOptions";
+import type { JobBuilderJsonEnricherOptions } from "./jobBuilderOptions";
 import { stashJobDefinitionForNew } from "./jobBuilderStash";
 import { newJobTemplate } from "./templates";
 import { TopicCombobox } from "./TopicCombobox";
@@ -35,6 +37,13 @@ export function JobBuilder() {
   const [outputTopic, setOutputTopic] = useState("");
   /** Percent (0–100): API `randomSamplerConfig.rate` = this value ÷ 100 (e.g. 1 → 0.01 ≈ 1 in 100). */
   const [samplePercent, setSamplePercent] = useState(25);
+  const [jsonEnricher, setJsonEnricher] = useState<JobBuilderJsonEnricherOptions>(() =>
+    defaultJobBuilderJsonEnricherOptions(),
+  );
+  const updateJsonEnricher = <K extends keyof JobBuilderJsonEnricherOptions>(
+    key: K,
+    next: JobBuilderJsonEnricherOptions[K],
+  ) => setJsonEnricher((prev) => ({ ...prev, [key]: next }));
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +79,9 @@ export function JobBuilder() {
         inputTopic,
         outputTopic,
         samplePercent,
+        jsonEnricher,
       }),
-    [jobId, jobType, bootstrapServers, inputTopic, outputTopic, samplePercent],
+    [jobId, jobType, bootstrapServers, inputTopic, outputTopic, samplePercent, jsonEnricher],
   );
 
   const approxOneIn =
@@ -84,8 +94,29 @@ export function JobBuilder() {
 
   const inputV = validateTopic(inputTopic, inputTopics, topicsLoading);
   const outputV = validateTopic(outputTopic, outputTopics, topicsLoading);
+  const isEnricher = jobType === "JSON_ENRICHER";
+  // The API allowlists the lookup (table) topic as an input topic, so it shares the input list.
+  const lookupV = isEnricher
+    ? validateTopic(jsonEnricher.lookupTopic, inputTopics, topicsLoading)
+    : { missing: false, invalid: false };
+  const enricherFieldsMissing =
+    isEnricher &&
+    (jsonEnricher.source.trim() === "" ||
+      jsonEnricher.joinKeyPath.trim() === "" ||
+      jsonEnricher.joinKeyCel.trim() === "" ||
+      jsonEnricher.enrichmentName.trim() === "");
   const canContinue =
-    !topicsLoading && !inputV.missing && !inputV.invalid && !outputV.missing && !outputV.invalid;
+    !topicsLoading &&
+    !inputV.missing &&
+    !inputV.invalid &&
+    !outputV.missing &&
+    !outputV.invalid &&
+    !lookupV.missing &&
+    !lookupV.invalid &&
+    !enricherFieldsMissing;
+  const continueHint = isEnricher
+    ? "Pick input, lookup and output topics from the list and fill in the enricher fields to continue"
+    : "Pick both topics from the list to continue";
 
   return (
     <div className="page">
@@ -195,6 +226,94 @@ export function JobBuilder() {
             </p>
           ) : null}
 
+          {isEnricher ? (
+            <>
+              <div className="form-field">
+                <span className="form-label">
+                  Lookup topic
+                  {topicsLoading ? <span className="muted"> (loading…)</span> : null}
+                  {!topicsLoading ? <span className="muted"> ({inputTopics.length})</span> : null}
+                </span>
+                <TopicCombobox
+                  id="job-builder-lookup-topic"
+                  ariaLabel="Lookup topic"
+                  value={jsonEnricher.lookupTopic}
+                  onChange={(v) => updateJsonEnricher("lookupTopic", v)}
+                  options={inputTopics}
+                  disabled={topicsLoading}
+                  placeholder="Compacted table topic (keyed by the normalized join key)…"
+                  invalid={lookupV.invalid}
+                />
+                {lookupV.invalid ? (
+                  <span className="form-error" role="alert">
+                    Select a lookup topic from the list.
+                  </span>
+                ) : null}
+              </div>
+
+              <label className="form-field">
+                <span className="form-label">Source label</span>
+                <input
+                  className="text-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={jsonEnricher.source}
+                  onChange={(e) => updateJsonEnricher("source", e.currentTarget.value)}
+                />
+              </label>
+
+              <label className="form-field">
+                <span className="form-label">Enrichment name</span>
+                <input
+                  className="text-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={jsonEnricher.enrichmentName}
+                  onChange={(e) => updateJsonEnricher("enrichmentName", e.currentTarget.value)}
+                />
+                <span className="muted" style={{ display: "block", marginTop: "0.35rem", fontSize: "0.88rem" }}>
+                  Matched lookup rows are attached to the output record under this field name.
+                </span>
+              </label>
+
+              <label className="form-field">
+                <span className="form-label">Join key path</span>
+                <input
+                  className="text-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={jsonEnricher.joinKeyPath}
+                  onChange={(e) => updateJsonEnricher("joinKeyPath", e.currentTarget.value)}
+                />
+                <span className="muted" style={{ display: "block", marginTop: "0.35rem", fontSize: "0.88rem" }}>
+                  Field on the input record whose value is normalized and looked up in the table topic.
+                </span>
+              </label>
+
+              <label className="form-field">
+                <span className="form-label">
+                  Join key CEL
+                  <span className="muted"> (variable `key` is the extracted field)</span>
+                </span>
+                <textarea
+                  className="text-input mono"
+                  rows={4}
+                  spellCheck={false}
+                  value={jsonEnricher.joinKeyCel}
+                  onChange={(e) => updateJsonEnricher("joinKeyCel", e.currentTarget.value)}
+                />
+                <span className="muted" style={{ display: "block", marginTop: "0.35rem", fontSize: "0.88rem" }}>
+                  Preset normalizes multi-format account numbers (e.g. <code className="mono">1234-5678-9</code> →{" "}
+                  <code className="mono">1234567809</code>); plain values pass through unchanged. The API validates the
+                  expression on save.
+                </span>
+              </label>
+            </>
+          ) : null}
+
           {jobType === "RANDOM_SAMPLER" ? (
             <label className="form-field">
               <span className="form-label">Sample (% of messages to forward)</span>
@@ -231,7 +350,7 @@ export function JobBuilder() {
             className="primary"
             onClick={onContinue}
             disabled={!canContinue}
-            title={canContinue ? undefined : "Pick both topics from the list to continue"}
+            title={canContinue ? undefined : continueHint}
           >
             Continue to JSON editor
           </button>
@@ -243,7 +362,9 @@ export function JobBuilder() {
         <p className="muted" style={{ marginTop: 0, fontSize: "0.9rem" }}>
           {jobType === "RANDOM_SAMPLER"
             ? "Random sampler: each record is forwarded independently with probability equal to rate (0–1). Use the percentage field above so 1% becomes rate 0.01, not 0.001."
-            : "First route output topic is set to the value above; other fields match the default template."}
+            : isEnricher
+              ? "JSON enricher: each input record's join key is normalized with the CEL expression and left-joined against the lookup topic (GlobalKTable); matches are attached under the enrichment name. The lookup topic must be on the input allowlist."
+              : "First route output topic is set to the value above; other fields match the default template."}
         </p>
         <pre className="pre-block mono">{JSON.stringify(preview, null, 2)}</pre>
       </div>

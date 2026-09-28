@@ -74,6 +74,24 @@ class LeaseManagerTest {
     }
 
     @Test
+    void renewsOwnedExpiredLeaseInsteadOfClaiming() {
+        JobLease expiredOwn = new JobLease("job-1", 1, "site-a", "instance-a", 2, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:00:30Z"), Instant.parse("2024-01-01T00:00:00Z"));
+
+        LeaseDecision decision = leaseManager.decide(jobDefinition(DesiredJobState.ACTIVE, 10, 30), expiredOwn, Instant.parse("2024-01-01T00:01:00Z"));
+
+        assertEquals(LeaseDecision.RENEW, decision);
+    }
+
+    @Test
+    void renewsOwnedClaimedLeaseInsteadOfClaiming() {
+        JobLease claimedOwn = new JobLease("job-1", 1, "site-a", "instance-a", 5, LeaseStatus.CLAIMED, Instant.parse("2024-01-01T00:00:30Z"), Instant.parse("2024-01-01T00:00:00Z"));
+
+        LeaseDecision decision = leaseManager.decide(jobDefinition(DesiredJobState.ACTIVE, 10, 30), claimedOwn, Instant.parse("2024-01-01T00:00:25Z"));
+
+        assertEquals(LeaseDecision.RENEW, decision);
+    }
+
+    @Test
     void claimCreatesClaimedLeaseWithIncrementedEpoch() {
         JobLease currentLease = new JobLease("job-1", 1, "site-b", "instance-b", 4, LeaseStatus.RUNNING, Instant.parse("2024-01-01T00:00:30Z"), Instant.parse("2024-01-01T00:00:00Z"));
         Instant now = Instant.parse("2024-01-01T00:01:00Z");

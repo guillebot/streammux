@@ -179,6 +179,7 @@ Reference implementations:
 | `RANDOM_SAMPLER` | `runners/job-runner-random-sampler` | Minimal single-route Streams topology |
 | `ROUTE_APP` | `runners/job-runner-route-app` | Multi-route filters, JSON/Protobuf normalization |
 | `ALARMS_TO_ZTR` | `runners/job-runner-alarms-to-ztr` | Mapping templates + ordered filter rules |
+| `JSON_ENRICHER` | `runners/job-runner-json-enricher` | CEL join-key + GlobalKTable lookup |
 
 ### Non–Kafka Streams runners
 

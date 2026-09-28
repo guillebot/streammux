@@ -52,6 +52,13 @@ abstract class KafkaIntegrationSupport {
 
         KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(properties);
         consumer.subscribe(List.of(topic));
+        Instant deadline = Instant.now().plusSeconds(30);
+        while (consumer.assignment().isEmpty() && Instant.now().isBefore(deadline)) {
+            consumer.poll(Duration.ofMillis(100));
+        }
+        if (consumer.assignment().isEmpty()) {
+            throw new AssertionError("Timed out waiting for Kafka assignment on " + topic);
+        }
         consumers.add(consumer);
         return consumer;
     }
@@ -63,7 +70,7 @@ abstract class KafkaIntegrationSupport {
     }
 
     protected ConsumerRecord<String, byte[]> pollSingleRecord(KafkaConsumer<String, byte[]> consumer) {
-        Instant deadline = Instant.now().plusSeconds(10);
+        Instant deadline = Instant.now().plusSeconds(30);
         while (Instant.now().isBefore(deadline)) {
             ConsumerRecords<String, byte[]> records = consumer.poll(Duration.ofMillis(250));
             if (!records.isEmpty()) {

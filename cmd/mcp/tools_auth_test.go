@@ -93,6 +93,7 @@ func TestIsWriteToolTable(t *testing.T) {
 	reads := []string{
 		"list_jobs", "get_job", "list_docs", "get_health", "session", "token_list",
 		"list_activity", "validate_job", "get_job_schema", "get_catalog_health", "get_catalog_settings",
+		"get_enricher_template", "build_enricher_job", "normalize_key_preview",
 	}
 	for _, name := range reads {
 		if isWriteTool(name) {

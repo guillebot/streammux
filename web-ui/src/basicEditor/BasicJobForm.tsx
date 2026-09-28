@@ -4,15 +4,17 @@ import type {
   DesiredJobState,
   JobDefinition,
   JobType,
+  JsonEnricherConfig,
   RandomSamplerConfig,
   RouteAppConfig,
 } from "../types";
 import { isErrorOnField, isErrorUnderField } from "./errorFieldMap";
+import { JsonEnricherConfigForm } from "./JsonEnricherConfigForm";
 import { RandomSamplerConfigForm } from "./RandomSamplerConfigForm";
 import { RouteAppConfigForm } from "./RouteAppConfigForm";
 import { StringMapEditor } from "./StringMapEditor";
 
-const JOB_TYPE_OPTIONS: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER"];
+const JOB_TYPE_OPTIONS: JobType[] = ["ROUTE_APP", "RANDOM_SAMPLER", "JSON_ENRICHER"];
 const DESIRED_STATE_OPTIONS: DesiredJobState[] = ["ACTIVE", "PAUSED"];
 
 export interface BasicJobFormProps {
@@ -85,7 +87,9 @@ export function BasicJobForm({
   }
 
   const unsupportedJobType =
-    def.jobType !== "ROUTE_APP" && def.jobType !== "RANDOM_SAMPLER";
+    def.jobType !== "ROUTE_APP" &&
+    def.jobType !== "RANDOM_SAMPLER" &&
+    def.jobType !== "JSON_ENRICHER";
 
   const update = <K extends keyof JobDefinition>(key: K, value: JobDefinition[K]) => {
     onChange({ ...def, [key]: value });
@@ -248,6 +252,14 @@ export function BasicJobForm({
         />
       ) : null}
 
+      {def.jobType === "JSON_ENRICHER" ? (
+        <JsonEnricherConfigForm
+          value={def.jsonEnricherConfig ?? defaultJsonEnricherConfig()}
+          onChange={(next) => update("jsonEnricherConfig", next)}
+          errorPath={errorPath}
+        />
+      ) : null}
+
       {unsupportedJobType ? (
         <p className="muted" style={{ marginTop: "0.5rem" }}>
           Job type <code className="mono">{def.jobType}</code> is not supported in the
@@ -281,10 +293,23 @@ export function defaultRandomSamplerConfig(): RandomSamplerConfig {
   };
 }
 
+export function defaultJsonEnricherConfig(): JsonEnricherConfig {
+  return {
+    inputTopic: "",
+    outputTopic: "",
+    source: "csg",
+    joinKeyPath: "AccountNum",
+    joinKeyCel:
+      'size(key.split("-")) == 3 ? key.split("-")[0] + key.split("-")[1] + (size(key.split("-")[2]) >= 2 ? key.split("-")[2] : "0" + key.split("-")[2]) : key',
+    lookupTopic: "",
+    enrichmentName: "custdata",
+    streamProperties: {},
+  };
+}
+
 /**
- * Rewrite the def so exactly one of `routeAppConfig` / `randomSamplerConfig` is
- * populated to match the new jobType. Preserves the existing config for the target
- * type if one is already present so switching back and forth is non-destructive.
+ * Rewrite the def so exactly one of the type-specific configs is populated to match
+ * the new jobType. Preserves the existing config for the target type if present.
  */
 export function applyJobTypeSwitch(def: JobDefinition, nextType: JobType): JobDefinition {
   if (nextType === "ROUTE_APP") {
@@ -293,6 +318,7 @@ export function applyJobTypeSwitch(def: JobDefinition, nextType: JobType): JobDe
       jobType: "ROUTE_APP",
       routeAppConfig: def.routeAppConfig ?? defaultRouteAppConfig(),
       randomSamplerConfig: null,
+      jsonEnricherConfig: null,
     };
   }
   if (nextType === "RANDOM_SAMPLER") {
@@ -301,6 +327,16 @@ export function applyJobTypeSwitch(def: JobDefinition, nextType: JobType): JobDe
       jobType: "RANDOM_SAMPLER",
       randomSamplerConfig: def.randomSamplerConfig ?? defaultRandomSamplerConfig(),
       routeAppConfig: null,
+      jsonEnricherConfig: null,
+    };
+  }
+  if (nextType === "JSON_ENRICHER") {
+    return {
+      ...def,
+      jobType: "JSON_ENRICHER",
+      jsonEnricherConfig: def.jsonEnricherConfig ?? defaultJsonEnricherConfig(),
+      routeAppConfig: null,
+      randomSamplerConfig: null,
     };
   }
   return { ...def, jobType: nextType };
