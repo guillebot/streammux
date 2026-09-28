@@ -23,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.event.ListenerContainerIdleEvent;
 import org.springframework.kafka.listener.ConsumerSeekAware;
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -208,11 +210,111 @@ class OrchestratorCoordinatorTest {
         assertEquals("instance-a", captor.getValue().leaseOwnerInstance());
     }
 
+    @Test
+    void peerDoesNotClaimWhenLiveRenewIsLaterInTheSamePollBatch() {
+        when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        when(jobRunner.status(any())).thenReturn(null);
+        stateStore.upsertDefinition(jobDefinition());
+
+        Instant now = Instant.now();
+        JobLease expiredSnapshot = new JobLease(
+            "job-1",
+            1,
+            "kstreams1",
+            "orchestrator-1",
+            40,
+            LeaseStatus.RUNNING,
+            now.minusSeconds(5),
+            now.minusSeconds(30)
+        );
+        JobLease liveRenew = new JobLease(
+            "job-1",
+            1,
+            "kstreams1",
+            "orchestrator-1",
+            40,
+            LeaseStatus.RUNNING,
+            now.plusSeconds(600),
+            now
+        );
+
+        // position() is already at the batch end before later records are ingested.
+        AtomicLong position = new AtomicLong(2);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 2L);
+
+        coordinator.onJobLease(leaseRecord(expiredSnapshot, 0), consumer);
+        verify(publisher, never()).publishLease(any());
+
+        coordinator.onJobLease(leaseRecord(liveRenew, 1), consumer);
+
+        verify(publisher, never()).publishLease(any());
+        JobLease stored = stateStore.getLease("job-1").orElseThrow();
+        assertEquals("kstreams1", stored.leaseOwnerSite());
+        assertEquals("orchestrator-1", stored.leaseOwnerInstance());
+        assertEquals(40, stored.leaseEpoch());
+        assertTrue(stored.leaseExpiresAt().isAfter(now));
+    }
+
+    @Test
+    void sameInstanceRenewsExpiredLeaseWithoutRaisingEpoch() {
+        when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        when(jobRunner.status(any())).thenReturn(null);
+        stateStore.upsertDefinition(jobDefinition());
+
+        Instant now = Instant.now();
+        JobLease owned = new JobLease(
+            "job-1",
+            1,
+            "site-a",
+            "instance-a",
+            40,
+            LeaseStatus.RUNNING,
+            now.minusSeconds(5),
+            now.minusSeconds(30)
+        );
+
+        AtomicLong position = new AtomicLong(1);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 1L);
+        coordinator.onJobLease(leaseRecord(owned, 0), consumer);
+
+        ArgumentCaptor<JobLease> captor = ArgumentCaptor.forClass(JobLease.class);
+        verify(publisher).publishLease(captor.capture());
+        assertEquals(40, captor.getValue().leaseEpoch());
+        assertEquals("site-a", captor.getValue().leaseOwnerSite());
+        assertEquals("instance-a", captor.getValue().leaseOwnerInstance());
+        assertEquals(LeaseStatus.RUNNING, captor.getValue().status());
+    }
+
+    @Test
+    void idleAtEndBeforeReplayDoesNotClaim() {
+        lenient().when(jobRunnerRegistry.resolve(any())).thenReturn(jobRunner);
+        lenient().when(jobRunner.status(any())).thenReturn(null);
+        stateStore.upsertDefinition(jobDefinition());
+
+        AtomicLong position = new AtomicLong(100);
+        Consumer<String, byte[]> consumer = leaseConsumer(position, 100L);
+        ListenerContainerIdleEvent event = new ListenerContainerIdleEvent(
+            coordinator,
+            coordinator,
+            1_000L,
+            "job-leases",
+            List.of(LEASE_PARTITION),
+            consumer,
+            false
+        );
+
+        coordinator.onListenerIdle(event);
+
+        verify(publisher, never()).publishLease(any());
+        assertTrue(stateStore.getLease("job-1").isEmpty());
+    }
+
     @SuppressWarnings("unchecked")
     private static Consumer<String, byte[]> leaseConsumer(AtomicLong position, long endOffset) {
         Consumer<String, byte[]> consumer = mock(Consumer.class);
         when(consumer.assignment()).thenReturn(Set.of(LEASE_PARTITION));
         when(consumer.endOffsets(any())).thenReturn(Map.of(LEASE_PARTITION, endOffset));
+        lenient().when(consumer.beginningOffsets(any())).thenReturn(Map.of(LEASE_PARTITION, 0L));
         when(consumer.position(LEASE_PARTITION)).thenAnswer(invocation -> position.get());
         return consumer;
     }

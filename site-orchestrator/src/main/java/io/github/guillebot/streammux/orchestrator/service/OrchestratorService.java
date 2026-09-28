@@ -119,11 +119,41 @@ public class OrchestratorService {
         }
         LeaseDecision decision = leaseManager.decide(effective, currentLease, now);
         return switch (decision) {
-            case CLAIM -> claimBackoffElapsed(effective, now) ? claim(effective, currentLease, now) : currentLease;
-            case RENEW -> renew(effective, currentLease, now);
+            case CLAIM -> claimIfLeaseIsFree(effective, currentLease, now);
+            case RENEW -> renewIfOwned(effective, currentLease, now);
             case RELEASE -> release(definition);
             case KEEP_RUNNING, IGNORE -> currentLease;
         };
+    }
+
+    /**
+     * CLAIM only an absent lease, an expired lease, or one this instance already owns
+     * (owned leases are normally renewed instead). Never take a live lease whose owner
+     * is a different site or instance.
+     */
+    private JobLease claimIfLeaseIsFree(JobDefinition definition, JobLease currentLease, Instant now) {
+        if (currentLease != null && !leaseManager.ownsLease(currentLease) && !currentLease.isExpired(now)) {
+            LOGGER.info(
+                "Not claiming live lease for {} held by {}/{} until it expires",
+                definition.jobId(),
+                currentLease.leaseOwnerSite(),
+                currentLease.leaseOwnerInstance()
+            );
+            return currentLease;
+        }
+        return claimBackoffElapsed(definition, now) ? claim(definition, currentLease, now) : currentLease;
+    }
+
+    /** Heartbeat/renew only when this instance already owns the lease. */
+    private JobLease renewIfOwned(JobDefinition definition, JobLease currentLease, Instant now) {
+        if (!leaseManager.ownsLease(currentLease)) {
+            LOGGER.info(
+                "Not renewing lease for {} held by another instance",
+                definition.jobId()
+            );
+            return currentLease;
+        }
+        return renew(definition, currentLease, now);
     }
 
     public JobRuntimeStatus status(String jobId, JobDefinition definition) {

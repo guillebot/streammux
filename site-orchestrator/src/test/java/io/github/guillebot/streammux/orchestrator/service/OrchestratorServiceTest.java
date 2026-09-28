@@ -94,6 +94,7 @@ class OrchestratorServiceTest {
         when(leaseManager.claim(eq(definition), isNull(), eq(0L), any())).thenReturn(claimedLease);
         when(leaseManager.decide(eq(definition), eq(claimedLease), any())).thenReturn(LeaseDecision.RENEW);
         when(leaseManager.renew(eq(definition), eq(claimedLease), any())).thenReturn(renewedLease);
+        when(leaseManager.ownsLease(eq(claimedLease))).thenReturn(true);
         when(leaseManager.ownsLease(eq(renewedLease))).thenReturn(true);
         when(jobRunnerRegistry.resolve(eq(definition))).thenReturn(jobRunner);
 
@@ -252,6 +253,37 @@ class OrchestratorServiceTest {
 
         assertEquals(live, result);
         verify(eventPublisher, never()).publishForDefinition(eq(definition), eq(EventType.CLAIMED), any(), anyMap());
+    }
+
+    @Test
+    void doesNotClaimLiveUnexpiredForeignLeaseWhenDecisionSaysClaim() {
+        JobDefinition definition = jobDefinition();
+        Instant now = Instant.now();
+        JobLease live = new JobLease("job-1", 1, "kstreams1", "orchestrator-1", 40, LeaseStatus.RUNNING, now.plusSeconds(600), now);
+        when(leaseManager.decide(eq(definition), eq(live), any())).thenReturn(LeaseDecision.CLAIM);
+        when(leaseManager.ownsLease(eq(live))).thenReturn(false);
+
+        OrchestratorService service = newService();
+        JobLease result = service.reconcile(definition, live);
+
+        assertEquals(live, result);
+        verify(leaseManager, never()).claim(any(), any(), anyLong(), any());
+        verify(eventPublisher, never()).publishForDefinition(eq(definition), eq(EventType.CLAIMED), any(), anyMap());
+    }
+
+    @Test
+    void doesNotRenewLeaseOwnedByAnotherInstance() {
+        JobDefinition definition = jobDefinition();
+        Instant now = Instant.now();
+        JobLease live = new JobLease("job-1", 1, "kstreams1", "orchestrator-1", 40, LeaseStatus.RUNNING, now.plusSeconds(600), now);
+        when(leaseManager.decide(eq(definition), eq(live), any())).thenReturn(LeaseDecision.RENEW);
+        when(leaseManager.ownsLease(eq(live))).thenReturn(false);
+
+        OrchestratorService service = newService();
+        JobLease result = service.reconcile(definition, live);
+
+        assertEquals(live, result);
+        verify(leaseManager, never()).renew(any(), any(), any());
     }
 
     @Test
