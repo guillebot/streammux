@@ -155,7 +155,7 @@ Each configured route applies its own `filterExpression` to the incoming payload
 `filterExpression` supports three matching modes:
 
 - **Compound boolean expressions** using `&&`, `||`, `!`, and parentheses
-- **Field comparison expressions** using `==`, `!=`, `in`, and `not in`
+- **Field comparison expressions** using `==`, `!=`, `in`, `not in`, `contains`, and `not contains`
 - **Raw substring matching** when the expression does not parse as a filter expression
 
 ### Compound boolean syntax
@@ -183,12 +183,21 @@ Supported operators:
 - `!=`
 - `in`
 - `not in`
+- `contains`
+- `not contains`
 
 Membership examples:
 
 ```text
 specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"]
 subsystem not in ["FTTH-AGORA-SNMP", "HFC-CM-SNMP"]
+```
+
+Array-containment examples — `contains` / `not contains` test whether an array field holds a scalar value. If the path is missing or does not resolve to an array, both operators do not match (so `not contains` only matches a real array that lacks the value):
+
+```text
+tags contains "urgent"
+tags not contains "urgent"
 ```
 
 The value on the right side is parsed as JSON when possible. That means these are all valid:

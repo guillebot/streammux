@@ -15,6 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RoutePayloadTransformerTest {
+    private static final byte[] TAGGED_PAYLOAD = """
+        {"tags":["p1","urgent"],"name":"urgent"}
+        """.getBytes(StandardCharsets.UTF_8);
 
     @Test
     void matchesTopLevelFieldEquality() {
@@ -175,6 +178,26 @@ class RoutePayloadTransformerTest {
             "specificProblem in [\"Loss of signal for ONUi\", \"Receive dying-gasp of ONUi\"]"
         ));
         assertFalse(transformer.matches(payload, "specificProblem not in [\"Loss of signal for ONUi\"]"));
+    }
+
+    @Test
+    void supportsContainsOperatorForArrayFields() {
+        RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
+
+        assertTrue(transformer.matches(TAGGED_PAYLOAD, "tags contains \"urgent\""));
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "tags contains \"p2\""));
+        assertTrue(transformer.matches(TAGGED_PAYLOAD, "tags not contains \"p2\""));
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "tags not contains \"urgent\""));
+    }
+
+    @Test
+    void containsDoesNotMatchMissingOrScalarFields() {
+        RoutePayloadTransformer transformer = RoutePayloadTransformer.from(testConfig());
+
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "missing contains \"urgent\""));
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "missing not contains \"urgent\""));
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "name contains \"urgent\""));
+        assertFalse(transformer.matches(TAGGED_PAYLOAD, "name not contains \"urgent\""));
     }
 
     @Test

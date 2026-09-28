@@ -35,7 +35,7 @@ Each route applies its own `filterExpression` to the incoming payload.
 eventType == "NEW" && !(subsystem == "FTTH-AGORA-SNMP" && specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"])
 ```
 
-**Field comparison mode** — use `==`, `!=`, `in`, or `not in` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`, `items[0].id`). The right-hand value is parsed as JSON when possible:
+**Field comparison mode** — use `==`, `!=`, `in`, `not in`, `contains`, or `not contains` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`, `items[0].id`). The right-hand value is parsed as JSON when possible:
 
 ```text
 message.type == "ALARM"
@@ -43,9 +43,12 @@ severity == 3
 active == true
 /items/0/id != "abc"
 specificProblem in ["Loss of signal for ONUi", "Receive dying-gasp of ONUi"]
+tags contains "urgent"
 ```
 
 If the right-hand value is not valid JSON, it is treated as a string. Single-quoted and double-quoted strings are accepted.
+
+`contains` / `not contains` test whether an array field holds the scalar value. If the path is missing or does not resolve to an array, both operators do not match — so `not contains` only matches a real array that lacks the value.
 
 **Regex mode** — `=~` (matches) / `!~` (does not match) against a regex string. Matching is unanchored (`Matcher.find()`, consistent with the `ALARMS_TO_ZTR` `regex` op), so anchor with `^`/`$` for a full-value match. The path must resolve to a scalar value; missing or non-scalar paths do not match. An invalid regex makes the whole expression unparseable and falls back to substring matching.
 

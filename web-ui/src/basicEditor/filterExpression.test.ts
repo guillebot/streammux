@@ -47,11 +47,13 @@ describe("parseFilterExpression", () => {
     });
   });
 
-  it("parses inequality, in, not in, and regex operators", () => {
+  it("parses inequality, in, not in, contains, not contains, and regex operators", () => {
     const kinds = [
       ['type != "clear"', "!=", '"clear"'],
       ['severity in ["MAJOR","CRITICAL"]', "in", '["MAJOR","CRITICAL"]'],
       ['severity not in ["INFO"]', "not in", '["INFO"]'],
+      ['tags contains "urgent"', "contains", '"urgent"'],
+      ['tags not contains "urgent"', "not contains", '"urgent"'],
       ['message =~ "^ALARM_.*"', "=~", '"^ALARM_.*"'],
       ['message !~ "test"', "!~", '"test"'],
     ] as const;
@@ -201,6 +203,8 @@ describe("round-trip parse ∘ serialize", () => {
     'type == "alarm"',
     'severity in ["MAJOR","CRITICAL"]',
     'severity not in ["INFO"]',
+    'tags contains "urgent"',
+    'tags not contains "urgent"',
     'msg =~ "^ALARM"',
     'msg !~ "test"',
     "a == 1 && b == 2",

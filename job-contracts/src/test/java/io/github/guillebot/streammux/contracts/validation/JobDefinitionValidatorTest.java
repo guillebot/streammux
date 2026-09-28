@@ -140,6 +140,30 @@ class JobDefinitionValidatorTest {
     }
 
     @Test
+    void acceptsContainsFilterExpression() {
+        TopicValidationPolicy policy = TopicValidationPolicy.unrestricted();
+
+        RouteAppConfig routeAppConfig = new RouteAppConfig(
+            "in-topic",
+            PayloadFormat.JSON,
+            PayloadFormat.JSON,
+            null,
+            List.of(new RouteDefinition(
+                "route-1",
+                "tags contains \"urgent\"",
+                "out-topic"
+            )),
+            Map.of(),
+            Map.of()
+        );
+
+        assertDoesNotThrow(() -> JobDefinitionValidator.validate(
+            jobOfType(JobType.ROUTE_APP, routeAppConfig, null, null),
+            policy
+        ));
+    }
+
+    @Test
     void allowsRandomSamplerWithinTopicPolicy() {
         TopicValidationPolicy policy = new TopicValidationPolicy(
             List.of("net.optimum.monitoring.netscout.fixed.voicesip.json"),

@@ -56,7 +56,7 @@ The GlobalKTable replicates all lookup partitions to the active runner. It does 
 Each route has a `filterExpression`:
 
 - **Compound boolean expressions** combine comparisons with `&&`, `||`, `!`, and parentheses.
-- **Field comparisons** use `==`, `!=`, `in`, or `not in` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`). Right-hand values are parsed as JSON when possible.
+- **Field comparisons** use `==`, `!=`, `in`, `not in`, `contains`, or `not contains` with JSON Pointer paths (`/message/type`) or dotted paths (`message.type`). Right-hand values are parsed as JSON when possible. `contains` / `not contains` check whether an array field holds a value; a missing or non-array field never matches.
 - If the expression does not parse as filter syntax, matching falls back to **substring** search on the normalized payload text (JSON as-is; Protobuf converted to JSON first).
 
 Full detail and examples are in the [root README](../README.md#route-app-filter-expressions).

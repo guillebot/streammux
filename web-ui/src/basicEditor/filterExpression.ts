@@ -9,13 +9,22 @@
  *   And      := Unary ("&&" Unary)*
  *   Unary    := "!" Unary | "(" Or ")" | Comparison
  *   Comparison := Path ("not in" | "in") JsonArray
+ *              | Path ("not contains" | "contains") JsonValue
  *              | Path ("=~" | "!~") JsonString
  *              | Path ("==" | "!=") JsonValue
  *   Path     := "/..." (JSON-pointer style, whitespace-terminated)
  *             | [A-Za-z0-9_.\[\]\-$]+
  */
 
-export type CompareOperator = "==" | "!=" | "in" | "not in" | "=~" | "!~";
+export type CompareOperator =
+  | "=="
+  | "!="
+  | "in"
+  | "not in"
+  | "contains"
+  | "not contains"
+  | "=~"
+  | "!~";
 export type GroupOperator = "AND" | "OR";
 
 export const COMPARE_OPERATORS: CompareOperator[] = [
@@ -23,6 +32,8 @@ export const COMPARE_OPERATORS: CompareOperator[] = [
   "!=",
   "in",
   "not in",
+  "contains",
+  "not contains",
   "=~",
   "!~",
 ];
@@ -281,6 +292,14 @@ class Parser {
     if (this.consume("in")) {
       const value = this.readJsonArrayText();
       return { kind: "rule", negated: false, path, operator: "in", value };
+    }
+    if (this.consume("not contains")) {
+      const value = this.readJsonValueText();
+      return { kind: "rule", negated: false, path, operator: "not contains", value };
+    }
+    if (this.consume("contains")) {
+      const value = this.readJsonValueText();
+      return { kind: "rule", negated: false, path, operator: "contains", value };
     }
     if (this.consume("=~")) {
       const value = this.readJsonStringText();
